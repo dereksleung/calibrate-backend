@@ -11,7 +11,13 @@ import { MealSchema } from '@models/meal.js';
 export const DayLogSchema = z.object({
   id: z.string(),
   date: z.date(),
-  meals: z.array(MealSchema),
+  breakfast: MealSchema,
+  lunch: MealSchema,
+  dinner: MealSchema,
+  snacks: MealSchema,
+  weight: z.number(),
 });
 
 export type DayLog = z.infer<typeof DayLogSchema>;
+
+export type GetDayLogResponse = z.infer<typeof DayLogSchema>;
