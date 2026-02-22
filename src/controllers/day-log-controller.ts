@@ -1,10 +1,10 @@
 import {
-  GetDayLogRequest,
-  GetDayLogRequestSchema,
+  GetDayLogRequestRouteParams,
+  GetDayLogRequestRouteParamsSchema,
   GetDayLogResponse,
 } from "@models/day-log.js";
 import { Request, Response } from "express";
-import { DayLogService } from "src/services/day-log-service.js";
+import { DayLogServiceImpl } from "src/services/day-log-service.js";
 import { validate } from "@validation/validation-helpers.js";
 
 /**
@@ -18,18 +18,20 @@ import { validate } from "@validation/validation-helpers.js";
  */
 
 export class DayLogController {
-  private readonly dayLogService: DayLogService;
-  constructor(dayLogService: DayLogService) {
+  private readonly dayLogService: DayLogServiceImpl;
+  constructor(dayLogService: DayLogServiceImpl) {
     this.dayLogService = dayLogService;
   }
 
   async getLogForDay(
-    req: Request<{ date: GetDayLogRequest }>,
+    req: Request<{ date: GetDayLogRequestRouteParams }>,
     res: Response,
   ): Promise<void> {
     try {
-      const validatedInput = validate(GetDayLogRequestSchema, req.params.date);
-      console.log("validatedInput", validatedInput);
+      const validatedInput = validate(
+        GetDayLogRequestRouteParamsSchema,
+        req.params.date,
+      );
       if (!validatedInput.isValid) {
         res.status(400).json({
           error: "Validation failed",
@@ -37,7 +39,6 @@ export class DayLogController {
         });
         return;
       }
-      console.log("this", this);
       const userId = this.extractUserId(req);
       const dayLog = await this.dayLogService.getLogForDay({
         userId,
@@ -49,7 +50,6 @@ export class DayLogController {
       };
       res.status(200).json(response);
     } catch (error) {
-      console.error("DayLogController error:", error);
       this.handleError(error, res);
     }
   }

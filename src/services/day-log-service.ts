@@ -1,3 +1,4 @@
+import { DayLogRepository } from "@data/day-log-repository.js";
 import { DayLog } from "@models/day-log.js";
 
 export interface DayLogService {
@@ -10,7 +11,12 @@ export interface DayLogService {
   }): Promise<DayLog>;
 }
 
-export class DayLogService implements DayLogService {
+export class DayLogServiceImpl implements DayLogService {
+  private readonly dayLogRepository: DayLogRepository;
+  constructor(dayLogRepository: DayLogRepository) {
+    this.dayLogRepository = dayLogRepository;
+  }
+
   async getLogForDay({
     userId,
     date,
@@ -18,10 +24,10 @@ export class DayLogService implements DayLogService {
     userId: string;
     date: string;
   }): Promise<DayLog> {
-    // stub
-    return {
+    const dayLog = await this.dayLogRepository.findLogByDateAndUserId({
       userId,
       date,
-    };
+    });
+    return dayLog;
   }
 }

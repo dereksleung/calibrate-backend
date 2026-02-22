@@ -20,8 +20,10 @@
       "@validation/*": ["./src/validation/*"],
       "@services/*": ["./src/services/*"],
       "@controllers/*": ["./src/controllers/*"],
-      "@routes/*": ["./src/routes/*"]
-    }
+      "@routes/*": ["./src/routes/*"],
+      "@data/*": ["./src/data/*"]
+    },
+    "types": ["vitest/globals"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

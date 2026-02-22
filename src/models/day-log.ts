@@ -10,7 +10,7 @@ import { MealSchema } from "@models/meal.js";
 
 export const DayLogSchema = z.object({
   id: z.string(),
-  date: z.date(),
+  date: z.iso.datetime(),
   breakfast: MealSchema,
   lunch: MealSchema,
   dinner: MealSchema,
@@ -20,8 +20,10 @@ export const DayLogSchema = z.object({
 
 export type DayLog = z.infer<typeof DayLogSchema>;
 
-export const GetDayLogRequestSchema = z.iso.datetime();
+export const GetDayLogRequestRouteParamsSchema = z.iso.datetime();
 
-export type GetDayLogRequest = z.infer<typeof GetDayLogRequestSchema>;
+export type GetDayLogRequestRouteParams = z.infer<
+  typeof GetDayLogRequestRouteParamsSchema
+>;
 
 export type GetDayLogResponse = z.infer<typeof DayLogSchema>;
