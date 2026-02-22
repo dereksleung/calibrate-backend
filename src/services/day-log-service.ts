@@ -1,5 +1,27 @@
 import { DayLog } from "@models/day-log.js";
 
 export interface DayLogService {
-  getLogForDay(date: Date): Promise<DayLog>;
+  getLogForDay({
+    userId,
+    date,
+  }: {
+    userId: string;
+    date: string;
+  }): Promise<DayLog>;
+}
+
+export class DayLogService implements DayLogService {
+  async getLogForDay({
+    userId,
+    date,
+  }: {
+    userId: string;
+    date: string;
+  }): Promise<DayLog> {
+    // stub
+    return {
+      userId,
+      date,
+    };
+  }
 }

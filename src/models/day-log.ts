@@ -1,10 +1,10 @@
-import * as z from 'zod';
-import { MealSchema } from '@models/meal.js';
+import * as z from "zod";
+import { MealSchema } from "@models/meal.js";
 
 /**
  * The day log will be an aggregate root. It will be the public interface
  * for a number of related entities whose interfaces are found in this file, and will need those entities' info
- * to be strongly consistent for business rules to work correctly, and 
+ * to be strongly consistent for business rules to work correctly, and
  * not lead to an invalid system state.
  */
 
@@ -19,5 +19,9 @@ export const DayLogSchema = z.object({
 });
 
 export type DayLog = z.infer<typeof DayLogSchema>;
+
+export const GetDayLogRequestSchema = z.iso.datetime();
+
+export type GetDayLogRequest = z.infer<typeof GetDayLogRequestSchema>;
 
 export type GetDayLogResponse = z.infer<typeof DayLogSchema>;

@@ -1,39 +1,75 @@
-import { GetDayLogResponse } from "@models/day-log.js";
-import { Request, Response } from 'express';
+import {
+  GetDayLogRequest,
+  GetDayLogRequestSchema,
+  GetDayLogResponse,
+} from "@models/day-log.js";
+import { Request, Response } from "express";
 import { DayLogService } from "src/services/day-log-service.js";
+import { validate } from "@validation/validation-helpers.js";
+
+/**
+ * The controller has one main job - go between HTTP, and my application.
+ * It should:
+ * - Validate and sanitize input,
+ * - Call the appropriate service, which will provide an interface for actions coordinating operations on aggregates/entities,
+ * - Format the response,
+ * - Handle errors related to HTTP.
+ * It should not handle business logic, database access, or complex formatting.
+ */
 
 export class DayLogController {
   private readonly dayLogService: DayLogService;
   constructor(dayLogService: DayLogService) {
     this.dayLogService = dayLogService;
   }
-  
-  async getLogForDay(req: Request, res: Response): Promise<void> {
+
+  async getLogForDay(
+    req: Request<{ date: GetDayLogRequest }>,
+    res: Response,
+  ): Promise<void> {
     try {
-      const dayLog = await this.dayLogService.getLogForDay(req.body);
+      const validatedInput = validate(GetDayLogRequestSchema, req.params.date);
+      console.log("validatedInput", validatedInput);
+      if (!validatedInput.isValid) {
+        res.status(400).json({
+          error: "Validation failed",
+          details: validatedInput.errors,
+        });
+        return;
+      }
+      console.log("this", this);
+      const userId = this.extractUserId(req);
+      const dayLog = await this.dayLogService.getLogForDay({
+        userId,
+        date: validatedInput?.data,
+      });
 
       const response: GetDayLogResponse = {
         ...dayLog,
       };
       res.status(200).json(response);
     } catch (error) {
+      console.error("DayLogController error:", error);
       this.handleError(error, res);
     }
   }
   private handleError(error: unknown, res: Response): void {
-    console.error('Controller error:', error);
+    console.error("DayLogController error:", error);
     if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        res.status(404).json({ error: 'Resource not found' });
+      if (error.message.includes("not found")) {
+        res.status(404).json({ error: "Resource not found" });
         return;
       }
-      if (error.message.includes('permission')) {
-        res.status(403).json({ error: 'Permission denied' });
+      if (error.message.includes("permission")) {
+        res.status(403).json({ error: "Permission denied" });
         return;
       }
       res.status(500).json({ error: error.message });
     } else {
-      res.status(500).json({ error: 'An unknown error occurred' });
+      res.status(500).json({ error: "An unknown error occurred" });
     }
+  }
+  private extractUserId(req: Request): string {
+    return (req.get("user-id") as string) || "default-user";
   }
 }

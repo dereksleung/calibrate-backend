@@ -16,7 +16,11 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@models/*": ["./src/models/*"]
+      "@models/*": ["./src/models/*"],
+      "@validation/*": ["./src/validation/*"],
+      "@services/*": ["./src/services/*"],
+      "@controllers/*": ["./src/controllers/*"],
+      "@routes/*": ["./src/routes/*"]
     }
   },
   "include": ["src/**/*"],
