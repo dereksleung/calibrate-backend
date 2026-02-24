@@ -22,8 +22,13 @@ export function validate<T extends z4.$ZodType>(
   if (result.success) {
     return { isValid: true, data: result.data };
   }
+
+  const errors = result.error.issues.map((error) => {
+    return `${error.path.join(".")}: ${error.message}`;
+  });
+
   return {
     isValid: false,
-    errors: result.error.issues.map((error) => error.message),
+    errors,
   };
 }
