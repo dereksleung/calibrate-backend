@@ -45,9 +45,7 @@ export class DayLogController {
         date: validatedInput?.data,
       });
 
-      const response: GetDayLogResponse = {
-        ...dayLog,
-      };
+      const response: GetDayLogResponse = dayLog ?? null;
       res.status(200).json(response);
     } catch (error) {
       this.handleError(error, res);

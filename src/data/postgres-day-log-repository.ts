@@ -11,7 +11,7 @@ export class PostgresDayLogRepository implements DayLogRepository {
   }: {
     userId: string;
     date: string;
-  }): Promise<DayLog | undefined> {
+  }): Promise<DayLog | null> {
     const dayLogRow = await db
       .selectFrom("day_logs")
       .selectAll()
@@ -19,7 +19,7 @@ export class PostgresDayLogRepository implements DayLogRepository {
       .where("date", "=", new Date(date))
       .executeTakeFirst();
 
-    if (!dayLogRow) return undefined;
+    if (!dayLogRow) return null;
 
     const foodEntries = await db
       .selectFrom("food_entries")

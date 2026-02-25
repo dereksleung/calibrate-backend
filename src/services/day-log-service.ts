@@ -8,7 +8,7 @@ export interface DayLogService {
   }: {
     userId: string;
     date: string;
-  }): Promise<DayLog>;
+  }): Promise<DayLog | null>;
 }
 
 export class DayLogServiceImpl implements DayLogService {
@@ -23,7 +23,7 @@ export class DayLogServiceImpl implements DayLogService {
   }: {
     userId: string;
     date: string;
-  }): Promise<DayLog> {
+  }): Promise<DayLog | null> {
     const dayLog = await this.dayLogRepository.findLogByDateAndUserId({
       userId,
       date,
