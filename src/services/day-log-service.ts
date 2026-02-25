@@ -1,4 +1,4 @@
-import { DayLogRepository } from "@data/day-log-repository.js";
+import { DayLogRepository } from "@data";
 import { DayLog } from "@models/day-log.js";
 
 export interface DayLogService {

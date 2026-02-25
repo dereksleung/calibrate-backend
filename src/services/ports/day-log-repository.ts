@@ -7,5 +7,5 @@ export interface DayLogRepository {
   }: {
     userId: string;
     date: string;
-  }): Promise<DayLog>;
+  }): Promise<DayLog | undefined>;
 }

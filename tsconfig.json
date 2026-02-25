@@ -18,13 +18,14 @@
     "paths": {
       "@models/*": ["./src/models/*"],
       "@validation/*": ["./src/validation/*"],
-      "@services/*": ["./src/services/*"],
+      "@services": ["./src/services/index.ts"],
       "@controllers/*": ["./src/controllers/*"],
       "@routes/*": ["./src/routes/*"],
-      "@data/*": ["./src/data/*"]
+      "@data": ["./src/data/index.ts"],
+      "@infrastructure": ["./src/infrastructure/index.ts"]
     },
     "types": ["vitest/globals"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "kysely.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -4,7 +4,7 @@ import {
   GetDayLogResponse,
 } from "@models/day-log.js";
 import { Request, Response } from "express";
-import { DayLogServiceImpl } from "src/services/day-log-service.js";
+import { DayLogService } from "src/services/day-log-service.js";
 import { validate } from "@validation/validation-helpers.js";
 
 /**
@@ -18,8 +18,8 @@ import { validate } from "@validation/validation-helpers.js";
  */
 
 export class DayLogController {
-  private readonly dayLogService: DayLogServiceImpl;
-  constructor(dayLogService: DayLogServiceImpl) {
+  private readonly dayLogService: DayLogService;
+  constructor(dayLogService: DayLogService) {
     this.dayLogService = dayLogService;
   }
 

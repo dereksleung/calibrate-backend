@@ -27,3 +27,4 @@ export type GetDayLogRequestRouteParams = z.infer<
 >;
 
 export type GetDayLogResponse = z.infer<typeof DayLogSchema>;
+
