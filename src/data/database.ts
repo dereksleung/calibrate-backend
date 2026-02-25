@@ -2,12 +2,10 @@ import { Pool } from "pg";
 import { Kysely, PostgresDialect } from "kysely";
 import { DayLogsTable } from "./databaseSchemas/day-logs-table.js";
 import { FoodEntriesTable } from "./databaseSchemas/food-entries-table.js";
-import { MealsTable } from "./databaseSchemas/meals-table.js";
 import { UsersTable } from "./databaseSchemas/users-table.js";
 
 export interface Database {
   users: UsersTable;
-  meals: MealsTable;
   food_entries: FoodEntriesTable;
   day_logs: DayLogsTable;
 }

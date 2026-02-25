@@ -1,5 +1,5 @@
 import { DayLogController } from "@controllers/day-log-controller.js";
-import { DayLogService, DayLogServiceImpl } from "@services/day-log-service.js";
+import { DayLogService, DayLogServiceImpl } from "@services";
 import { DayLogRepository, PostgresDayLogRepository } from "@data";
 
 export class Container {

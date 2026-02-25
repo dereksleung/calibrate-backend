@@ -1,3 +1,4 @@
+import { MealNameEnumType } from "@models/food-entry.js";
 import {
   ColumnType,
   Generated,
@@ -8,7 +9,8 @@ import {
 
 export interface FoodEntriesTable {
   id: Generated<string>;
-  meal_id: string;
+  day_log_id: string;
+  meal: MealNameEnumType;
   name: string;
   brand: string | null;
   icon_name: string | null;

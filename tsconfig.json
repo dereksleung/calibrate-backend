@@ -5,7 +5,7 @@
     "moduleResolution": "NodeNext",
     "lib": ["ES2020"],
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -26,6 +26,6 @@
     },
     "types": ["vitest/globals"]
   },
-  "include": ["src/**/*", "kysely.config.ts"],
+  "include": ["src/**/*", "kysely.config.ts", "migrationScript.ts"],
   "exclude": ["node_modules", "dist"]
 }

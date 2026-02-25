@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { FileMigrationProvider, Migrator } from "kysely";
-import { createKyselyInstance } from "@data";
+import { createKyselyInstance } from "./src/data/index.js";
 import { promises as fs } from "fs";
 import * as path from "path";
 
@@ -11,7 +11,7 @@ async function migrateToLatest() {
     provider: new FileMigrationProvider({
       fs,
       path,
-      migrationFolder: import.meta.dirname,
+      migrationFolder: path.join(import.meta.dirname, "src", "migrations"),
     }),
   });
 

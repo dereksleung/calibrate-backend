@@ -1,5 +1,6 @@
 import * as z from "zod";
-import { MealSchema } from "@models/meal.js";
+
+import { FoodEntrySchema } from "./food-entry.js";
 
 /**
  * The day log will be an aggregate root. It will be the public interface
@@ -10,11 +11,11 @@ import { MealSchema } from "@models/meal.js";
 
 export const DayLogSchema = z.object({
   id: z.string(),
-  date: z.iso.datetime(),
-  breakfast: MealSchema,
-  lunch: MealSchema,
-  dinner: MealSchema,
-  snacks: MealSchema,
+  date: z.date(),
+  breakfast: z.array(FoodEntrySchema),
+  lunch: z.array(FoodEntrySchema),
+  dinner: z.array(FoodEntrySchema),
+  snacks: z.array(FoodEntrySchema),
   weight: z.number(),
 });
 
@@ -27,4 +28,3 @@ export type GetDayLogRequestRouteParams = z.infer<
 >;
 
 export type GetDayLogResponse = z.infer<typeof DayLogSchema>;
-
