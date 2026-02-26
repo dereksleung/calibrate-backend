@@ -3,7 +3,7 @@ import { DayLogPersistenceDto } from "./day-log-dtos.js";
 
 /**
  * The day log will be an aggregate root. It will be the public interface
- * for a number of related entities whose interfaces are found in this file, and will need those entities' info
+ * for child entities, and will need those entities' info
  * to be strongly consistent for business rules to work correctly, and
  * not lead to an invalid system state.
  */
@@ -44,15 +44,6 @@ export class DayLog {
     this._snacks = snacks ?? null;
     this._weight = weight ?? null;
   }
-
-  // // Factory method - called when a user adds a field to a day log for the first time
-  // static create(props: Omit<DayLogType, "id">): DayLog {
-  //   return new DayLog({
-  //     ...props,
-  //     // TODO: Add a better way to generate UUIDs
-  //     id: crypto.randomUUID(),
-  //   });
-  // }
 
   public static fromPersistence(dto: DayLogPersistenceDto): DayLog {
     return new DayLog({
