@@ -1,16 +1,18 @@
 import { db } from "./database.js";
 import { DayLogRepository } from "../services/ports/day-log-repository.js";
-import { DayLog, FoodEntry, MealNameEnum } from "@models";
+import {
+  MealNameEnum,
+  GetDayLogByDateAndUserDto,
+  DayLogPersistenceDto,
+} from "@models";
 import { SelectableFoodEntry } from "./databaseSchemas/food-entries-table.js";
+import { FoodEntryPersistenceDto } from "src/models/domain/food-entry-dtos.js";
 
 export class PostgresDayLogRepository implements DayLogRepository {
   async findLogByDateAndUserId({
     userId,
     date,
-  }: {
-    userId: string;
-    date: string;
-  }): Promise<DayLog | null> {
+  }: GetDayLogByDateAndUserDto): Promise<DayLogPersistenceDto | null> {
     const dayLogRow = await db
       .selectFrom("day_logs")
       .selectAll()
@@ -26,10 +28,10 @@ export class PostgresDayLogRepository implements DayLogRepository {
       .where("day_log_id", "=", dayLogRow.id)
       .execute();
 
-    const breakfast: FoodEntry[] = [];
-    const lunch: FoodEntry[] = [];
-    const dinner: FoodEntry[] = [];
-    const snacks: FoodEntry[] = [];
+    const breakfast: FoodEntryPersistenceDto[] = [];
+    const lunch: FoodEntryPersistenceDto[] = [];
+    const dinner: FoodEntryPersistenceDto[] = [];
+    const snacks: FoodEntryPersistenceDto[] = [];
 
     for (const foodEntry of foodEntries) {
       const mappedFoodEntry = this.mapRowToFoodEntry(foodEntry);
@@ -52,7 +54,7 @@ export class PostgresDayLogRepository implements DayLogRepository {
     return {
       id: dayLogRow.id,
       date: dayLogRow.date,
-      weight: dayLogRow.weight ?? 0,
+      weight: dayLogRow.weight ?? null,
       breakfast,
       lunch,
       dinner,
@@ -60,7 +62,7 @@ export class PostgresDayLogRepository implements DayLogRepository {
     };
   }
 
-  private mapRowToFoodEntry(row: SelectableFoodEntry): FoodEntry {
+  private mapRowToFoodEntry(row: SelectableFoodEntry): FoodEntryPersistenceDto {
     return {
       id: row.id,
       meal: row.meal,

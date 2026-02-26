@@ -1,6 +1,5 @@
-import * as z from "zod";
-
-import { FoodEntrySchema } from "./food-entry.js";
+import { FoodEntry } from "./food-entry.js";
+import { DayLogPersistenceDto } from "./day-log-dtos.js";
 
 /**
  * The day log will be an aggregate root. It will be the public interface
@@ -9,22 +8,82 @@ import { FoodEntrySchema } from "./food-entry.js";
  * not lead to an invalid system state.
  */
 
-export const DayLogSchema = z.object({
-  id: z.string(),
-  date: z.date(),
-  breakfast: z.array(FoodEntrySchema),
-  lunch: z.array(FoodEntrySchema),
-  dinner: z.array(FoodEntrySchema),
-  snacks: z.array(FoodEntrySchema),
-  weight: z.number(),
-});
+interface DayLogProps {
+  id: string;
+  date: Date;
+  breakfast: FoodEntry[] | null;
+  lunch: FoodEntry[] | null;
+  dinner: FoodEntry[] | null;
+  snacks: FoodEntry[] | null;
+  weight: number | null;
+}
 
-export type DayLog = z.infer<typeof DayLogSchema>;
+export class DayLog {
+  private readonly _id: string;
+  private readonly _date: Date;
+  private _breakfast: FoodEntry[] | null;
+  private _lunch: FoodEntry[] | null;
+  private _dinner: FoodEntry[] | null;
+  private _snacks: FoodEntry[] | null;
+  private _weight: number | null;
 
-export const GetDayLogRequestRouteParamsSchema = z.iso.datetime();
+  private constructor({
+    id,
+    date,
+    breakfast,
+    lunch,
+    dinner,
+    snacks,
+    weight,
+  }: DayLogProps) {
+    this._id = id;
+    this._date = date;
+    this._breakfast = breakfast ?? null;
+    this._lunch = lunch ?? null;
+    this._dinner = dinner ?? null;
+    this._snacks = snacks ?? null;
+    this._weight = weight ?? null;
+  }
 
-export type GetDayLogRequestRouteParams = z.infer<
-  typeof GetDayLogRequestRouteParamsSchema
->;
+  // // Factory method - called when a user adds a field to a day log for the first time
+  // static create(props: Omit<DayLogType, "id">): DayLog {
+  //   return new DayLog({
+  //     ...props,
+  //     // TODO: Add a better way to generate UUIDs
+  //     id: crypto.randomUUID(),
+  //   });
+  // }
 
-export type GetDayLogResponse = z.infer<typeof DayLogSchema> | null;
+  public static fromPersistence(dto: DayLogPersistenceDto): DayLog {
+    return new DayLog({
+      id: dto.id,
+      date: dto.date,
+      breakfast: dto.breakfast?.map(FoodEntry.fromPersistence) ?? null,
+      lunch: dto.lunch?.map(FoodEntry.fromPersistence) ?? null,
+      dinner: dto.dinner?.map(FoodEntry.fromPersistence) ?? null,
+      snacks: dto.snacks?.map(FoodEntry.fromPersistence) ?? null,
+      weight: dto.weight,
+    });
+  }
+  public get id(): string {
+    return this._id;
+  }
+  public get date(): Date {
+    return this._date;
+  }
+  public get breakfast(): FoodEntry[] | null {
+    return this._breakfast;
+  }
+  public get lunch(): FoodEntry[] | null {
+    return this._lunch;
+  }
+  public get dinner(): FoodEntry[] | null {
+    return this._dinner;
+  }
+  public get snacks(): FoodEntry[] | null {
+    return this._snacks;
+  }
+  public get weight(): number | null {
+    return this._weight;
+  }
+}

@@ -1,14 +1,8 @@
 import { DayLogRepository } from "@data";
-import { DayLog } from "@models";
+import { GetDayLogRequestDto, DayLog } from "@models";
 
 export interface DayLogService {
-  getLogForDay({
-    userId,
-    date,
-  }: {
-    userId: string;
-    date: string;
-  }): Promise<DayLog | null>;
+  getLogForDay({ userId, date }: GetDayLogRequestDto): Promise<DayLog | null>;
 }
 
 export class DayLogServiceImpl implements DayLogService {
@@ -20,14 +14,13 @@ export class DayLogServiceImpl implements DayLogService {
   async getLogForDay({
     userId,
     date,
-  }: {
-    userId: string;
-    date: string;
-  }): Promise<DayLog | null> {
-    const dayLog = await this.dayLogRepository.findLogByDateAndUserId({
-      userId,
-      date,
-    });
-    return dayLog;
+  }: GetDayLogRequestDto): Promise<DayLog | null> {
+    const dayLogPersistenceDto =
+      await this.dayLogRepository.findLogByDateAndUserId({
+        userId,
+        date,
+      });
+    if (!dayLogPersistenceDto) return null;
+    return DayLog.fromPersistence(dayLogPersistenceDto);
   }
 }

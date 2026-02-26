@@ -1,11 +1,8 @@
-import { DayLog } from "@models";
+import { DayLogPersistenceDto, GetDayLogByDateAndUserDto } from "@models";
 
 export interface DayLogRepository {
   findLogByDateAndUserId({
     userId,
     date,
-  }: {
-    userId: string;
-    date: string;
-  }): Promise<DayLog | null>;
+  }: GetDayLogByDateAndUserDto): Promise<DayLogPersistenceDto | null>;
 }

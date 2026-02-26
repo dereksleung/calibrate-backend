@@ -1,11 +1,12 @@
 import {
   GetDayLogRequestRouteParams,
   GetDayLogRequestRouteParamsSchema,
-  GetDayLogResponse,
+  DayLogResponse,
 } from "@models";
 import { Request, Response } from "express";
 import { DayLogService } from "src/services/day-log-service.js";
 import { validate } from "@validation/validation-helpers.js";
+import { DayLogMapper } from "src/models/mappers/day-log-mapper.js";
 
 /**
  * The controller has one main job - go between HTTP, and my application.
@@ -45,7 +46,9 @@ export class DayLogController {
         date: validatedInput?.data,
       });
 
-      const response: GetDayLogResponse = dayLog ?? null;
+      const response: DayLogResponse | null = dayLog
+        ? DayLogMapper.toResponse(dayLog)
+        : null;
       res.status(200).json(response);
     } catch (error) {
       this.handleError(error, res);
