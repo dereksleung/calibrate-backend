@@ -1,7 +1,6 @@
 import { db } from "./database.js";
 import { DayLogRepository } from "../services/ports/day-log-repository.js";
-import { DayLog } from "@models/day-log.js";
-import { FoodEntry, MealNameEnum } from "@models/food-entry.js";
+import { DayLog, FoodEntry, MealNameEnum } from "@models";
 import { SelectableFoodEntry } from "./databaseSchemas/food-entries-table.js";
 
 export class PostgresDayLogRepository implements DayLogRepository {

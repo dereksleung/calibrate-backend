@@ -2,7 +2,7 @@ import {
   GetDayLogRequestRouteParams,
   GetDayLogRequestRouteParamsSchema,
   GetDayLogResponse,
-} from "@models/day-log.js";
+} from "@models";
 import { Request, Response } from "express";
 import { DayLogService } from "src/services/day-log-service.js";
 import { validate } from "@validation/validation-helpers.js";

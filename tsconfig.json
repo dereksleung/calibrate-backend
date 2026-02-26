@@ -16,7 +16,7 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@models/*": ["./src/models/*"],
+      "@models": ["./src/models/index.ts"],
       "@validation/*": ["./src/validation/*"],
       "@services": ["./src/services/index.ts"],
       "@controllers/*": ["./src/controllers/*"],

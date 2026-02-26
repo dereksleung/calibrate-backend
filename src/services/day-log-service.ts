@@ -1,5 +1,5 @@
 import { DayLogRepository } from "@data";
-import { DayLog } from "@models/day-log.js";
+import { DayLog } from "@models";
 
 export interface DayLogService {
   getLogForDay({

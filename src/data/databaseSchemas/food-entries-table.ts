@@ -1,4 +1,4 @@
-import { MealNameEnumType } from "@models/food-entry.js";
+import { MealNameEnumType } from "@models";
 import {
   ColumnType,
   Generated,

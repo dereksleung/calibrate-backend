@@ -1,4 +1,4 @@
-import { DayLog } from "@models/day-log.js";
+import { DayLog } from "@models";
 
 export interface DayLogRepository {
   findLogByDateAndUserId({
