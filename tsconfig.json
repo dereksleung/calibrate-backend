@@ -22,7 +22,8 @@
       "@controllers": ["src/presentation/controllers/index.ts"],
       "@routes": ["src/presentation/routes/index.ts"],
       "@infrastructure": ["src/infrastructure/index.ts"],
-      "@application": ["src/application/index.ts"]
+      "@application": ["src/application/index.ts"],
+      "@presentation": ["src/presentation/index.ts"]
     },
     "types": ["vitest/globals"]
   },

@@ -1,18 +1,14 @@
-import { MealNameEnum } from "@domain";
+import { DayLog, FoodEntry, MealNameEnum } from "@domain";
 import { SelectableFoodEntry } from "../schemas/food-entries-table.js";
 import { db } from "../../persistence/database.js";
-import {
-  GetDayLogByDateAndUserDto,
-  DayLogPersistenceDto,
-} from "../../../application/dtos/day-log-dtos.js";
-import { FoodEntryPersistenceDto } from "../../../application/dtos/food-entry-dtos.js";
+import { GetDayLogByDateAndUserDto } from "../../../application/dtos/day-log-dtos.js";
 import { DayLogRepository } from "../../../application/ports/day-log-repository.js";
 
 export class PostgresDayLogRepository implements DayLogRepository {
   async findLogByDateAndUserId({
     userId,
     date,
-  }: GetDayLogByDateAndUserDto): Promise<DayLogPersistenceDto | null> {
+  }: GetDayLogByDateAndUserDto): Promise<DayLog | null> {
     const dayLogRow = await db
       .selectFrom("day_logs")
       .selectAll()
@@ -28,42 +24,41 @@ export class PostgresDayLogRepository implements DayLogRepository {
       .where("day_log_id", "=", dayLogRow.id)
       .execute();
 
-    const breakfast: FoodEntryPersistenceDto[] = [];
-    const lunch: FoodEntryPersistenceDto[] = [];
-    const dinner: FoodEntryPersistenceDto[] = [];
-    const snacks: FoodEntryPersistenceDto[] = [];
+    const breakfast: SelectableFoodEntry[] = [];
+    const lunch: SelectableFoodEntry[] = [];
+    const dinner: SelectableFoodEntry[] = [];
+    const snacks: SelectableFoodEntry[] = [];
 
     for (const foodEntry of foodEntries) {
-      const mappedFoodEntry = this.mapRowToFoodEntry(foodEntry);
       switch (foodEntry.meal) {
         case MealNameEnum.BREAKFAST:
-          breakfast.push(mappedFoodEntry);
+          breakfast.push(foodEntry);
           break;
         case MealNameEnum.LUNCH:
-          lunch.push(mappedFoodEntry);
+          lunch.push(foodEntry);
           break;
         case MealNameEnum.DINNER:
-          dinner.push(mappedFoodEntry);
+          dinner.push(foodEntry);
           break;
         case MealNameEnum.SNACKS:
-          snacks.push(mappedFoodEntry);
+          snacks.push(foodEntry);
           break;
       }
     }
 
-    return {
+    return DayLog.reconstitute({
       id: dayLogRow.id,
       date: dayLogRow.date,
       weight: dayLogRow.weight ?? null,
-      breakfast,
-      lunch,
-      dinner,
-      snacks,
-    };
+      breakfast: breakfast.map(this.mapRowToFoodEntry),
+      lunch: lunch.map(this.mapRowToFoodEntry),
+      dinner: dinner.map(this.mapRowToFoodEntry),
+      snacks: snacks.map(this.mapRowToFoodEntry),
+    });
   }
 
-  private mapRowToFoodEntry(row: SelectableFoodEntry): FoodEntryPersistenceDto {
-    return {
+  private mapRowToFoodEntry(row: SelectableFoodEntry): FoodEntry {
+    return FoodEntry.reconstitute({
       id: row.id,
       meal: row.meal,
       name: row.name,
@@ -80,6 +75,6 @@ export class PostgresDayLogRepository implements DayLogRepository {
       sodiumMg: row.sodium_mg,
       fiberGrams: row.fiber_grams,
       sugarGrams: row.sugar_grams,
-    };
+    });
   }
 }

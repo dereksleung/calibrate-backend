@@ -1,37 +1,42 @@
 import { DayLogController } from "src/presentation/controllers/day-log-controller.js";
-import { DayLog, GetDayLogRequestRouteParams } from "@models/day-log.js";
-import { DayLogService, DayLogServiceImpl } from "@services/day-log-service.js";
+import { DayLog, FoodEntry, MealNameEnum, MealNameEnumType } from "@domain";
+import { DayLogServiceImpl } from "@application";
+import { GetDayLogRequestRouteParams } from "@presentation";
 import { vi, MockedObject } from "vitest";
 import { Request } from "express";
+
+const getMockFoodEntry = (meal: MealNameEnumType): FoodEntry =>
+  FoodEntry.reconstitute({
+    id: "1",
+    meal: meal,
+    name: "Test Food",
+    brand: "Test Brand",
+    iconName: "test-icon",
+    quantity: 1,
+    quantityUnit: "g",
+    calories: 100,
+    totalFatGrams: 10,
+    saturatedFatGrams: 10,
+    cholesterolMg: 10,
+    sodiumMg: 10,
+    totalCarbohydrateGrams: 10,
+    fiberGrams: 10,
+    sugarGrams: 10,
+    proteinGrams: 10,
+  });
 
 describe("DayLogController", () => {
   let dayLogController: DayLogController;
   let mockDayLogService: MockedObject<DayLogServiceImpl>;
-  const mockDayLog: DayLog = {
+  const mockDayLog: DayLog = DayLog.reconstitute({
     id: "123",
-    date: "2026-02-22T00:58:28.879Z",
-    breakfast: {
-      id: "1",
-      name: "Breakfast",
-      foods: [],
-    },
-    lunch: {
-      id: "2",
-      name: "Lunch",
-      foods: [],
-    },
-    dinner: {
-      id: "3",
-      name: "Dinner",
-      foods: [],
-    },
-    snacks: {
-      id: "4",
-      name: "Snacks",
-      foods: [],
-    },
+    date: new Date("2026-02-22T00:58:28.879Z"),
+    breakfast: [getMockFoodEntry(MealNameEnum.BREAKFAST)],
+    lunch: [getMockFoodEntry(MealNameEnum.LUNCH)],
+    dinner: [getMockFoodEntry(MealNameEnum.DINNER)],
+    snacks: [getMockFoodEntry(MealNameEnum.SNACKS)],
     weight: 140.1,
-  };
+  });
 
   beforeEach(() => {
     mockDayLogService = {
