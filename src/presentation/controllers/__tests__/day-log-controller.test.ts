@@ -1,7 +1,10 @@
 import { DayLogController } from "src/presentation/controllers/day-log-controller.js";
 import { DayLog, FoodEntry, MealNameEnum, MealNameEnumType } from "@domain";
 import { DayLogServiceImpl } from "@application";
-import { GetDayLogRequestRouteParams } from "@presentation";
+import {
+  DayLogResponseMapper,
+  GetDayLogRequestRouteParams,
+} from "@presentation";
 import { vi, MockedObject } from "vitest";
 import { Request } from "express";
 
@@ -68,6 +71,8 @@ describe("DayLogController", () => {
       date: "2026-02-22T00:58:28.879Z",
     });
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(mockDayLog);
+
+    const response = DayLogResponseMapper.toResponse(mockDayLog);
+    expect(res.json).toHaveBeenCalledWith(response);
   });
 });
