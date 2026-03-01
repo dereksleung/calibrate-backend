@@ -1,5 +1,4 @@
 import { FoodEntry } from "./food-entry.js";
-import { DayLogPersistenceDto } from "./day-log-dtos.js";
 
 /**
  * The day log will be an aggregate root. It will be the public interface
@@ -45,17 +44,10 @@ export class DayLog {
     this._weight = weight ?? null;
   }
 
-  public static fromPersistence(dto: DayLogPersistenceDto): DayLog {
-    return new DayLog({
-      id: dto.id,
-      date: dto.date,
-      breakfast: dto.breakfast?.map(FoodEntry.fromPersistence) ?? null,
-      lunch: dto.lunch?.map(FoodEntry.fromPersistence) ?? null,
-      dinner: dto.dinner?.map(FoodEntry.fromPersistence) ?? null,
-      snacks: dto.snacks?.map(FoodEntry.fromPersistence) ?? null,
-      weight: dto.weight,
-    });
+  public static reconstitute(props: DayLogProps): DayLog {
+    return new DayLog(props);
   }
+
   public get id(): string {
     return this._id;
   }

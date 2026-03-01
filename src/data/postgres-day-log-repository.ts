@@ -6,7 +6,7 @@ import {
   DayLogPersistenceDto,
 } from "@models";
 import { SelectableFoodEntry } from "./databaseSchemas/food-entries-table.js";
-import { FoodEntryPersistenceDto } from "src/models/domain/food-entry-dtos.js";
+import { FoodEntryPersistenceDto } from "src/services/dtos/food-entry-dtos.js";
 
 export class PostgresDayLogRepository implements DayLogRepository {
   async findLogByDateAndUserId({

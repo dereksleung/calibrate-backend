@@ -1,4 +1,3 @@
-// These are domain layer interfaces, the domain layer and any other outer layer can depend on this
 import { FoodEntryPersistenceDto } from "./food-entry-dtos.js";
 
 // Repository DTOs

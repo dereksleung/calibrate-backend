@@ -1,5 +1,4 @@
 import * as z from "zod";
-import { FoodEntryPersistenceDto } from "./food-entry-dtos.js";
 
 // TODO: Consider moving zod schemas to request model file, if it does not DRY anything with the domain model.
 // Schema validation will be used at least for create/update request validation.
@@ -110,25 +109,8 @@ export class FoodEntry {
     this._proteinGrams = proteinGrams;
   }
 
-  public static fromPersistence(dto: FoodEntryPersistenceDto): FoodEntry {
-    return new FoodEntry({
-      id: dto.id,
-      meal: dto.meal,
-      name: dto.name,
-      brand: dto.brand,
-      iconName: dto.iconName,
-      quantity: dto.quantity,
-      quantityUnit: dto.quantityUnit,
-      calories: dto.calories,
-      totalFatGrams: dto.totalFatGrams,
-      saturatedFatGrams: dto.saturatedFatGrams,
-      cholesterolMg: dto.cholesterolMg,
-      sodiumMg: dto.sodiumMg,
-      totalCarbohydrateGrams: dto.totalCarbohydrateGrams,
-      fiberGrams: dto.fiberGrams,
-      sugarGrams: dto.sugarGrams,
-      proteinGrams: dto.proteinGrams,
-    });
+  public static reconstitute(props: FoodEntryProps): FoodEntry {
+    return new FoodEntry(props);
   }
 
   public get id(): string {

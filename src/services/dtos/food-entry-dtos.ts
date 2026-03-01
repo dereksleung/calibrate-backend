@@ -1,6 +1,4 @@
-// These are domain layer interfaces, the domain layer and any other outer layer can depend on this
-
-import { MealNameEnumType } from "./food-entry.js";
+import { MealNameEnumType } from "../../models/domain/food-entry.js";
 
 // Persistence DTOs
 export interface FoodEntryPersistenceDto {

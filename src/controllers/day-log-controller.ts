@@ -6,7 +6,7 @@ import {
 import { Request, Response } from "express";
 import { DayLogService } from "src/services/day-log-service.js";
 import { validate } from "@validation/validation-helpers.js";
-import { DayLogMapper } from "src/models/mappers/day-log-mapper.js";
+import { DayLogResponseMapper } from "./mappers/day-log-response-mapper.js";
 
 /**
  * The controller has one main job - go between HTTP, and my application.
@@ -47,7 +47,7 @@ export class DayLogController {
       });
 
       const response: DayLogResponse | null = dayLog
-        ? DayLogMapper.toResponse(dayLog)
+        ? DayLogResponseMapper.toResponse(dayLog)
         : null;
       res.status(200).json(response);
     } catch (error) {

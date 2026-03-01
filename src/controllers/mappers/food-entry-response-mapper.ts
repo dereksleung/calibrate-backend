@@ -1,7 +1,6 @@
-import { FoodEntry } from "../domain/food-entry.js";
-import { FoodEntryResponse } from "../http/food-entry-responses.js";
+import { FoodEntry, FoodEntryResponse } from "@models";
 
-export class FoodEntryMapper {
+export class FoodEntryResponseMapper {
   public static toResponse(foodEntry: FoodEntry): FoodEntryResponse {
     return {
       id: foodEntry.id,

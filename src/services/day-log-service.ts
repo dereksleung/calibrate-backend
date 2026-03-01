@@ -1,5 +1,7 @@
 import { DayLogRepository } from "@data";
-import { GetDayLogRequestDto, DayLog } from "@models";
+import { DayLog } from "@models";
+import { GetDayLogRequestDto } from "./dtos/day-log-dtos.js";
+import { DayLogPersistenceMapper } from "./mappers/day-log-persistence-mapper.js";
 
 export interface DayLogService {
   getLogForDay({ userId, date }: GetDayLogRequestDto): Promise<DayLog | null>;
@@ -21,6 +23,6 @@ export class DayLogServiceImpl implements DayLogService {
         date,
       });
     if (!dayLogPersistenceDto) return null;
-    return DayLog.fromPersistence(dayLogPersistenceDto);
+    return DayLogPersistenceMapper.toDomain(dayLogPersistenceDto);
   }
 }
