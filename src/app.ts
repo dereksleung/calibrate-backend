@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import { createDayLogRoutes } from "@routes/day-log-routes.js";
+import { createDayLogRoutes } from "@routes";
 import { Container } from "@infrastructure";
 
 const app = express();

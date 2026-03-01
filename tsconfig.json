@@ -16,13 +16,13 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@models": ["./src/models/index.ts"],
-      "@validation/*": ["./src/validation/*"],
-      "@services": ["./src/services/index.ts"],
-      "@controllers/*": ["./src/controllers/*"],
-      "@routes/*": ["./src/routes/*"],
-      "@data": ["./src/data/index.ts"],
-      "@infrastructure": ["./src/infrastructure/index.ts"]
+      "@domain": ["src/domain/index.ts"],
+      "@validation": ["src/presentation/validation/index.ts"],
+      "@services": ["src/application/services/index.ts"],
+      "@controllers": ["src/presentation/controllers/index.ts"],
+      "@routes": ["src/presentation/routes/index.ts"],
+      "@infrastructure": ["src/infrastructure/index.ts"],
+      "@application": ["src/application/index.ts"]
     },
     "types": ["vitest/globals"]
   },

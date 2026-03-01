@@ -1,6 +1,7 @@
-import { DayLogController } from "@controllers/day-log-controller.js";
+import { DayLogController } from "@controllers";
 import { DayLogService, DayLogServiceImpl } from "@services";
-import { DayLogRepository, PostgresDayLogRepository } from "@data";
+import { DayLogRepository } from "@application";
+import { PostgresDayLogRepository } from "./persistence/repositories/index.js";
 
 export class Container {
   private readonly dayLogRepository: DayLogRepository;
