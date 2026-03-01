@@ -8,7 +8,9 @@
     "dev": "nodemon --exec tsx src/app.ts",
     "build": "tsc",
     "start": "node dist/app.js",
-    "kysely": "kysely --experimental-resolve-tsconfig-paths"
+    "kysely": "kysely --experimental-resolve-tsconfig-paths",
+    "prepare": "husky",
+    "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
@@ -41,6 +43,7 @@
     "@types/pg": "^8.16.0",
     "eslint": "^10.0.1",
     "globals": "^17.3.0",
+    "husky": "^9.1.7",
     "nodemon": "^3.1.11",
     "prettier": "3.8.1",
     "tsx": "^4.21.0",
