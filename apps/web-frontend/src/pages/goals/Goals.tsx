@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { TrendingDown } from "lucide-react";
 import { Line, LineChart, XAxis, YAxis } from "recharts";
 
-import { cn } from "#/lib/utils.ts";
+// import { cn } from "#/lib/utils.ts";
 import { Button } from "#/shared/components/base/Button.tsx";
 import {
   Card,
@@ -27,9 +27,9 @@ import { FatBarChart } from "#/verticals/goals-analytics/components/FatBarChart.
 import { Typography } from "#/shared/components/base/typography/Typography.tsx";
 import { useIsMobile } from "#/shared/hooks/use-media-query.ts";
 
-const GOAL_TABS = ["1W", "1M", "3M", "Plan"] as const;
+// const GOAL_TABS = ["1W", "1M", "3M", "Plan"] as const;
 
-type GoalTab = (typeof GOAL_TABS)[number];
+// type GoalTab = (typeof GOAL_TABS)[number];
 type AnalyticsDrawerContent = "fats";
 
 type GoalsProps = {
@@ -69,7 +69,7 @@ const weightChartConfig = {
 } satisfies ChartConfig;
 
 export function Goals({ openFatsAnalytics = false }: GoalsProps) {
-  const [activeTab, setActiveTab] = useState<GoalTab>("1M");
+  // const [activeTab, setActiveTab] = useState<GoalTab>("1M");
   const [activeDrawerContent, setActiveDrawerContent] =
     useState<AnalyticsDrawerContent | null>(null);
   const fatsChartRef = useRef<HTMLDivElement>(null);
@@ -102,7 +102,7 @@ export function Goals({ openFatsAnalytics = false }: GoalsProps) {
   return (
     <>
       <main className="min-h-screen bg-surface px-4 pb-12 pt-0 antialiased md:px-10 md:pb-20">
-        <div
+        {/* <div
           className="sticky top-14 z-20 -mx-4 border-b border-white/25 bg-surface/90 px-4 py-3 backdrop-blur-md md:-mx-10 md:px-10"
         >
           <div className="mx-auto w-full max-w-[64rem]">
@@ -130,7 +130,7 @@ export function Goals({ openFatsAnalytics = false }: GoalsProps) {
               ))}
             </div>
           </div>
-        </div>
+        </div> */}
 
       <div className="mx-auto flex w-full max-w-[64rem] flex-col gap-8 pt-8 md:pt-10">
         <header className="flex self-stretch flex-col gap-5">
