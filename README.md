@@ -4,6 +4,49 @@ A calorie tracker application, because I've gotten into healthier eating, joggin
 
 Currently building out the backend as an Express.js app with clean architecture layering to decouple business logic from particular technology choices. Will use the backend to explore/practice various backend topics.
 
+## Frontend Current State
+The current UI is a prototype built with mock data, most things are not actually functional, pages do not load live data yet. That is intentional. I'm working first on the product direction, information hierarchy, and interaction patterns.
+
+The first goal right now is to use product judgment: take what could easily become dense, data-heavy areas in the Dashboard and Goals pages, and keep them simple enough to be useful. The target user is not an expert mathematician or nutrition analyst, rather they are people wanting to change themselves, who may need help building new habits, and need to understand what to do next, and what is working or not working. The most important product work is surfacing actions and actionable insights that help them keep momentum with new habits, while suggesting small tweaks they may not have realized they can do that will help them get results.
+
+Charts and data stay at overview level by default. When a user chooses to drill deeper, the app should still be selective about what it shows. More data is only useful when it creates a clearer insight, a better decision, or a practical adjustment the user can actually make.
+
+### Screenshots
+#### Dashboard page
+Initial page:
+<br></br>
+<img width="1291" height="827" alt="Screenshot 2026-06-25 at 8 52 29 PM" src="https://github.com/user-attachments/assets/d2c1dd68-4c20-4f66-832d-b57d9ec203f7" />
+<br></br>
+On clicking the High Impact Swap card's Learn More link -> panel with actionable insights:
+<br></br>
+<img width="1307" height="939" alt="Screenshot 2026-06-25 at 8 54 35 PM" src="https://github.com/user-attachments/assets/24ca45ca-3fd2-4fc7-80ac-6a22f000e99c" />
+
+<br></br>
+Hovering over the Dashboard's Fats chart will show a tooltip saying you can click the chart to go to [a panel on the Goals page](#fats-analytics-panel), making that discoverable. Only the fats detail view mock UI is built right now.
+<br></br>
+
+
+#### Goals page
+Allows deeper drilling into stats and progress.
+
+Initial view - can see encouragement about journey, scrolling down you can see charts (weight and fats consumption only for now):
+<br></br>
+<img width="1247" height="936" alt="Screenshot 2026-07-09 at 3 31 44 PM" src="https://github.com/user-attachments/assets/f42692fe-ddc1-419d-b1cc-4d2b1bdb2b8e" />
+
+<br></br>
+
+#### Fats Analytics panel
+Clicking the Fats bar chart opens a panel with deeper data the user can find trends with.
+<br></br>
+Greatest sources of fats by food in the last month:
+<br></br>
+<img width="1226" height="933" alt="Screenshot 2026-07-09 at 3 51 04 PM" src="https://github.com/user-attachments/assets/2088d778-4ae3-46f1-897e-64c3a15a9b31" />
+<br></br>
+Largest changes in fat contributions from food between last month to this month:
+<br></br>
+<img width="1224" height="933" alt="Screenshot 2026-07-09 at 3 55 49 PM" src="https://github.com/user-attachments/assets/59ceb1b6-9d9c-46b0-8cdf-a81dcde74315" />
+<br></br>
+
 # Tech Stack
 
 ## Why Nx?
@@ -119,13 +162,6 @@ Do not use `apps/backend` as the build context. Docker cannot copy files outside
 
 ## Frontend
 
-### Current state
-The current UI is a prototype built with mock data, most things are not actually functional, pages do not load live data yet. That is intentional. It lets the product direction, information hierarchy, and interaction patterns come first before backend contracts or analytics plumbing harden too early.
-
-The first goal right now is to demonstrate product judgment: take what could easily become dense, data-heavy areas in the Dashboard and Goals pages, and keep them simple enough to be useful. The target user is not an expert mathematician or nutrition analyst, rather they are people wanting to change themselves, who may need help building new habits, and need to understand what to do next, and what is working or not working. The most important product work is surfacing actions and actionable insights that help them keep momentum with new habits, while suggesting small tweaks they may not have realized they can do that will help them get results.
-
-Charts and data stay at overview level by default. When a user chooses to drill deeper, the app should still be selective about what it shows. More data is only useful when it creates a clearer insight, a better decision, or a practical adjustment the user can actually make.
-
 ### Running Frontend Locally
 1. Start the dev server:
 
@@ -138,44 +174,3 @@ The app runs at:
 ```text
 http://localhost:3000
 ```
-
-
-### Screenshots
-#### Dashboard page
-Initial page:
-<br></br>
-<img width="1291" height="827" alt="Screenshot 2026-06-25 at 8 52 29 PM" src="https://github.com/user-attachments/assets/d2c1dd68-4c20-4f66-832d-b57d9ec203f7" />
-<br></br>
-On clicking the High Impact Swap card's Learn More link -> panel with actionable insights:
-<br></br>
-<img width="1307" height="939" alt="Screenshot 2026-06-25 at 8 54 35 PM" src="https://github.com/user-attachments/assets/24ca45ca-3fd2-4fc7-80ac-6a22f000e99c" />
-
-<br></br>
-Hovering over the Dashboard's Fats chart will show a tooltip saying you can click the chart to go to [a panel on the Goals page](#fats-analytics-panel), making that discoverable. Only the fats detail view mock UI is built right now.
-<br></br>
-
-
-#### Goals page
-Allows deeper drilling into stats and progress.
-
-Initial view - can see encouragement about journey, scrolling down you can see charts (weight and fats consumption only for now):
-<br></br>
-<img width="1292" height="947" alt="Screenshot 2026-06-25 at 8 52 52 PM" src="https://github.com/user-attachments/assets/ea294d00-1b42-4647-b8a1-6f75875816d0" />
-<br></br>
-
-<br></br>
-<img width="1291" height="948" alt="Screenshot 2026-06-25 at 8 53 05 PM" src="https://github.com/user-attachments/assets/439466ec-fab1-47e7-b637-c1f2c7fd97e5" />
-<br></br>
-
-#### Fats Analytics panel
-Clicking the Fats bar chart opens a panel with deeper data the user can find trends with.
-<br></br>
-Greatest sources of fat by food in the last month:
-<br></br>
-<img width="1303" height="940" alt="Screenshot 2026-06-25 at 8 57 36 PM" src="https://github.com/user-attachments/assets/2148647b-d826-49d3-891b-5600af8c7994" />
-
-<br></br>
-Largest changes in fat contributions from food between last month to this month:
-<br></br>
-<img width="1306" height="941" alt="Screenshot 2026-06-25 at 8 58 42 PM" src="https://github.com/user-attachments/assets/e116690e-ac1c-4ec5-9c89-f979cc4ef1fd" />
-
