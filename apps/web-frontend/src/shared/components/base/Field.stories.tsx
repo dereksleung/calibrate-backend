@@ -54,35 +54,7 @@ function EmailField({ invalid = false }: { invalid?: boolean }) {
   );
 }
 
-export const SignIn: Story = {
-  render: () => (
-    <FieldGroup>
-      <Field>
-        <FieldLabel htmlFor="signin-name">Full Name</FieldLabel>
-        <FieldControl>
-          <FieldInput id="signin-name" placeholder="Your Name" type="text" />
-          <FieldIcon>
-            <UserRound />
-          </FieldIcon>
-        </FieldControl>
-      </Field>
-
-      <EmailField />
-
-      <Field>
-        <FieldLabel htmlFor="signin-password">Password</FieldLabel>
-        <FieldControl>
-          <FieldInput id="signin-password" placeholder="••••••••" type="password" />
-          <FieldIcon>
-            <Lock />
-          </FieldIcon>
-        </FieldControl>
-      </Field>
-    </FieldGroup>
-  ),
-};
-
-export const CreateAccount: Story = {
+export const Normal: Story = {
   render: () => (
     <FieldGroup>
       <Field>
