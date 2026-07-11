@@ -107,7 +107,7 @@ export const ErrorState: Story = {
         </FieldControl>
         <FieldError 
           errors={[
-            { message: "Password must be at least 8 characters long." },
+            { message: "Password must be at least 8 characters long Longer error Longer error Longer error Longer error." },
             { message: "Password must contain at least one uppercase letter." },
             { message: "Password must contain at least one number." },
           ]} 
