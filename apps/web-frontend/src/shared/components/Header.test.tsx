@@ -114,7 +114,7 @@ describe("Header", () => {
     it("renders the login button alongside primary navigation for logged-out users", async () => {
       await renderHeader();
 
-      expect(screen.getByRole("button", { name: "Login" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Sign Up" })).toBeTruthy();
       expect(screen.getByRole("link", { name: "Overview" })).toBeTruthy();
       expect(screen.getByRole("link", { name: "Logs" })).toBeTruthy();
       expect(screen.getByRole("link", { name: "Goals" })).toBeTruthy();
@@ -135,7 +135,7 @@ describe("Header", () => {
     it("renders the login button for logged-out users", async () => {
       await renderHeader();
 
-      expect(screen.getByRole("button", { name: "Login" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Sign Up" })).toBeTruthy();
     });
 
     it("does not render desktop primary navigation links", async () => {
