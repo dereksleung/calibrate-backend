@@ -5,7 +5,7 @@ import "../../../styles.css";
 
 import {
   Field,
-  FieldControl,
+  FieldInputWrapper,
   FieldError,
   FieldGroup,
   FieldIcon,
@@ -39,7 +39,7 @@ function EmailField({ invalid = false }: { invalid?: boolean }) {
   return (
     <Field data-invalid={invalid}>
       <FieldLabel htmlFor={invalid ? "email-error" : "email"}>Email Address</FieldLabel>
-      <FieldControl>
+      <FieldInputWrapper>
         <FieldInput
           aria-invalid={invalid}
           id={invalid ? "email-error" : "email"}
@@ -49,7 +49,7 @@ function EmailField({ invalid = false }: { invalid?: boolean }) {
         <FieldIcon>
           <Mail />
         </FieldIcon>
-      </FieldControl>
+      </FieldInputWrapper>
     </Field>
   );
 }
@@ -59,34 +59,34 @@ export const Normal: Story = {
     <FieldGroup>
       <Field>
         <FieldLabel htmlFor="create-name">Full Name</FieldLabel>
-        <FieldControl>
+        <FieldInputWrapper>
           <FieldInput id="create-name" placeholder="Your Name" type="text" />
           <FieldIcon>
             <UserRound />
           </FieldIcon>
-        </FieldControl>
+        </FieldInputWrapper>
       </Field>
 
       <EmailField />
 
       <Field>
         <FieldLabel htmlFor="create-password">Create Password</FieldLabel>
-        <FieldControl>
+        <FieldInputWrapper>
           <FieldInput id="create-password" placeholder="••••••••" type="password" />
           <FieldIcon>
             <Lock />
           </FieldIcon>
-        </FieldControl>
+        </FieldInputWrapper>
       </Field>
 
       <Field>
         <FieldLabel htmlFor="confirm-password">Confirm Password</FieldLabel>
-        <FieldControl>
+        <FieldInputWrapper>
           <FieldInput id="confirm-password" placeholder="••••••••" type="password" />
           <FieldIcon>
             <Lock />
           </FieldIcon>
-        </FieldControl>
+        </FieldInputWrapper>
       </Field>
     </FieldGroup>
   ),
@@ -99,12 +99,12 @@ export const ErrorState: Story = {
 
       <Field data-invalid>
         <FieldLabel htmlFor="error-password">Password</FieldLabel>
-        <FieldControl>
+        <FieldInputWrapper>
           <FieldInput aria-invalid id="error-password" placeholder="••••••••" type="password" />
           <FieldIcon>
             <Lock />
           </FieldIcon>
-        </FieldControl>
+        </FieldInputWrapper>
         <FieldError 
           errors={[
             { message: "Password must be at least 8 characters long Longer error Longer error Longer error Longer error." },

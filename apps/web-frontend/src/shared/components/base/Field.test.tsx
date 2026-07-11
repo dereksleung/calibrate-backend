@@ -3,7 +3,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { Field, FieldControl, FieldError, FieldIcon, FieldInput, FieldLabel } from "./Field";
+import { Field, FieldInputWrapper, FieldError, FieldIcon, FieldInput, FieldLabel } from "./Field";
 
 afterEach(cleanup);
 
@@ -12,12 +12,12 @@ describe("Field", () => {
     render(
       <Field>
         <FieldLabel htmlFor="email">Email Address</FieldLabel>
-        <FieldControl>
+        <FieldInputWrapper>
           <FieldInput id="email" placeholder="example@zen.com" type="email" />
           <FieldIcon>
             <svg aria-hidden="true" />
           </FieldIcon>
-        </FieldControl>
+        </FieldInputWrapper>
       </Field>,
     );
 

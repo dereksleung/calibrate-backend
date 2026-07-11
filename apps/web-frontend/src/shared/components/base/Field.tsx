@@ -91,11 +91,11 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function FieldControl({ className, ...props }: React.ComponentProps<"div">) {
+function FieldInputWrapper({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      data-slot="field-control"
-      className={cn("group/field-control relative w-full", className)}
+      data-slot="field-input-wrapper"
+      className={cn("group/field-input-wrapper relative w-full", className)}
       {...props}
     />
   );
@@ -247,7 +247,7 @@ function FieldError({
 
 export {
   Field,
-  FieldControl,
+  FieldInputWrapper,
   FieldLabel,
   FieldInput,
   FieldIcon,
