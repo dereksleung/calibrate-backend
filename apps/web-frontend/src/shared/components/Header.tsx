@@ -35,29 +35,37 @@ export default function Header() {
               </div>
             ) : (
               <>
-                <Link
-                  to="/"
-                  activeOptions={{ exact: true }}
-                  className={navLinkBase}
-                  activeProps={{ className: cn(navLinkBase, navLinkActive) }}
-                >
-                  Overview
-                </Link>
-                <Link
-                  to="/logs"
-                  search={{ date: getTodayDateString() }}
-                  className={navLinkBase}
-                  activeProps={{ className: cn(navLinkBase, navLinkActive) }}
-                >
-                  Logs
-                </Link>
-                <Link
-                  to="/goals"
-                  className={navLinkBase}
-                  activeProps={{ className: cn(navLinkBase, navLinkActive) }}
-                >
-                  Goals
-                </Link>
+                <div className="flex flex-1 items-center gap-6">
+                  <Link
+                    to="/"
+                    activeOptions={{ exact: true }}
+                    className={navLinkBase}
+                    activeProps={{ className: cn(navLinkBase, navLinkActive) }}
+                  >
+                    Overview
+                  </Link>
+                  <Link
+                    to="/logs"
+                    search={{ date: getTodayDateString() }}
+                    className={navLinkBase}
+                    activeProps={{ className: cn(navLinkBase, navLinkActive) }}
+                  >
+                    Logs
+                  </Link>
+                  <Link
+                    to="/goals"
+                    className={navLinkBase}
+                    activeProps={{ className: cn(navLinkBase, navLinkActive) }}
+                  >
+                    Goals
+                  </Link>
+                </div>
+                
+                <div className="flex justify-end">
+                  {!isLoggedIn && (
+                    <Button size="sm">Login</Button>
+                  )}
+                </div>
               </>
             )
           }
