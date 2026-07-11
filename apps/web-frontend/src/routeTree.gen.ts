@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupLoginRouteImport } from './routes/signup-login'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SignupLoginRoute = SignupLoginRouteImport.update({
+  id: '/signup-login',
+  path: '/signup-login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LogsRoute = LogsRouteImport.update({
   id: '/logs',
   path: '/logs',
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/goals': typeof GoalsRoute
   '/logs': typeof LogsRoute
+  '/signup-login': typeof SignupLoginRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/goals': typeof GoalsRoute
   '/logs': typeof LogsRoute
+  '/signup-login': typeof SignupLoginRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,14 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/goals': typeof GoalsRoute
   '/logs': typeof LogsRoute
+  '/signup-login': typeof SignupLoginRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/goals' | '/logs'
+  fullPaths: '/' | '/about' | '/goals' | '/logs' | '/signup-login'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/goals' | '/logs'
-  id: '__root__' | '/' | '/about' | '/goals' | '/logs'
+  to: '/' | '/about' | '/goals' | '/logs' | '/signup-login'
+  id: '__root__' | '/' | '/about' | '/goals' | '/logs' | '/signup-login'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,10 +76,18 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   GoalsRoute: typeof GoalsRoute
   LogsRoute: typeof LogsRoute
+  SignupLoginRoute: typeof SignupLoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup-login': {
+      id: '/signup-login'
+      path: '/signup-login'
+      fullPath: '/signup-login'
+      preLoaderRoute: typeof SignupLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/logs': {
       id: '/logs'
       path: '/logs'
@@ -107,6 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   GoalsRoute: GoalsRoute,
   LogsRoute: LogsRoute,
+  SignupLoginRoute: SignupLoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

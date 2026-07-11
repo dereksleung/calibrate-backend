@@ -11,6 +11,19 @@ import { useIsMobile } from '#/shared/hooks/use-media-query.ts';
 
 export const Route = createRootRoute({
   component: RootComponent,
+  // beforeLoad: async ({ location }) => {
+  //   console.log("🚀 ~ location:", location)
+  //   const isAuthenticated = false; // TODO: Replace with actual authentication check
+  //   if (!isAuthenticated && location.pathname !== '/signup-login') {
+  //     // Redirect to login page if not authenticated
+  //     throw redirect({
+  //       to: '/signup-login',
+  //       search: {
+  //         redirect: location.href,
+  //       }
+  //     })
+  //   }
+  // }
 })
 
 function RootComponent() {

@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 
 import { cn } from '#/lib/utils'
 import { getTodayDateString } from '#/pages/logs/log-page-helpers.ts'
@@ -6,6 +6,7 @@ import { getTodayDateString } from '#/pages/logs/log-page-helpers.ts'
 import ThemeToggle from './ThemeToggle'
 import { useIsMobile } from '../hooks/use-media-query';
 import { Button } from './base/Button';
+import { UserRoundPlus } from 'lucide-react';
 
 const navLinkBase =
   'inline-block border-b-2 border-transparent px-1 pb-1 pt-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:text-foreground'
@@ -14,6 +15,7 @@ const navLinkActive = 'border-primary text-primary'
 
 export default function Header() {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const isLoggedIn = false; // TODO: Replace with actual authentication check
   return (
     <header className="sticky top-0 z-50 border-b border-white bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
@@ -30,7 +32,12 @@ export default function Header() {
             ? (
               <div className="flex flex-1 justify-end">
                 {!isLoggedIn && (
-                  <Button size="sm">Login</Button>
+                  <Button size="sm" onClick={() => navigate({ to: '/signup-login' })}>
+                    <UserRoundPlus />
+                    <span className="text-xs">
+                      Sign Up
+                    </span>
+                  </Button>
                 )}
               </div>
             ) : (
@@ -63,7 +70,7 @@ export default function Header() {
                 
                 <div className="flex justify-end">
                   {!isLoggedIn && (
-                    <Button size="sm">Login</Button>
+                    <Button size="sm">Sign Up</Button>
                   )}
                 </div>
               </>
