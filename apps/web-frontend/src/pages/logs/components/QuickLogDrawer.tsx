@@ -21,7 +21,7 @@ export function QuickLogDrawer({ onSearchFood }: QuickLogDrawerProps) {
         <Button
           size="icon-lg"
           aria-label="Open quick log actions"
-          className="fixed bottom-6 right-6 z-40 size-16 rounded-full bg-primary text-on-primary shadow-[0_18px_35px_-16px_rgba(26,28,28,0.55)] hover:bg-primary-container md:bottom-10 md:right-10"
+          className="fixed bottom-24 right-6 z-40 size-16 rounded-full bg-primary text-on-primary shadow-[0_18px_35px_-16px_rgba(26,28,28,0.55)] hover:bg-primary-container md:bottom-10 md:right-10"
         >
           <Plus aria-hidden className="size-9" strokeWidth={1.5} />
         </Button>

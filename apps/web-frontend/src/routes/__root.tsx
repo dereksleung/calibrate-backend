@@ -17,10 +17,15 @@ function RootComponent() {
   const isMobile = useIsMobile();
   return (
     <TooltipProvider>
-      <Header />
-      <Toaster position={isMobile ? 'bottom-center' : 'top-center'} />
-      <Outlet />
-      <Footer />
+      <div className="h-dvh">
+        {/* pb-18 clears the mobile bottom nav bar */}
+        <div className="pb-18 md:pb-0">
+          <Header />
+          <Toaster position={isMobile ? 'bottom-center' : 'top-center'} />
+          <Outlet />
+        </div>
+        <Footer />
+      </div>
       <TanStackDevtools
         config={{
           position: 'bottom-right',
