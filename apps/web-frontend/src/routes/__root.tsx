@@ -1,4 +1,4 @@
-import { Outlet, createRootRoute } from '@tanstack/react-router'
+import { Outlet, createRootRoute, useRouterState } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
@@ -28,16 +28,20 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   const isMobile = useIsMobile();
+  const isAuthRoute = useRouterState({
+    select: (state) => state.location.pathname === '/signup-login',
+  });
+
   return (
     <TooltipProvider>
-      <div className="h-dvh">
+      <div className={isAuthRoute ? 'min-h-dvh' : 'h-dvh'}>
         {/* pb-18 clears the mobile bottom nav bar */}
-        <div className="pb-18 md:pb-0">
-          <Header />
+        <div className={isAuthRoute ? undefined : 'pb-18 md:pb-0'}>
+          {!isAuthRoute && <Header />}
           <Toaster position={isMobile ? 'bottom-center' : 'top-center'} />
           <Outlet />
         </div>
-        <Footer />
+        {!isAuthRoute && <Footer />}
       </div>
       <TanStackDevtools
         config={{
