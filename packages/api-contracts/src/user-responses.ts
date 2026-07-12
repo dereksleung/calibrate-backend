@@ -1,13 +1,14 @@
 import * as z from "zod";
 
-const UserTierSchema = z.enum(["FREE", "PREMIUM", "LIFETIME"]);
+export const UserTierSchema = z.enum(["FREE", "PREMIUM", "LIFETIME"]);
+
+export const UserResponseSchema = z.object({
+  id: z.uuid(),
+  email: z.email(),
+  tier: UserTierSchema,
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
 
 export type UserTierEnumType = z.infer<typeof UserTierSchema>;
-
-export interface UserResponse {
-  id: string;
-  email: string;
-  tier: UserTierEnumType;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type UserResponse = z.infer<typeof UserResponseSchema>;

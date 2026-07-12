@@ -8,8 +8,25 @@
       "default": "./src/index.ts"
     }
   },
+  "dependencies": {
+    "@calibrate/api-contracts": "1.0.0"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.100.5"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.100.5"
+  },
   "nx": {
     "targets": {
+      "test": {
+        "executor": "nx:run-commands",
+        "cache": true,
+        "options": {
+          "cwd": "packages/api-client",
+          "command": "vitest run src"
+        }
+      },
       "typecheck": {
         "executor": "nx:run-commands",
         "cache": true,
@@ -19,14 +36,5 @@
         }
       }
     }
-  },
-  "dependencies": {
-    "@calibrate/api-contracts": "1.0.0"
-  },
-  "peerDependencies": {
-    "@tanstack/react-query": "^5.100.5"
-  },
-  "devDependencies": {
-    "@tanstack/react-query": "^5.100.5"
   }
 }
