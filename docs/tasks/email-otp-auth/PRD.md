@@ -51,6 +51,12 @@ The session uses a 30-day inactivity lifetime and a 180-day absolute lifetime. N
 31. As an operator, I want HMAC keys versioned and stored outside the database, so that keys can be rotated without accepting unverifiable challenges.
 32. As an operator, I want authentication lifecycle events recorded without raw secrets, so that abuse and failures can be investigated safely.
 33. As an operator, I want expired challenges, sessions, and rate-limit records to be removable through retention maintenance, so that authentication tables do not grow indefinitely.
+34. As a web user, I want the browser to receive my session only as an `HttpOnly` cookie, so that frontend JavaScript cannot directly export it.
+35. As a native mobile user, I want the application to receive an opaque session credential it can store in platform-secure storage, so that I can remain signed in without depending on browser cookies.
+36. As a native mobile user, I want my authenticated requests to use the same revocable server sessions as the web application, so that session behavior remains consistent across platforms.
+37. As a developer, I want mobile requests to declare their platform through a consistent header, so that the presentation layer can select the appropriate credential transport.
+38. As a security reviewer, I want platform headers treated as untrusted metadata rather than proof of client identity, so that spoofing the header cannot grant permissions or bypass authentication.
+39. As an operator, I want production and staging web traffic to remain same-origin, so that browser cookie behavior and CSRF protections stay simple.
 
 ## Implementation Decisions
 
@@ -70,15 +76,21 @@ The session uses a 30-day inactivity lifetime and a 180-day absolute lifetime. N
 - Failed verification atomically increments the challenge attempt count. Successful verification atomically consumes the challenge so that concurrent requests cannot both use it.
 - User creation occurs only after successful OTP verification. Concurrent successful challenges for the same email rely on the unique normalized-email constraint and concurrency-safe persistence to resolve to one user.
 - Successful verification creates an opaque server session. The raw session token contains at least 256 bits of cryptographically secure randomness; only its digest is persisted.
-- The raw session token is sent only in a persistent browser cookie. It is never returned in a JSON response and is never stored in browser local storage or session storage.
+- Web and native mobile clients use the same opaque server-session model but different presentation transports. The web client receives the raw session token only in a persistent cookie. A native mobile client receives the raw token in the successful OTP-verification JSON response and stores it in iOS Keychain or Android Keystore-backed secure storage, never ordinary application storage such as AsyncStorage.
+- Native mobile clients send `X-App-Platform: ios` or `X-App-Platform: android` on authentication requests. Header names are case-insensitive, but these lowercase values are the canonical contract values. An absent header selects the web flow, and an unknown value fails request validation.
+- The challenge records the selected session transport and mobile platform when it is created. Verification must use the same transport classification, preventing a challenge from silently switching from cookie delivery to JSON token delivery midway through the flow.
+- `X-App-Platform` is an untrusted transport-selection hint, not proof that a request came from an official mobile binary. Same-origin browser JavaScript, scripts, and malicious clients can set or spoof custom headers. No authentication, authorization, rate-limit exemption, or origin-check bypass is granted solely because this header is present.
+- Web OTP verification returns the current user and sets the session cookie without returning a token in JSON. Mobile OTP verification returns the current user, opaque session token, and session expiration metadata without setting a browser session cookie. Shared API contracts define these response variants explicitly.
+- Native mobile authenticated requests send the opaque token through `Authorization: Bearer <opaque-session-token>` together with the platform header. `Bearer` describes credential transport and does not imply that the token is a JWT.
+- The authentication middleware accepts exactly one credential source per request: the web session cookie or the mobile bearer token. Requests containing both are rejected as ambiguous. A mobile bearer credential requires a recognized mobile platform header, but the session token remains the actual credential.
 - The production cookie uses a `__Host-` name with `HttpOnly`, `Secure`, `SameSite=Lax`, and `Path=/`, and has no `Domain` attribute. Local development may use an environment-specific cookie name and transport configuration when HTTPS is unavailable.
 - A session records its user, token digest, creation time, last-seen time, inactivity expiration, absolute expiration, revocation time, and renewal time. User-agent and protected IP metadata may be retained for security operations.
 - Sessions have a 30-day inactivity lifetime and a 180-day absolute lifetime. A valid request may extend inactivity expiration and reset cookie expiration at most once per day, but it never extends the absolute expiration.
 - Session renewal does not require a refresh token or another OTP. It updates the server-side expiration and persistent cookie while the current session remains valid.
 - Periodic session-token rotation is not required in the first implementation. Tokens are replaced after authentication and security-sensitive identity changes; adding concurrent-safe periodic rotation is a later hardening option.
-- `GET /api/v1/auth/session` authenticates the cookie and returns the current user when valid. It returns `401 Unauthorized` when the cookie is missing or the session is invalid.
-- `DELETE /api/v1/auth/session` revokes the current session when present, clears the cookie with matching attributes, and returns `204 No Content` idempotently.
-- `POST /api/v1/auth/email-otp` requests a challenge. `POST /api/v1/auth/email-otp/verify` verifies a challenge, returns the current user, and sets the session cookie.
+- `GET /api/v1/auth/session` authenticates either the web cookie or mobile bearer credential and returns the current user when valid. It returns `401 Unauthorized` when the required credential is missing or the session is invalid.
+- `DELETE /api/v1/auth/session` revokes the current session idempotently and returns `204 No Content`. For web requests it also clears the cookie with matching attributes.
+- `POST /api/v1/auth/email-otp` requests a challenge for the selected web or mobile transport. `POST /api/v1/auth/email-otp/verify` verifies the challenge and returns the transport-specific authentication response.
 - Completed migration removes `POST /api/v1/auth/login`, password-based `POST /api/v1/users`, bearer-token authentication, access-token fields in login responses, JWT infrastructure, and password hashing infrastructure.
 - New request and response schemas live in the shared API-contract package. Legacy password contract exports may remain temporarily deprecated only to keep the existing frontend compiling until its migration; they are removed at the frontend/backend wiring gate.
 - Protected controllers continue receiving the authenticated user ID through the existing request authentication context. Day-log authorization behavior does not change when the middleware switches from bearer tokens to cookie sessions.
@@ -87,7 +99,12 @@ The session uses a 30-day inactivity lifetime and a 180-day absolute lifetime. N
 - OTP request controls consume limits by normalized email and requesting IP, include a resend cooldown, and support a global delivery ceiling. Verification controls include both per-challenge attempts and broader abuse monitoring.
 - Rate limits must work across multiple backend instances. They may use PostgreSQL-backed counters or another shared infrastructure store; process-memory-only limits are insufficient for production.
 - Authentication endpoints use generic outward responses and avoid response-shape differences that disclose whether a user exists. Internal telemetry may distinguish outcomes without recording the OTP, raw session token, or HMAC key.
-- Cookie-authenticated cross-origin requests require an explicit frontend-origin allowlist and credentialed CORS. State-changing authenticated requests validate their origin and rely on `SameSite` cookie policy as an additional CSRF defense.
+- Local web development uses `http://localhost:3000` for the frontend and `http://localhost:3001` for the API. The API allows credentialed CORS only from the exact frontend origin. Development should use `localhost` consistently rather than mixing it with `127.0.0.1`.
+- Production uses one Render web service at `https://calibrate.onrender.com`. Express serves the built frontend and handles the API under `https://calibrate.onrender.com/api`, making browser requests same-origin and eliminating production CORS requirements.
+- Staging uses a separate Render web service or environment with the same-origin shape, expected to be `https://calibrate-staging.onrender.com` with its API under `/api`. The exact Render-assigned hostname is confirmed during provisioning rather than assuming a nested `staging.calibrate.onrender.com` hostname.
+- No wildcard under `onrender.com` is trusted. Render is a shared hosting domain, and Calibrate controls only its assigned service hostnames. Production cookies remain host-only through the `__Host-` prefix and no `Domain` attribute.
+- Cookie-authenticated state-changing requests require an exact `Origin` match for the configured environment and reject missing, `null`, or unexpected origins. `SameSite=Lax` is an additional CSRF defense, and no safe HTTP method performs state changes.
+- Native mobile networking is not governed by browser CORS and commonly omits `Origin`. A request authenticated by a valid mobile bearer session does not require browser-origin validation because the credential is explicitly attached rather than automatically sent as a cookie. This exception is based on credential transport, not merely on `X-App-Platform`.
 - Expired and revoked records are rejected based on server time. Retention maintenance removes old challenges, sessions, and rate-limit buckets after their security and audit value has elapsed.
 - Email OTP proves control of an email inbox but is not treated as multi-factor or high-assurance authentication.
 
@@ -101,6 +118,10 @@ The session uses a 30-day inactivity lifetime and a 180-day absolute lifetime. N
 - Persistence integration tests cover atomic attempt increments, single-use consumption, concurrent verification, unique-email races, token-digest lookup, session renewal, expiration, and revocation against PostgreSQL.
 - Cryptography adapter tests verify deterministic HMAC output for the same version, key, challenge, purpose, and code; digest changes when any bound value changes; key-version selection works; and malformed key configuration fails closed. Tests never assert or snapshot production secrets.
 - Presentation tests verify cookie attributes, status codes, response bodies, origin rejection, missing-cookie behavior, and preservation of the authenticated user context expected by protected controllers.
+- Presentation tests cover both transport variants: absent platform header produces the web cookie response, recognized mobile platform headers produce the mobile token response, unknown values are rejected, and a cookie plus bearer token is rejected as ambiguous.
+- Security tests demonstrate that the platform header alone never authenticates a request and never bypasses authorization or cookie-origin checks.
+- Local CORS tests allow credentialed requests only from `http://localhost:3000`. Production and staging configuration tests confirm that same-origin browser traffic does not enable broad CORS or wildcard `onrender.com` origins.
+- Mobile session tests verify bearer-token authentication without an `Origin` header, server-side expiration and revocation, logout, and the same authenticated-user context used by web sessions.
 - Rate-limit tests verify resend cooldown, per-email limits, per-IP limits, attempt exhaustion, and generic `429` behavior without depending on a specific backing-store algorithm.
 - Existing auth-service, auth-controller, and auth-middleware tests provide prior art for service, presentation, and request-authentication seams. Existing repository patterns provide prior art for PostgreSQL integration boundaries.
 - A clock seam is justified because expiry and renewal behavior must be deterministic. An email-sender seam is justified because the highest-level test must observe delivery without contacting a real provider.
@@ -114,7 +135,8 @@ The session uses a 30-day inactivity lifetime and a 180-day absolute lifetime. N
 - Organization accounts, roles, impersonation, delegated access, and third-party OAuth authorization are not included.
 - A user-facing device/session management screen and remote logout of other devices are deferred, although the server-side model should permit later implementation.
 - Periodic session-token rotation with a concurrent-request grace window is deferred.
-- Offline authentication and native-mobile secure-storage behavior are deferred. Future mobile clients may use a different credential transport while preserving the same server-side session semantics.
+- Native mobile UI, deep-link behavior, and platform-specific secure-storage implementation details are outside this backend specification. The backend mobile credential transport and its API contracts are in scope.
+- Mobile application attestation, such as Apple App Attest or Google Play Integrity, is deferred. Until attestation is introduced, the platform header must remain untrusted metadata.
 - High-assurance identity verification and regulated clinical-authentication requirements are not claimed by this email-based flow.
 
 ## Further Notes
@@ -125,3 +147,4 @@ The session uses a 30-day inactivity lifetime and a 180-day absolute lifetime. N
 - Hashing the high-entropy session token is sufficient because the token is not human-memorable and cannot feasibly be enumerated. The low-entropy numeric OTP needs a keyed digest because its possible values are enumerable.
 - If an OTP HMAC key is compromised, rotate the key and invalidate outstanding challenges for that key version. Independently protected sessions do not need to be revoked solely because the OTP key changed.
 - The ADR for this feature supersedes only the password/JWT technology examples in the existing backend architecture ADR. Clean architecture boundaries and dependency direction remain in force.
+- Render free web services may sleep when inactive, which can delay the first request when a user returns. Hosting-tier selection should account for the product requirement that opening the breakfast log feels immediate.

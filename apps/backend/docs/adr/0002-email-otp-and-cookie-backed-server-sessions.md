@@ -14,7 +14,7 @@ The backend currently creates users with passwords, hashes those passwords with 
 
 Calibrate is a first-party consumer application whose primary authenticated workflow is recording food throughout the day. A common usage pattern is to record dinner, close the application, and return the next morning to record breakfast. Requiring a new login every day would add friction at the moment the product needs to be fastest.
 
-The application does not currently need independent services, third-party API consumers, or multiple technology stacks to validate access tokens without contacting a shared session store. It does need durable login across browser restarts, server-side revocation, straightforward logout, and a unified signup/login experience without password management.
+The application does not currently need independent backend services or third-party API consumers to validate access tokens without contacting a shared session store. It does need durable login across browser restarts, server-side revocation, straightforward logout, a unified signup/login experience without password management, and support for both a web frontend and a future native mobile application.
 
 Email OTP is lower assurance than a passkey or properly configured multi-factor flow because control of the email inbox grants control of the Calibrate account. That trade-off is acceptable for the current consumer food-logging scope, but it must be explicit and must not be represented as multi-factor authentication.
 
@@ -44,30 +44,45 @@ HMAC is defense against a database-only compromise, not a substitute for online 
 
 ### Session model
 
-After successful OTP verification, create an opaque server-side session. Generate a session token with at least 256 bits of cryptographically secure randomness, store only its digest in PostgreSQL, and send the raw token only as a persistent browser cookie.
+After successful OTP verification, create an opaque server-side session. Generate a session token with at least 256 bits of cryptographically secure randomness and store only its digest in PostgreSQL.
 
-The production cookie uses a `__Host-` name, `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, and no `Domain` attribute. The token is not returned in JSON and is not stored in local storage or session storage.
+Web and native mobile clients use different presentation transports for the same server-side session:
+
+- Web receives the raw token only as a persistent browser cookie. The production cookie uses a `__Host-` name, `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, and no `Domain` attribute. Web responses never return the token in JSON, and browser code never stores it in local storage or session storage.
+- Native mobile receives the raw token in the successful OTP-verification JSON response. The application stores it in iOS Keychain or Android Keystore-backed secure storage and sends it through `Authorization: Bearer <opaque-session-token>` on later requests. The bearer value is opaque and is not a JWT.
+
+Native mobile authentication requests declare `X-App-Platform: ios` or `X-App-Platform: android`. An absent header selects the web transport; unrecognized values are rejected. The selected transport and platform are recorded with the challenge so verification cannot switch credential-delivery modes midway through the flow.
+
+The platform header is not a security boundary. Same-origin browser JavaScript can set it without CORS, an allowed cross-origin browser can set it after preflight, and non-browser clients can spoof it directly. The header selects response and transport behavior only. It never proves application authenticity, grants authorization, exempts rate limits, or independently bypasses origin checks. Mobile app attestation would be required if the server later needs stronger evidence about the calling binary.
 
 Sessions have a 30-day inactivity lifetime and a 180-day absolute lifetime. While a session remains valid, normal use may extend the inactivity expiration and cookie lifetime at most once per day. Renewal never extends the absolute expiration and does not require a refresh token or another OTP.
 
 The first implementation does not rotate the opaque token periodically. It issues a new token after authentication and security-sensitive identity changes. Concurrent-safe periodic rotation may be introduced later if the threat model justifies the added race-handling complexity.
 
-PostgreSQL session state is authoritative. Missing, expired, revoked, or absolutely expired sessions are rejected. Logout revokes the current session and clears the cookie. Multiple sessions per user are allowed so separate devices do not invalidate one another.
+PostgreSQL session state is authoritative. Missing, expired, revoked, or absolutely expired sessions are rejected. Logout revokes the current session and clears the cookie for web sessions. Multiple sessions per user are allowed so separate devices and platforms do not invalidate one another.
+
+Authentication middleware accepts exactly one credential source: the web cookie or the mobile bearer token. Requests carrying both are rejected as ambiguous. Mobile bearer authentication requires a recognized mobile platform header, but possession of a valid opaque token remains the authentication proof.
 
 ### HTTP API
 
 Expose these authentication operations under the existing API version:
 
-- `POST /auth/email-otp` creates and delivers an authentication challenge.
-- `POST /auth/email-otp/verify` verifies a challenge, returns the current user, and sets the session cookie.
-- `GET /auth/session` validates the cookie and returns the current user.
-- `DELETE /auth/session` revokes the current session and clears the cookie idempotently.
+- `POST /auth/email-otp` creates and delivers an authentication challenge for the web or declared mobile transport.
+- `POST /auth/email-otp/verify` verifies a challenge and returns the current user. The web variant sets the session cookie; the mobile variant returns the opaque session token and expiration metadata.
+- `GET /auth/session` validates the web cookie or mobile bearer credential and returns the current user.
+- `DELETE /auth/session` revokes the current session idempotently and clears the cookie when the request uses web transport.
 
-Authentication JSON responses do not contain access tokens or refresh tokens. Shared request and response schemas remain owned by the API-contract package.
+Web authentication JSON responses do not contain access tokens or refresh tokens. Mobile authentication returns the opaque server-session token required for native secure storage, not a JWT or a separate refresh token. Shared request, header, and response schemas remain owned by the API-contract package.
 
 Protected HTTP routes continue to receive an authenticated user ID through the existing request authentication context. Replacing the middleware credential source must not change day-log ownership checks.
 
-Cookie-authenticated cross-origin requests require a configured frontend-origin allowlist and credentialed CORS. Authenticated state-changing requests validate the request origin, with `SameSite=Lax` providing an additional CSRF boundary.
+Local development serves the frontend from `http://localhost:3000` and the API from `http://localhost:3001`. Development enables credentialed CORS only for the exact frontend origin.
+
+Production uses one Render web service at `https://calibrate.onrender.com`. Express serves the built frontend and handles API requests under `/api`, so production browser traffic is same-origin and does not require CORS. Staging uses the same shape on a separate Render service or environment, expected to use a service hostname such as `https://calibrate-staging.onrender.com` with its API under `/api`.
+
+Calibrate does not trust wildcard or sibling origins under the shared `onrender.com` hosting domain. Allowlisting always uses complete configured origins, and cookies remain host-only.
+
+Cookie-authenticated state-changing requests validate an exact source origin and reject missing, `null`, or unexpected origins, with `SameSite=Lax` providing an additional CSRF boundary. Native mobile requests are not subject to browser CORS. Valid bearer-authenticated mobile mutations may omit `Origin` because their credential is explicitly attached rather than automatically included by a browser. This distinction is based on the validated credential source, not solely on the platform header.
 
 ### Architecture and transaction ownership
 
@@ -77,7 +92,7 @@ Presentation owns HTTP validation, status codes, cookie creation and clearing, o
 
 Repositories own database transactions in accordance with ADR-0001. Attempt increments, successful challenge consumption, and session renewal use conditional atomic persistence so concurrent requests cannot bypass limits or consume one challenge twice.
 
-The primary behavioral test seam is the HTTP application with an injected fake email sender and controlled persistence. Lower-level tests cover concurrency, expiration, key selection, and database behavior that cannot be observed reliably through one HTTP journey.
+The primary behavioral test seam is the HTTP application with an injected fake email sender and controlled persistence. It covers equivalent web-cookie and mobile-bearer authentication journeys. Lower-level tests cover concurrency, expiration, key selection, platform validation, ambiguous credential rejection, and database behavior that cannot be observed reliably through one HTTP journey.
 
 ### Abuse controls and operations
 
@@ -161,6 +176,21 @@ Cons:
 
 Rejected in favor of an `HttpOnly` cookie that JavaScript cannot directly read.
 
+### Use the mobile platform header as proof of application identity
+
+Pros:
+
+- Simple way to vary responses between web and native clients.
+- Cross-origin browser requests with custom headers usually require CORS preflight.
+
+Cons:
+
+- Same-origin browser JavaScript can set the header without CORS.
+- Any script, proxy, or unofficial client can reproduce the header.
+- CORS is a browser response policy, not client authentication.
+
+Rejected as an authentication or authorization mechanism. The header remains useful only as untrusted presentation metadata for selecting the credential transport.
+
 ### Use email magic links instead of numeric codes
 
 Pros:
@@ -184,9 +214,13 @@ Rejected for the initial implementation, but compatible with the same server-sid
 - Authentication becomes dependent on transactional email availability when a new login is required.
 - OTP security depends on layered controls: secret management, HMAC storage, short expiration, attempt limits, atomic consumption, rate limiting, and safe logging.
 - Cookie authentication requires deliberate CORS, origin, CSRF, and cookie-domain configuration.
+- Same-origin production and staging deployment avoid browser CORS in those environments; local development retains one exact credentialed CORS origin.
+- Native mobile can reuse the revocable server-session model, but its presentation layer must return the raw opaque token and the app must protect it with platform-secure storage.
+- The platform header creates no trust by itself. Any future requirement to recognize an official app binary will require app attestation or another independently verifiable mechanism.
 - Database migrations add authentication challenge, session, and shared rate-limit state and remove password-specific state.
 - JWT and password dependencies can be removed after the migration is complete.
-- Existing API clients must migrate from bearer-token injection to credentialed cookie requests and from separate signup/login operations to the unified OTP protocol.
+- The web API client must migrate from bearer-token injection to same-origin cookie requests. The native client uses bearer transport for an opaque server-session token. Both migrate from separate signup/login operations to the unified OTP protocol.
+- Serving the frontend and API from one Render web service simplifies browser security and deployment, but the selected hosting tier must account for wake-up latency after inactivity.
 - Email OTP remains unsuitable as a claim of multi-factor or high-assurance identity. A future increase in data sensitivity may require passkeys, MFA, or a managed identity platform.
 
 ## Explicitly Deferred
@@ -195,5 +229,6 @@ Rejected for the initial implementation, but compatible with the same server-sid
 - Passkeys, social login, SMS, authenticator applications, and multi-factor authentication.
 - User-facing device/session management and remote logout.
 - Periodic session-token rotation with a concurrent-request grace period.
-- Native-mobile credential transport.
+- Native mobile UI, deep links, and concrete Keychain/Keystore library selection.
+- Mobile application attestation and verified official-app identity.
 - High-assurance or regulated clinical identity requirements.
