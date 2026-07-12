@@ -57,6 +57,11 @@ The session uses a 30-day inactivity lifetime and a 180-day absolute lifetime. N
 37. As a developer, I want mobile requests to declare their platform through a consistent header, so that the presentation layer can select the appropriate credential transport.
 38. As a security reviewer, I want platform headers treated as untrusted metadata rather than proof of client identity, so that spoofing the header cannot grant permissions or bypass authentication.
 39. As an operator, I want production and staging web traffic to remain same-origin, so that browser cookie behavior and CSRF protections stay simple.
+40. As a returning user, I want the application to tolerate a sleeping backend while restoring my session, so that a Render cold start does not send me unnecessarily to login.
+41. As a returning user, I want authenticated routes to remain visible while session restoration retries a transient failure, so that the application does not flash between authenticated and signed-out states.
+42. As a user, I want an actual `401 Unauthorized` response to end my local authenticated state immediately, so that an expired or revoked session is respected without delay.
+43. As a user, I want a prolonged backend outage to produce a recoverable unavailable state, so that a network problem is not misrepresented as an authentication failure.
+44. As a developer, I want session-restoration retries centralized and shared, so that route components do not create duplicate retry loops or a burst of wake-up requests.
 
 ## Implementation Decisions
 
@@ -105,6 +110,15 @@ The session uses a 30-day inactivity lifetime and a 180-day absolute lifetime. N
 - No wildcard under `onrender.com` is trusted. Render is a shared hosting domain, and Calibrate controls only its assigned service hostnames. Production cookies remain host-only through the `__Host-` prefix and no `Domain` attribute.
 - Cookie-authenticated state-changing requests require an exact `Origin` match for the configured environment and reject missing, `null`, or unexpected origins. `SameSite=Lax` is an additional CSRF defense, and no safe HTTP method performs state changes.
 - Native mobile networking is not governed by browser CORS and commonly omits `Origin`. A request authenticated by a valid mobile bearer session does not require browser-origin validation because the credential is explicitly attached rather than automatically sent as a cookie. This exception is based on credential transport, not merely on `X-App-Platform`.
+- Web and native clients model session restoration with four distinct states: checking, authenticated, reconnecting after a transient failure, and unauthenticated after an authoritative authentication result.
+- The web client may persist a minimal, non-sensitive hint that the browser previously had a valid session. This hint may preserve the authenticated route shell across a full reload while the `HttpOnly` cookie is being checked, but it never authenticates API calls or substitutes for the session endpoint. Sensitive nutrition data is not newly persisted merely to support this behavior.
+- The client retries `GET /api/v1/auth/session` only for transport failures, bounded request timeouts, and server-side `5xx` responses. It does not retry `401 Unauthorized`; that response immediately clears the non-authoritative auth hint and authenticated query state and routes to login. Other non-retryable `4xx` responses retain their distinct error handling rather than being converted to logout.
+- Session-restoration retries use exponential backoff with jitter, cap the delay between attempts at 30 seconds, and share one in-flight query across the application. The overall automatic retry window is five minutes, measured from the initial restoration attempt rather than per request.
+- During the retry window, a client with a prior authenticated hint may continue displaying the authenticated route shell and already-present in-memory UI state with a reconnecting indication. Protected mutations remain disabled or fail safely until the session is confirmed, and user mutations are never automatically replayed by the session-restoration retry loop.
+- A client without a prior authenticated hint shows the normal initial checking state while applying the same transient retry policy. It does not assume authentication merely because the backend is unavailable.
+- Transient restoration failures never clear the web cookie, mobile bearer credential, or server-side session. When connectivity or application focus returns, the shared session query may retry immediately while still respecting the overall deadline.
+- If the session cannot be checked within five minutes, the client stops automatic retries and replaces the authenticated shell with a recoverable service-unavailable/session-check-failed state. This state offers another explicit retry and does not claim the server rejected the session. A subsequent successful check restores the session without a new OTP.
+- `GET /api/v1/auth/session` remains idempotent from the client's perspective even when successful validation performs throttled sliding-expiration renewal. Its response is not cached by shared HTTP intermediaries.
 - Expired and revoked records are rejected based on server time. Retention maintenance removes old challenges, sessions, and rate-limit buckets after their security and audit value has elapsed.
 - Email OTP proves control of an email inbox but is not treated as multi-factor or high-assurance authentication.
 
@@ -122,6 +136,11 @@ The session uses a 30-day inactivity lifetime and a 180-day absolute lifetime. N
 - Security tests demonstrate that the platform header alone never authenticates a request and never bypasses authorization or cookie-origin checks.
 - Local CORS tests allow credentialed requests only from `http://localhost:3000`. Production and staging configuration tests confirm that same-origin browser traffic does not enable broad CORS or wildcard `onrender.com` origins.
 - Mobile session tests verify bearer-token authentication without an `Origin` header, server-side expiration and revocation, logout, and the same authenticated-user context used by web sessions.
+- Client session-restoration tests distinguish retryable network, timeout, and `5xx` failures from an authoritative `401`. They verify that `401` stops retries immediately and transitions to unauthenticated state.
+- Retry-policy tests use controlled time and deterministic jitter to verify exponential backoff, the 30-second delay cap, the five-minute overall deadline, immediate retry on restored connectivity where supported, and one shared in-flight session check.
+- Route-state tests verify that a previous non-authoritative auth hint preserves the authenticated shell only during checking and reconnecting, while a first-time visitor receives a neutral checking state.
+- Degraded-state tests verify that reaching the five-minute deadline shows a recoverable unavailable state without clearing the cookie, mobile credential, or persisted auth hint and that an explicit later retry can restore the session.
+- Mutation tests verify that session-restoration retries do not replay, duplicate, or silently queue user writes.
 - Rate-limit tests verify resend cooldown, per-email limits, per-IP limits, attempt exhaustion, and generic `429` behavior without depending on a specific backing-store algorithm.
 - Existing auth-service, auth-controller, and auth-middleware tests provide prior art for service, presentation, and request-authentication seams. Existing repository patterns provide prior art for PostgreSQL integration boundaries.
 - A clock seam is justified because expiry and renewal behavior must be deterministic. An email-sender seam is justified because the highest-level test must observe delivery without contacting a real provider.
@@ -137,6 +156,7 @@ The session uses a 30-day inactivity lifetime and a 180-day absolute lifetime. N
 - Periodic session-token rotation with a concurrent-request grace window is deferred.
 - Native mobile UI, deep-link behavior, and platform-specific secure-storage implementation details are outside this backend specification. The backend mobile credential transport and its API contracts are in scope.
 - Mobile application attestation, such as Apple App Attest or Google Play Integrity, is deferred. Until attestation is introduced, the platform header must remain untrusted metadata.
+- Offline writes, durable mutation queues, and automatic replay of food-log changes are not introduced by the session-restoration policy.
 - High-assurance identity verification and regulated clinical-authentication requirements are not claimed by this email-based flow.
 
 ## Further Notes
@@ -147,4 +167,4 @@ The session uses a 30-day inactivity lifetime and a 180-day absolute lifetime. N
 - Hashing the high-entropy session token is sufficient because the token is not human-memorable and cannot feasibly be enumerated. The low-entropy numeric OTP needs a keyed digest because its possible values are enumerable.
 - If an OTP HMAC key is compromised, rotate the key and invalidate outstanding challenges for that key version. Independently protected sessions do not need to be revoked solely because the OTP key changed.
 - The ADR for this feature supersedes only the password/JWT technology examples in the existing backend architecture ADR. Clean architecture boundaries and dependency direction remain in force.
-- Render free web services may sleep when inactive, which can delay the first request when a user returns. Hosting-tier selection should account for the product requirement that opening the breakfast log feels immediate.
+- Render free web services may sleep when inactive, which can delay the first request when a user returns. Client retries and route continuity soften that delay but do not make a sleeping service fast; hosting-tier selection should still account for the product requirement that opening the breakfast log feels immediate.

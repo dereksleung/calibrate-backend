@@ -84,6 +84,22 @@ Calibrate does not trust wildcard or sibling origins under the shared `onrender.
 
 Cookie-authenticated state-changing requests validate an exact source origin and reject missing, `null`, or unexpected origins, with `SameSite=Lax` providing an additional CSRF boundary. Native mobile requests are not subject to browser CORS. Valid bearer-authenticated mobile mutations may omit `Origin` because their credential is explicitly attached rather than automatically included by a browser. This distinction is based on the validated credential source, not solely on the platform header.
 
+### Session restoration during backend unavailability
+
+Render free web services may sleep after inactivity, so the first session check made by a returning web or mobile client can fail or time out while the service wakes. Clients distinguish this availability failure from an authentication decision.
+
+The client session state has four meaningful states: checking, authenticated, reconnecting after a transient failure, and unauthenticated after an authoritative response. A minimal persisted hint that the web client previously had a valid session may preserve the authenticated route shell during checking and reconnecting, but it is never accepted as proof by the backend and does not authorize protected data or mutations.
+
+Clients retry `GET /auth/session` for network failures, bounded request timeouts, and `5xx` responses using exponential backoff with jitter. The delay between attempts is capped at 30 seconds, retries share a single in-flight session query, and the overall automatic retry window is five minutes from the initial attempt.
+
+An explicit `401 Unauthorized` is authoritative: the client stops retrying, clears its non-authoritative authenticated hint and user query state, and presents login. Other `4xx` responses keep their own error semantics. Transient failures do not clear the web cookie, mobile bearer token, or server-side session.
+
+During the retry window, a previously authenticated client may continue displaying the authenticated route shell and already-present in-memory state with a reconnecting indication. It does not automatically replay protected mutations, and it does not treat unconfirmed local state as server authorization. A client with no previous authenticated hint displays a neutral checking state rather than assuming authentication.
+
+After five minutes without an authoritative response, automatic retries stop and the client shows a recoverable service-unavailable/session-check-failed state with an explicit retry action. Reaching this deadline does not itself log the user out or delete the credential. A later successful check restores the existing session without another OTP.
+
+The session endpoint remains idempotent from the client's perspective and sends cache controls that prevent shared intermediaries from caching user-specific authentication responses. Successful validation may still perform the existing throttled sliding-expiration renewal.
+
 ### Architecture and transaction ownership
 
 Application services coordinate challenge request, challenge verification, user lookup or creation, session creation, session validation, renewal, and revocation through ports.
@@ -92,7 +108,7 @@ Presentation owns HTTP validation, status codes, cookie creation and clearing, o
 
 Repositories own database transactions in accordance with ADR-0001. Attempt increments, successful challenge consumption, and session renewal use conditional atomic persistence so concurrent requests cannot bypass limits or consume one challenge twice.
 
-The primary behavioral test seam is the HTTP application with an injected fake email sender and controlled persistence. It covers equivalent web-cookie and mobile-bearer authentication journeys. Lower-level tests cover concurrency, expiration, key selection, platform validation, ambiguous credential rejection, and database behavior that cannot be observed reliably through one HTTP journey.
+The primary behavioral test seam is the HTTP application with an injected fake email sender and controlled persistence. It covers equivalent web-cookie and mobile-bearer authentication journeys. Client tests separately cover transient restoration retries, authoritative `401` handling, route continuity, and the five-minute degraded-state transition. Lower-level tests cover concurrency, expiration, key selection, platform validation, ambiguous credential rejection, and database behavior that cannot be observed reliably through one HTTP journey.
 
 ### Abuse controls and operations
 
@@ -221,6 +237,9 @@ Rejected for the initial implementation, but compatible with the same server-sid
 - JWT and password dependencies can be removed after the migration is complete.
 - The web API client must migrate from bearer-token injection to same-origin cookie requests. The native client uses bearer transport for an opaque server-session token. Both migrate from separate signup/login operations to the unified OTP protocol.
 - Serving the frontend and API from one Render web service simplifies browser security and deployment, but the selected hosting tier must account for wake-up latency after inactivity.
+- Session restoration tolerates a sleeping or temporarily unavailable backend without converting network failure into logout. This improves continuity but can leave the client in a visibly reconnecting state for up to five minutes.
+- A persisted authenticated hint is presentation state only. Backend session validation remains the sole authority, and protected mutations cannot rely on the hint.
+- Retry backoff reduces wake-up request bursts, but client retries do not remove Render cold-start latency or replace an always-on hosting tier.
 - Email OTP remains unsuitable as a claim of multi-factor or high-assurance identity. A future increase in data sensitivity may require passkeys, MFA, or a managed identity platform.
 
 ## Explicitly Deferred
