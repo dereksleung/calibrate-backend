@@ -55,6 +55,12 @@
       "source": "addyosmani/agent-skills",
       "sourceType": "github",
       "computedHash": "2a541c517efcf3ebc1c0fb8cb644bab1690724fb9d2f67bb6d075d6a73876ba8"
+    },
+    "to-spec": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/to-spec/SKILL.md",
+      "computedHash": "c5d294a88d00942a38dc589299423e35ea07157cf29eed21434378edb5cfafa4"
     }
   }
 }
