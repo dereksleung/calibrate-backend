@@ -3,81 +3,47 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CreateAccountForm, SignupLoginPage } from "./SignupLoginPage";
+import { SignupLoginPage, SignUpLoginForm } from "./SignupLoginPage";
 
 afterEach(cleanup);
 
 describe("SignupLoginPage", () => {
-  it("opens with Create Account before Sign In", () => {
+  it("opens on the Unified Sign Up / In tab", () => {
     expect(typeof SignupLoginPage).toBe("function");
     render(<SignupLoginPage />);
 
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((tab) => tab.textContent)).toEqual(["Create Account", "Sign In"]);
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Unified Sign Up / In"]);
     expect(tabs[0]?.getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByLabelText("Full Name")).toBeTruthy();
-    expect(screen.queryByText(/or continue with/i)).toBeNull();
-    expect(screen.queryByText(/mindfulness tip/i)).toBeNull();
   });
 });
 
-describe("CreateAccountForm", () => {
+describe("SignUpLoginForm", () => {
   it("submits only the credentials supported by the create-user contract", async () => {
-    const onCreateAccount = vi.fn().mockResolvedValue(undefined);
-    render(<CreateAccountForm onCreateAccount={onCreateAccount} />);
+    const onSubmitEmail = vi.fn().mockResolvedValue(undefined);
+    render(<SignUpLoginForm onSubmitEmail={onSubmitEmail} />);
 
-    fireEvent.change(screen.getByLabelText("Full Name"), { target: { value: "Sam Rivera" } });
     fireEvent.change(screen.getByLabelText("Email Address"), {
       target: { value: "sam@example.com" },
     });
-    fireEvent.change(screen.getByLabelText("Create Password"), {
-      target: { value: "Strong1!" },
-    });
-    fireEvent.change(screen.getByLabelText("Confirm Password"), {
-      target: { value: "Strong1!" },
-    });
+
     fireEvent.click(screen.getByRole("button", { name: /start journey/i }));
 
     await waitFor(() => {
-      expect(onCreateAccount).toHaveBeenCalledWith({
+      expect(onSubmitEmail).toHaveBeenCalledWith({
         email: "sam@example.com",
-        password: "Strong1!",
       });
     });
   });
 
-  it("shows an accessible error when passwords do not match", async () => {
-    render(<CreateAccountForm onCreateAccount={vi.fn()} />);
-
-    fireEvent.change(screen.getByLabelText("Full Name"), { target: { value: "Sam Rivera" } });
-    fireEvent.change(screen.getByLabelText("Email Address"), {
-      target: { value: "sam@example.com" },
-    });
-    fireEvent.change(screen.getByLabelText("Create Password"), {
-      target: { value: "Strong1!" },
-    });
-    fireEvent.change(screen.getByLabelText("Confirm Password"), {
-      target: { value: "Different1!" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /start journey/i }));
-
-    expect(await screen.findByText("Passwords must match")).toBeTruthy();
-  });
-
   it("shows a safe error when account creation fails", async () => {
-    const onCreateAccount = vi.fn().mockRejectedValue(new Error("Internal server detail"));
-    render(<CreateAccountForm onCreateAccount={onCreateAccount} />);
+    const onSubmitEmail = vi.fn().mockRejectedValue(new Error("Internal server detail"));
+    render(<SignUpLoginForm onSubmitEmail={onSubmitEmail} />);
 
-    fireEvent.change(screen.getByLabelText("Full Name"), { target: { value: "Sam Rivera" } });
     fireEvent.change(screen.getByLabelText("Email Address"), {
       target: { value: "sam@example.com" },
     });
-    fireEvent.change(screen.getByLabelText("Create Password"), {
-      target: { value: "Strong1!" },
-    });
-    fireEvent.change(screen.getByLabelText("Confirm Password"), {
-      target: { value: "Strong1!" },
-    });
+
     fireEvent.click(screen.getByRole("button", { name: /start journey/i }));
 
     expect((await screen.findByRole("alert")).textContent).toContain(

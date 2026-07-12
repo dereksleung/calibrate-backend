@@ -106,7 +106,10 @@ describe("email OTP verification contracts", () => {
 
     expect(result.sessionTransport).toBe("bearer");
     expect(result).toHaveProperty("sessionToken");
-    expect(result.expiresAt).toEqual(new Date("2026-08-11T12:00:00.000Z"));
+    if (result.sessionTransport !== "bearer") {
+      throw new Error("Expected bearer session");
+    }
+    expect(result.expiresAt).toEqual("2026-08-11T12:00:00.000Z");
   });
 
   it("rejects a session token on the cookie response variant", () => {

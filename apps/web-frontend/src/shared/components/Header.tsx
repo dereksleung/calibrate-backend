@@ -70,7 +70,7 @@ export default function Header() {
                 
                 <div className="flex justify-end">
                   {!isLoggedIn && (
-                    <Button size="sm">Sign Up</Button>
+                    <Button size="sm" onClick={() => navigate({ to: '/signup-login' })}>Sign Up</Button>
                   )}
                 </div>
               </>

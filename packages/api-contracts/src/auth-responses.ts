@@ -21,17 +21,17 @@ export const AuthenticatedSessionResponseSchema = z
 
 export const WebVerifyEmailOtpResponseSchema = z
   .object({
-    user: UserResponseSchema,
     sessionTransport: z.literal("cookie"),
+    user: UserResponseSchema,
   })
   .strict();
 
 export const MobileVerifyEmailOtpResponseSchema = z
   .object({
-    user: UserResponseSchema,
     sessionTransport: z.literal("bearer"),
+    user: UserResponseSchema,
     sessionToken: z.string().min(43).max(512),
-    expiresAt: z.coerce.date(),
+    expiresAt: z.string().datetime(),
   })
   .strict();
 

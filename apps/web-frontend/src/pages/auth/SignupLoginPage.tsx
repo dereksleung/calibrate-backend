@@ -1,7 +1,7 @@
-import { createUser } from "@calibrate/api-client";
-import { CreateUserRequestBodySchema, type CreateUserRequestBody } from "@calibrate/api-contracts";
+import { requestEmailOtp } from "@calibrate/api-client";
+import { RequestEmailOtpRequestBodySchema, type RequestEmailOtpRequestBody } from "@calibrate/api-contracts";
 import { useForm } from "@tanstack/react-form";
-import { ArrowRight, LockKeyhole, Mail, RotateCcwKey, UserRound } from "lucide-react";
+import { ArrowRight, Mail } from "lucide-react";
 import { useState } from "react";
 
 import { apiTransport } from "#/shared/api/api-client";
@@ -18,17 +18,14 @@ import {
 import { WarningBanner } from "#/shared/components/base/WarningBanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/shared/components/tabs/Tabs";
 
-type CreateAccountFormValues = CreateUserRequestBody & {
-  fullName: string;
-  confirmPassword: string;
+type SignUpLoginFormValues = RequestEmailOtpRequestBody;
+
+type SignUpLoginFormProps = {
+  onSubmitEmail: (credentials: RequestEmailOtpRequestBody) => Promise<unknown>;
 };
 
-type CreateAccountFormProps = {
-  onCreateAccount: (credentials: CreateUserRequestBody) => Promise<unknown>;
-};
-
-function firstContractError(field: "email" | "password", value: string): string | undefined {
-  const result = CreateUserRequestBodySchema.shape[field].safeParse(value);
+function firstContractError(field: "email", value: string): string | undefined {
+  const result = RequestEmailOtpRequestBodySchema.shape[field].safeParse(value);
   return result.success ? undefined : result.error.issues[0]?.message;
 }
 
@@ -43,23 +40,17 @@ function fieldErrors(errors: unknown[]): Array<{ message?: string }> {
   }));
 }
 
-function CreateAccountForm({ onCreateAccount }: CreateAccountFormProps) {
+function SignUpLoginForm({ onSubmitEmail }: SignUpLoginFormProps) {
   const [requestError, setRequestError] = useState<string>();
-  const [successMessage, setSuccessMessage] = useState<string>();
   const form = useForm({
     defaultValues: {
-      fullName: "",
       email: "",
-      password: "",
-      confirmPassword: "",
-    } satisfies CreateAccountFormValues,
+    } satisfies SignUpLoginFormValues,
     onSubmit: async ({ value }) => {
       setRequestError(undefined);
-      setSuccessMessage(undefined);
 
       try {
-        await onCreateAccount({ email: value.email, password: value.password });
-        setSuccessMessage(`Welcome, ${value.fullName.trim()}. Your account is ready.`);
+        await onSubmitEmail({ email: value.email });
       } catch {
         setRequestError("We couldn't create your account. Please try again.");
       }
@@ -76,53 +67,7 @@ function CreateAccountForm({ onCreateAccount }: CreateAccountFormProps) {
       }}
     >
       {requestError && <WarningBanner>{requestError}</WarningBanner>}
-      {successMessage && (
-        <p
-          role="status"
-          className="rounded-full bg-primary-fixed/70 px-md py-sm text-xs text-on-primary-fixed"
-        >
-          {successMessage}
-        </p>
-      )}
-
       <FieldGroup className="gap-lg">
-        <form.Field
-          name="fullName"
-          validators={{
-            onChange: ({ value }) =>
-              value.length > 0 && value.trim().length < 2
-                ? "Please enter your full name."
-                : undefined,
-            onSubmit: ({ value }) =>
-              value.trim().length < 2 ? "Please enter your full name." : undefined,
-          }}
-        >
-          {(field) => {
-            const isInvalid = field.state.meta.errors.length > 0;
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Full Name</FieldLabel>
-                <FieldInputWrapper>
-                  <FieldInput
-                    id={field.name}
-                    name={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    aria-invalid={isInvalid}
-                    autoComplete="name"
-                    placeholder="Your Name"
-                  />
-                  <FieldIcon>
-                    <UserRound />
-                  </FieldIcon>
-                </FieldInputWrapper>
-                {isInvalid && <FieldError errors={fieldErrors(field.state.meta.errors)} />}
-              </Field>
-            );
-          }}
-        </form.Field>
-
         <form.Field
           name="email"
           validators={{
@@ -156,78 +101,6 @@ function CreateAccountForm({ onCreateAccount }: CreateAccountFormProps) {
             );
           }}
         </form.Field>
-
-        <form.Field
-          name="password"
-          validators={{
-            onBlur: ({ value }) => firstContractError("password", value),
-            onSubmit: ({ value }) => firstContractError("password", value),
-          }}
-        >
-          {(field) => {
-            const isInvalid = field.state.meta.errors.length > 0;
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Create Password</FieldLabel>
-                <FieldInputWrapper>
-                  <FieldInput
-                    id={field.name}
-                    name={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    aria-invalid={isInvalid}
-                    autoComplete="new-password"
-                    placeholder="••••••••"
-                    type="password"
-                  />
-                  <FieldIcon>
-                    <LockKeyhole />
-                  </FieldIcon>
-                </FieldInputWrapper>
-                {isInvalid && <FieldError errors={fieldErrors(field.state.meta.errors)} />}
-              </Field>
-            );
-          }}
-        </form.Field>
-
-        <form.Field
-          name="confirmPassword"
-          validators={{
-            onChange: ({ value }) =>
-              value.length > 0 && value !== form.state.values.password
-                ? "Passwords must match"
-                : undefined,
-            onSubmit: ({ value }) =>
-              value !== form.state.values.password ? "Passwords must match" : undefined,
-          }}
-        >
-          {(field) => {
-            const isInvalid = field.state.meta.errors.length > 0;
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor={field.name}>Confirm Password</FieldLabel>
-                <FieldInputWrapper>
-                  <FieldInput
-                    id={field.name}
-                    name={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    aria-invalid={isInvalid}
-                    autoComplete="new-password"
-                    placeholder="••••••••"
-                    type="password"
-                  />
-                  <FieldIcon>
-                    <RotateCcwKey />
-                  </FieldIcon>
-                </FieldInputWrapper>
-                {isInvalid && <FieldError errors={fieldErrors(field.state.meta.errors)} />}
-              </Field>
-            );
-          }}
-        </form.Field>
       </FieldGroup>
 
       <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
@@ -242,50 +115,6 @@ function CreateAccountForm({ onCreateAccount }: CreateAccountFormProps) {
           </Button>
         )}
       </form.Subscribe>
-    </form>
-  );
-}
-
-function SignInForm() {
-  return (
-    <form
-      aria-label="Sign in"
-      className="flex flex-col gap-lg"
-      onSubmit={(event) => event.preventDefault()}
-    >
-      <FieldGroup className="gap-lg">
-        <Field>
-          <FieldLabel htmlFor="sign-in-email">Email Address</FieldLabel>
-          <FieldInputWrapper>
-            <FieldInput
-              id="sign-in-email"
-              autoComplete="email"
-              placeholder="example@calibrate.com"
-              type="email"
-            />
-            <FieldIcon>
-              <Mail />
-            </FieldIcon>
-          </FieldInputWrapper>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="sign-in-password">Password</FieldLabel>
-          <FieldInputWrapper>
-            <FieldInput
-              id="sign-in-password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              type="password"
-            />
-            <FieldIcon>
-              <LockKeyhole />
-            </FieldIcon>
-          </FieldInputWrapper>
-        </Field>
-      </FieldGroup>
-      <Button className="mt-md h-14 rounded-full text-xs" type="submit">
-        Sign In
-      </Button>
     </form>
   );
 }
@@ -334,18 +163,14 @@ function SignupLoginPage() {
         </header>
 
         <section className="glass-card rounded-4xl p-lg md:p-xl" aria-label="Authentication">
-          <Tabs defaultValue="create-account">
+          <Tabs defaultValue="unified-sign-up-in">
             <TabsList aria-label="Authentication method" className="mb-xl">
-              <TabsTrigger value="create-account">Create Account</TabsTrigger>
-              <TabsTrigger value="sign-in">Sign In</TabsTrigger>
+              <TabsTrigger value="unified-sign-up-in">Unified Sign Up / In</TabsTrigger>
             </TabsList>
-            <TabsContent value="create-account">
-              <CreateAccountForm
-                onCreateAccount={(credentials) => createUser(apiTransport, credentials)}
+            <TabsContent value="unified-sign-up-in">
+              <SignUpLoginForm
+                onSubmitEmail={(credentials) => requestEmailOtp(apiTransport, credentials)}
               />
-            </TabsContent>
-            <TabsContent value="sign-in">
-              <SignInForm />
             </TabsContent>
           </Tabs>
         </section>
@@ -358,4 +183,4 @@ function SignupLoginPage() {
   );
 }
 
-export { CreateAccountForm, SignupLoginPage };
+export { SignUpLoginForm, SignupLoginPage };
