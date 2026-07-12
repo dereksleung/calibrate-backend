@@ -10,7 +10,9 @@ Current known contexts:
 
 | Context | Project root | ADRs |
 | ------- | ------------ | ---- |
+| Repo-wide or multi-project | `../..` | `docs/adr/` |
 | Backend | `apps/backend/` | `apps/backend/docs/adr/` |
+| Web frontend | `apps/web-frontend/` | `apps/web-frontend/docs/adr/` |
 
 ## Before exploring, read these
 
