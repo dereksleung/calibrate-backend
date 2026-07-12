@@ -103,11 +103,6 @@
   background: radial-gradient(circle at top, #caecbc 0%, #f9f9f9 60%);
 }
 
-@media (min-width: 48rem) {
-  .auth-page-background {
-    background: radial-gradient(circle at top left, #caecbc 0%, #f9f9f9 50%, #dee4e0 100%);
-  }
-}
 .chart-gradient-primary {
   background: linear-gradient(180deg, #334f2b 0%, #caecbc 100%);
 }
