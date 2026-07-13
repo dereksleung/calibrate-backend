@@ -14,6 +14,7 @@ import { Route as LogsRouteImport } from './routes/logs'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthOtpRouteImport } from './routes/auth/otp'
 
 const SignupLoginRoute = SignupLoginRouteImport.update({
   id: '/signup-login',
@@ -40,6 +41,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthOtpRoute = AuthOtpRouteImport.update({
+  id: '/auth/otp',
+  path: '/auth/otp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/goals': typeof GoalsRoute
   '/logs': typeof LogsRoute
   '/signup-login': typeof SignupLoginRoute
+  '/auth/otp': typeof AuthOtpRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/goals': typeof GoalsRoute
   '/logs': typeof LogsRoute
   '/signup-login': typeof SignupLoginRoute
+  '/auth/otp': typeof AuthOtpRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,21 @@ export interface FileRoutesById {
   '/goals': typeof GoalsRoute
   '/logs': typeof LogsRoute
   '/signup-login': typeof SignupLoginRoute
+  '/auth/otp': typeof AuthOtpRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/goals' | '/logs' | '/signup-login'
+  fullPaths: '/' | '/about' | '/goals' | '/logs' | '/signup-login' | '/auth/otp'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/goals' | '/logs' | '/signup-login'
-  id: '__root__' | '/' | '/about' | '/goals' | '/logs' | '/signup-login'
+  to: '/' | '/about' | '/goals' | '/logs' | '/signup-login' | '/auth/otp'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/goals'
+    | '/logs'
+    | '/signup-login'
+    | '/auth/otp'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +93,7 @@ export interface RootRouteChildren {
   GoalsRoute: typeof GoalsRoute
   LogsRoute: typeof LogsRoute
   SignupLoginRoute: typeof SignupLoginRoute
+  AuthOtpRoute: typeof AuthOtpRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +133,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/otp': {
+      id: '/auth/otp'
+      path: '/auth/otp'
+      fullPath: '/auth/otp'
+      preLoaderRoute: typeof AuthOtpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +149,7 @@ const rootRouteChildren: RootRouteChildren = {
   GoalsRoute: GoalsRoute,
   LogsRoute: LogsRoute,
   SignupLoginRoute: SignupLoginRoute,
+  AuthOtpRoute: AuthOtpRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

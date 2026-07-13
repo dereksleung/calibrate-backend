@@ -1,4 +1,4 @@
-import { mutationOptions, useMutation } from "@tanstack/react-query";
+import { MutationOptions, mutationOptions, useMutation } from "@tanstack/react-query";
 import { ApiTransport } from "../transport.js";
 import { 
   RequestEmailOtpRequestBodySchema,
@@ -21,13 +21,14 @@ export function requestEmailOtp(
   });
 }
 
-export function getRequestEmailOtpMutationOptions(transport: ApiTransport, email: string) {
+export function getRequestEmailOtpMutationOptions(transport: ApiTransport, options?: MutationOptions<RequestEmailOtpResponse, unknown, string>) {
   return mutationOptions({
-    mutationKey: ["requestEmailOtp", email],
-    mutationFn: () => requestEmailOtp(transport, { email }),
+    mutationKey: ["requestEmailOtp"],
+    mutationFn: (email: string) => requestEmailOtp(transport, { email }),
+    ...options,
   });
 }
 
-export function useRequestEmailOtp(transport: ApiTransport, email: string) {
-  return useMutation(getRequestEmailOtpMutationOptions(transport, email));
+export function useRequestEmailOtp(transport: ApiTransport, options?: MutationOptions<RequestEmailOtpResponse, unknown, string>) {
+  return useMutation(getRequestEmailOtpMutationOptions(transport, options));
 }

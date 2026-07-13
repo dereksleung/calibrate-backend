@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { UserResponseSchema, type UserResponse } from "./user-responses.js";
 
+// Cookie-based sessions are used for web clients, while bearer token-based sessions are used for mobile clients. 
+// The session transport is determined by the client platform and is included in the response to indicate how the session should be handled.
 export const SessionTransportSchema = z.enum(["cookie", "bearer"]);
 
 export const RequestEmailOtpResponseSchema = z

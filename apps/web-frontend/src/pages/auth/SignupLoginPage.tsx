@@ -1,4 +1,4 @@
-import { requestEmailOtp } from "@calibrate/api-client";
+import { requestEmailOtp, useRequestEmailOtp } from "@calibrate/api-client";
 import { RequestEmailOtpRequestBodySchema, type RequestEmailOtpRequestBody } from "@calibrate/api-contracts";
 import { useForm } from "@tanstack/react-form";
 import { ArrowRight, Mail } from "lucide-react";
@@ -17,12 +17,9 @@ import {
 } from "#/shared/components/base/Field";
 import { WarningBanner } from "#/shared/components/base/WarningBanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/shared/components/tabs/Tabs";
+import { useNavigate } from "@tanstack/react-router";
 
 type SignUpLoginFormValues = RequestEmailOtpRequestBody;
-
-type SignUpLoginFormProps = {
-  onSubmitEmail: (credentials: RequestEmailOtpRequestBody) => Promise<unknown>;
-};
 
 function firstContractError(field: "email", value: string): string | undefined {
   const result = RequestEmailOtpRequestBodySchema.shape[field].safeParse(value);
@@ -40,17 +37,29 @@ function fieldErrors(errors: unknown[]): Array<{ message?: string }> {
   }));
 }
 
-function SignUpLoginForm({ onSubmitEmail }: SignUpLoginFormProps) {
+function SignUpLoginForm() {
   const [requestError, setRequestError] = useState<string>();
+  const navigate = useNavigate();
+
+  const { mutateAsync: onSubmitEmail } = useRequestEmailOtp(apiTransport, {
+    onSuccess: () => {
+      navigate({ to: "/auth/otp" });
+    },
+    onError: (error) => {
+      console.log("🚀 ~ SignUpLoginForm ~ error:", error)
+      setRequestError("We couldn't create your account. Please try again.");
+    }
+  }); 
+
   const form = useForm({
     defaultValues: {
       email: "",
     } satisfies SignUpLoginFormValues,
     onSubmit: async ({ value }) => {
       setRequestError(undefined);
-
+      navigate({ to: "/auth/otp" });
       try {
-        await onSubmitEmail({ email: value.email });
+        await onSubmitEmail(value.email);
       } catch {
         setRequestError("We couldn't create your account. Please try again.");
       }
