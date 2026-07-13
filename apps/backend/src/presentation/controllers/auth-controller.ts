@@ -1,13 +1,46 @@
+import {
+  AppPlatformHeaderValueSchema,
+  LoginRequestBodySchema,
+  RequestEmailOtpRequestBodySchema,
+  type LoginResponse,
+  type RequestEmailOtpResponse,
+} from "@calibrate/api-contracts";
 import { handleControllerError } from "@common";
-import { IAuthService } from "@services";
+import { IAuthService, IEmailOtpService } from "@services";
 import { validate } from "@validation";
 import { Request, Response } from "express";
 
-import { LoginRequestBodySchema, type LoginResponse } from "@calibrate/api-contracts";
 import { UserResponseMapper } from "../mappers/user-response-mapper.js";
 
 export class AuthController {
-  constructor(private readonly authService: IAuthService) {}
+  constructor(
+    private readonly authService: IAuthService,
+    private readonly emailOtpService: IEmailOtpService,
+  ) {}
+
+  async requestEmailOtp(req: Request, res: Response): Promise<void> {
+    const validatedBody = validate(RequestEmailOtpRequestBodySchema, req.body);
+    const platformHeader = req.get("X-App-Platform");
+    const validatedPlatform = platformHeader
+      ? AppPlatformHeaderValueSchema.safeParse(platformHeader)
+      : { success: true as const, data: null };
+
+    if (!validatedBody.isValid || !validatedPlatform.success) {
+      res.status(400).json({ error: "Validation failed" });
+      return;
+    }
+
+    try {
+      const response: RequestEmailOtpResponse = await this.emailOtpService.request({
+        email: validatedBody.data.email,
+        platform: validatedPlatform.data,
+        requestingIp: req.ip ?? null,
+      });
+      res.status(202).json(response);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  }
 
   async login(req: Request, res: Response): Promise<void> {
     try {

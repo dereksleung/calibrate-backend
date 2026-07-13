@@ -3,11 +3,18 @@ import {
   IDayLogRepository,
   IPasswordHasher,
   IAuthService,
+  IEmailOtpService,
   IUserRepository,
   IUserService,
 } from "@application";
 import { AuthController, DayLogController, UserController } from "@controllers";
-import { AuthServiceImpl, IDayLogService, DayLogServiceImpl, UserServiceImpl } from "@services";
+import {
+  AuthServiceImpl,
+  IDayLogService,
+  DayLogServiceImpl,
+  UnavailableEmailOtpService,
+  UserServiceImpl,
+} from "@services";
 
 import { PostgresDayLogRepository, PostgresUserRepository } from "./persistence/repositories/index.js";
 import { Argon2PasswordHasher, JoseAccessTokenService } from "./security/index.js";
@@ -16,6 +23,7 @@ export class Container {
   private readonly accessTokenService: IAccessTokenService;
   private readonly authController: AuthController;
   private readonly authService: IAuthService;
+  private readonly emailOtpService: IEmailOtpService;
   private readonly dayLogRepository: IDayLogRepository;
   private readonly dayLogService: IDayLogService;
   private readonly dayLogController: DayLogController;
@@ -28,6 +36,7 @@ export class Container {
     accessTokenService,
     authController,
     authService,
+    emailOtpService,
     dayLogRepository,
     dayLogService,
     dayLogController,
@@ -39,6 +48,7 @@ export class Container {
     accessTokenService?: IAccessTokenService;
     authController?: AuthController;
     authService?: IAuthService;
+    emailOtpService?: IEmailOtpService;
     dayLogRepository?: IDayLogRepository;
     dayLogService?: IDayLogService;
     dayLogController?: DayLogController;
@@ -56,7 +66,8 @@ export class Container {
     this.accessTokenService = accessTokenService ?? new JoseAccessTokenService();
     this.authService =
       authService ?? new AuthServiceImpl(this.passwordHasher, this.userRepository, this.accessTokenService);
-    this.authController = authController ?? new AuthController(this.authService);
+    this.emailOtpService = emailOtpService ?? new UnavailableEmailOtpService();
+    this.authController = authController ?? new AuthController(this.authService, this.emailOtpService);
     this.userService = userService ?? new UserServiceImpl(this.passwordHasher, this.userRepository);
     this.userController = userController ?? new UserController(this.userService);
   }
@@ -69,6 +80,9 @@ export class Container {
   }
   getAuthService(): IAuthService {
     return this.authService;
+  }
+  getEmailOtpService(): IEmailOtpService {
+    return this.emailOtpService;
   }
   getDayLogService(): IDayLogService {
     return this.dayLogService;

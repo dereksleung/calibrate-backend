@@ -1,4 +1,4 @@
-import { AuthenticationError } from "@application";
+import { AuthenticationError, RateLimitError, ServiceUnavailableError } from "@application";
 import { BusinessLogicError } from "@domain";
 import { Response } from "express";
 
@@ -6,6 +6,14 @@ export function handleControllerError(error: unknown, res: Response): void {
   if (error instanceof Error) {
     if (error instanceof AuthenticationError) {
       res.status(401).json({ error: error.message });
+      return;
+    }
+    if (error instanceof RateLimitError) {
+      res.status(429).json({ error: error.message });
+      return;
+    }
+    if (error instanceof ServiceUnavailableError) {
+      res.status(503).json({ error: error.message });
       return;
     }
     if (error.message.includes("not found")) {
