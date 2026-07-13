@@ -5,10 +5,12 @@ import { Pool } from "pg";
 import { DayLogsTable } from "./schemas/day-logs-table.js";
 import { EmailOtpChallengesTable } from "./schemas/email-otp-challenges-table.js";
 import { FoodEntriesTable } from "./schemas/food-entries-table.js";
+import { SessionsTable } from "./schemas/sessions-table.js";
 import { UsersTable } from "./schemas/users-table.js";
 
 export interface Database {
   email_otp_challenges: EmailOtpChallengesTable;
+  sessions: SessionsTable;
   users: UsersTable;
   food_entries: FoodEntriesTable;
   day_logs: DayLogsTable;

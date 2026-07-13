@@ -4,7 +4,8 @@ import { ColumnType, Generated, Selectable, Insertable, Updateable } from "kysel
 export interface UsersTable {
   id: Generated<string>;
   email: string;
-  password_hash: string;
+  password_hash: string | null;
+  email_verified_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
   tier: UserTierEnumType;
   created_at: ColumnType<Date, string, never>;
   updated_at: ColumnType<Date, string, Date>;

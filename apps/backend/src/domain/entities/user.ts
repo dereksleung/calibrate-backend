@@ -3,7 +3,8 @@ import { UserTier, UserTierEnumType, UserTierSchema } from "../value-objects/use
 export interface UserProps {
   id: string;
   email: string;
-  passwordHash: string;
+  passwordHash: string | null;
+  emailVerifiedAt?: Date | null;
   tier: UserTierEnumType;
   createdAt: Date;
   updatedAt: Date;
@@ -17,15 +18,17 @@ export interface CreateUserProps {
 export class User {
   private readonly _id: string;
   private readonly _email: string;
-  private readonly _passwordHash: string;
+  private readonly _passwordHash: string | null;
+  private readonly _emailVerifiedAt: Date | null;
   private readonly _tier: UserTier;
   private readonly _createdAt: Date;
   private readonly _updatedAt: Date;
 
-  private constructor({ id, email, passwordHash, tier, createdAt, updatedAt }: UserProps) {
+  private constructor({ id, email, passwordHash, emailVerifiedAt, tier, createdAt, updatedAt }: UserProps) {
     this._id = id;
     this._email = email;
     this._passwordHash = passwordHash;
+    this._emailVerifiedAt = emailVerifiedAt ?? null;
     this._tier = UserTier.from(tier);
     this._createdAt = createdAt;
     this._updatedAt = updatedAt;
@@ -39,6 +42,7 @@ export class User {
       id: crypto.randomUUID(),
       email: props.email,
       passwordHash: props.passwordHash,
+      emailVerifiedAt: null,
       tier: UserTierSchema.enum.FREE,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -51,8 +55,11 @@ export class User {
   public get email(): string {
     return this._email;
   }
-  public get passwordHash(): string {
+  public get passwordHash(): string | null {
     return this._passwordHash;
+  }
+  public get emailVerifiedAt(): Date | null {
+    return this._emailVerifiedAt;
   }
   public get tier(): UserTier {
     return this._tier;

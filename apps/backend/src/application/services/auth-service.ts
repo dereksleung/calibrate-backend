@@ -21,7 +21,7 @@ export class AuthServiceImpl implements IAuthService {
   async login(props: LoginRequestDto): Promise<LoginResultDto> {
     const user = await this.userRepository.findByEmail(props.email);
 
-    if (!user) {
+    if (!user || !user.passwordHash) {
       throw new AuthenticationError("Invalid email or password");
     }
 

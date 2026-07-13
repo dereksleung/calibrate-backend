@@ -25,9 +25,13 @@ describe("AuthController", () => {
     } as any;
     mockEmailOtpService = {
       request: vi.fn(),
+      verify: vi.fn(),
     } as any;
 
-    authController = new AuthController(mockAuthService, mockEmailOtpService);
+    authController = new AuthController(mockAuthService, mockEmailOtpService, {
+      webOrigin: "http://localhost:3000",
+      sessionCookie: { name: "calibrate_session", secure: false },
+    });
   });
 
   it("returns 202 for a web email OTP request", async () => {
@@ -69,6 +73,136 @@ describe("AuthController", () => {
 
     expect(mockEmailOtpService.request).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  it("sets a persistent HttpOnly cookie without exposing the web session token", async () => {
+    mockEmailOtpService.verify.mockResolvedValue({
+      user,
+      sessionTransport: "cookie",
+      sessionToken: "opaque-secret-token",
+      expiresAt: new Date("2026-08-11T12:00:00.000Z"),
+    });
+    const req = {
+      body: { challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "123456" },
+      get: vi.fn((name: string) => (name === "Origin" ? "http://localhost:3000" : undefined)),
+    } as unknown as Request;
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      cookie: vi.fn(),
+      set: vi.fn(),
+    } as any;
+
+    await authController.verifyEmailOtp(req, res);
+
+    expect(res.cookie).toHaveBeenCalledWith("calibrate_session", "opaque-secret-token", {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+      path: "/",
+      expires: new Date("2026-08-11T12:00:00.000Z"),
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.set).toHaveBeenCalledWith("Cache-Control", "no-store");
+    expect(res.json).toHaveBeenCalledWith({
+      sessionTransport: "cookie",
+      user: {
+        id: "user-1",
+        email: "existing@example.com",
+        tier: "FREE",
+        createdAt: new Date("2026-03-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+      },
+    });
+  });
+
+  it("rejects missing or unexpected origins before web verification", async () => {
+    for (const origin of [undefined, "null", "https://evil.example"]) {
+      const req = {
+        body: { challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "123456" },
+        get: vi.fn((name: string) => (name === "Origin" ? origin : undefined)),
+      } as unknown as Request;
+      const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+
+      await authController.verifyEmailOtp(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+    }
+    expect(mockEmailOtpService.verify).not.toHaveBeenCalled();
+  });
+
+  it("returns the opaque token for mobile without requiring Origin or setting a cookie", async () => {
+    mockEmailOtpService.verify.mockResolvedValue({
+      user,
+      sessionTransport: "bearer",
+      sessionToken: "opaque-mobile-session-token-with-more-than-43-characters",
+      expiresAt: new Date("2026-08-11T12:00:00.000Z"),
+    });
+    const req = {
+      body: { challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "123456" },
+      get: vi.fn((name: string) => (name === "X-App-Platform" ? "ios" : undefined)),
+    } as unknown as Request;
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      cookie: vi.fn(),
+      set: vi.fn(),
+    } as any;
+
+    await authController.verifyEmailOtp(req, res);
+
+    expect(mockEmailOtpService.verify).toHaveBeenCalledWith({
+      challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31",
+      code: "123456",
+      platform: "ios",
+    });
+    expect(res.cookie).not.toHaveBeenCalled();
+    expect(res.set).toHaveBeenCalledWith("Cache-Control", "no-store");
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionTransport: "bearer",
+        sessionToken: "opaque-mobile-session-token-with-more-than-43-characters",
+        expiresAt: "2026-08-11T12:00:00.000Z",
+      }),
+    );
+  });
+
+  it("rejects malformed verification input and unknown mobile platforms", async () => {
+    const requests = [
+      {
+        body: { challengeId: "not-a-uuid", code: "123456" },
+        get: vi.fn().mockReturnValue(undefined),
+      },
+      {
+        body: { challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "12345" },
+        get: vi.fn().mockReturnValue(undefined),
+      },
+      {
+        body: { challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "123456" },
+        get: vi.fn((name: string) => (name === "X-App-Platform" ? "windows" : undefined)),
+      },
+    ];
+
+    for (const request of requests) {
+      const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+      await authController.verifyEmailOtp(request as unknown as Request, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    }
+    expect(mockEmailOtpService.verify).not.toHaveBeenCalled();
+  });
+
+  it("returns one generic unauthorized response for failed verification", async () => {
+    mockEmailOtpService.verify.mockRejectedValue(new AuthenticationError("Invalid or expired code"));
+    const req = {
+      body: { challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "123456" },
+      get: vi.fn((name: string) => (name === "Origin" ? "http://localhost:3000" : undefined)),
+    } as unknown as Request;
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+
+    await authController.verifyEmailOtp(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: "Invalid or expired code" });
   });
 
   it("should return a bearer token response for valid credentials", async () => {

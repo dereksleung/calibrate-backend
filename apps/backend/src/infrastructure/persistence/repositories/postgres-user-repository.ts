@@ -42,6 +42,7 @@ export class PostgresUserRepository implements IUserRepository {
       id: userRow.id,
       email: userRow.email,
       passwordHash: userRow.password_hash,
+      emailVerifiedAt: userRow.email_verified_at,
       tier: userRow.tier,
       createdAt: new Date(userRow.created_at),
       updatedAt: new Date(userRow.updated_at),
