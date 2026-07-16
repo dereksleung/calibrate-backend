@@ -73,7 +73,7 @@ See `PostgresDayLogRepository.addFoodEntry()` in `apps/backend/src/infrastructur
 
 ## Consequences
 
-- Backend changes must preserve inward-pointing source-code dependencies: `presentation` may depend on `application`; `application` may depend on `domain` and `infrastructure`; `domain` must not depend on `application`, `infrastructure`, or `presentation`.
+- Backend changes must preserve inward-pointing source-code dependencies: presentation may depend on application; infrastructure may depend on application and domain, application may depend on domain; domain must not depend on application, infrastructure, or presentation.
 - Mutations to aggregate children should go through their aggregate root repository from the application layer.
 - Cross-aggregate business rules belong in application services unless a later ADR establishes a different pattern.
 - Repository abstractions should speak in domain terms; table-oriented DAOs remain infrastructure implementation details.
