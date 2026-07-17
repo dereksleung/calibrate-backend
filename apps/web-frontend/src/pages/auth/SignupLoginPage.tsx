@@ -1,4 +1,4 @@
-import { requestEmailOtp, useRequestEmailOtp } from "@calibrate/api-client";
+import { useRequestEmailOtp } from "@calibrate/api-client";
 import { RequestEmailOtpRequestBodySchema, type RequestEmailOtpRequestBody } from "@calibrate/api-contracts";
 import { useForm } from "@tanstack/react-form";
 import { ArrowRight, Mail } from "lucide-react";
@@ -177,9 +177,7 @@ function SignupLoginPage() {
               <TabsTrigger value="unified-sign-up-in">Unified Sign Up / In</TabsTrigger>
             </TabsList>
             <TabsContent value="unified-sign-up-in">
-              <SignUpLoginForm
-                onSubmitEmail={(credentials) => requestEmailOtp(apiTransport, credentials)}
-              />
+              <SignUpLoginForm />
             </TabsContent>
           </Tabs>
         </section>

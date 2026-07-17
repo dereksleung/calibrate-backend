@@ -58,14 +58,12 @@ describe("getRequestEmailOtpMutationOptions", () => {
 
     const options = getRequestEmailOtpMutationOptions(
       transport,
-      "person@example.com",
     );
 
     expect(options.mutationKey).toEqual([
       "requestEmailOtp",
-      "person@example.com",
     ]);
-    await expect(options.mutationFn?.({} as never)).resolves.toEqual({
+    await expect(options.mutationFn?.("person@example.com", {} as any)).resolves.toEqual({
       challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
       expiresInSeconds: 600,
       resendAfterSeconds: 60,

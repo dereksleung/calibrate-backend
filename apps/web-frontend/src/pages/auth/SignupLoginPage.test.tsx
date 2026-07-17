@@ -5,7 +5,33 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SignupLoginPage, SignUpLoginForm } from "./SignupLoginPage";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+const { mockMutateAsync, mockNavigate } = vi.hoisted(() => ({
+  mockMutateAsync: vi.fn(),
+  mockNavigate: vi.fn(),
+}));
+
+vi.mock("@calibrate/api-client", async (importOriginal) => {
+  const original = await importOriginal() as any;
+  return {
+    ...original,
+    useRequestEmailOtp: vi.fn(() => ({
+      mutateAsync: mockMutateAsync,
+    })),
+  };
+});
+
+vi.mock("@tanstack/react-router", async (importOriginal) => {
+  const original = await importOriginal() as any;
+  return {
+    ...original,
+    useNavigate: vi.fn(() => mockNavigate),
+  };
+});
 
 describe("SignupLoginPage", () => {
   it("opens on the Unified Sign Up / In tab", () => {
@@ -20,8 +46,7 @@ describe("SignupLoginPage", () => {
 
 describe("SignUpLoginForm", () => {
   it("submits only the credentials supported by the create-user contract", async () => {
-    const onSubmitEmail = vi.fn().mockResolvedValue(undefined);
-    render(<SignUpLoginForm onSubmitEmail={onSubmitEmail} />);
+    render(<SignUpLoginForm />);
 
     fireEvent.change(screen.getByLabelText("Email Address"), {
       target: { value: "sam@example.com" },
@@ -30,15 +55,13 @@ describe("SignUpLoginForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /start journey/i }));
 
     await waitFor(() => {
-      expect(onSubmitEmail).toHaveBeenCalledWith({
-        email: "sam@example.com",
-      });
+      expect(mockMutateAsync).toHaveBeenCalledWith("sam@example.com");
     });
   });
 
   it("shows a safe error when account creation fails", async () => {
-    const onSubmitEmail = vi.fn().mockRejectedValue(new Error("Internal server detail"));
-    render(<SignUpLoginForm onSubmitEmail={onSubmitEmail} />);
+    mockMutateAsync.mockRejectedValue(new Error("Internal server detail"));
+    render(<SignUpLoginForm />);
 
     fireEvent.change(screen.getByLabelText("Email Address"), {
       target: { value: "sam@example.com" },
