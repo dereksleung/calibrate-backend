@@ -1,4 +1,4 @@
-import type { AppPlatformHeaderValue, SessionTransport } from "@calibrate/api-contracts";
+import type { MobilePlatform, SessionTransport } from "@application";
 import type { User } from "@domain";
 
 export interface NewEmailOtpChallenge {
@@ -11,7 +11,7 @@ export interface NewEmailOtpChallenge {
   attemptCount: number;
   maxAttempts: number;
   sessionTransport: SessionTransport;
-  mobilePlatform: AppPlatformHeaderValue | null;
+  mobilePlatform: MobilePlatform | null;
   requestingIp: string | null;
   expiresAt: Date;
   createdAt: Date;
@@ -27,7 +27,7 @@ export interface EmailOtpChallenge {
   attemptCount: number;
   maxAttempts: number;
   sessionTransport: SessionTransport;
-  mobilePlatform: AppPlatformHeaderValue | null;
+  mobilePlatform: MobilePlatform | null;
   expiresAt: Date;
   consumedAt: Date | null;
   invalidatedAt: Date | null;
@@ -36,7 +36,7 @@ export interface EmailOtpChallenge {
 export interface NewAuthenticatedSession {
   tokenDigest: string;
   transport: SessionTransport;
-  mobilePlatform: AppPlatformHeaderValue | null;
+  mobilePlatform: MobilePlatform | null;
   createdAt: Date;
   lastSeenAt: Date;
   inactivityExpiresAt: Date;

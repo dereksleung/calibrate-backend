@@ -1,5 +1,5 @@
-import type { AppPlatformHeaderValue, SessionTransport } from "@calibrate/api-contracts";
 import type { ColumnType, Generated } from "kysely";
+import { MobilePlatform, SessionTransport } from "src/application/auth/session-client.js";
 
 export interface EmailOtpChallengesTable {
   id: string;
@@ -11,7 +11,7 @@ export interface EmailOtpChallengesTable {
   attempt_count: Generated<number>;
   max_attempts: number;
   session_transport: SessionTransport;
-  mobile_platform: AppPlatformHeaderValue | null;
+  mobile_platform: MobilePlatform | null;
   requesting_ip_digest: string | null;
   expires_at: ColumnType<Date, Date, never>;
   consumed_at: ColumnType<Date | null, Date | null, Date | null>;
