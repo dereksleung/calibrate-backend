@@ -92,6 +92,7 @@ export class EmailOtpServiceImpl implements IEmailOtpService {
         email,
         code: generated.code,
         expiresInMinutes: CHALLENGE_LIFETIME_SECONDS / 60,
+        deliveryId: generated.challengeId,
       });
     } catch (error) {
       await this.challengeRepository.invalidate(generated.challengeId, this.clock.now());

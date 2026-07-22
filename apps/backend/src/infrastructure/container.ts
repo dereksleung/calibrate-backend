@@ -10,6 +10,7 @@ import {
   IClock,
   IEmailSender,
   ISessionTokenService,
+  SystemClock,
 } from "@application";
 import { AuthController, DayLogController, UserController } from "@controllers";
 import dotenvx from "@dotenvx/dotenvx";
@@ -33,6 +34,7 @@ import {
   NodeEmailOtpCodeService,
   NodeSessionTokenService,
 } from "./security/index.js";
+import { BrevoEmailSender } from "./email/brevo-email-sender.js";
 
 const encodedKey = dotenvx.get("OTP_HMAC_KEY");
 
@@ -52,18 +54,13 @@ const otpHmacKey = createSecretKey(keyBytes);
 const nodeEnvironment = dotenvx.get("NODE_ENV") ?? "development";
 const configuredWebOrigin = dotenvx.get("WEB_APP_ORIGIN");
 const webOrigin = configuredWebOrigin ?? (nodeEnvironment === "development" ? "http://localhost:3000" : null);
+const emailServiceCredential = dotenvx.get("EMAIL_SERVICE_CREDENTIAL");
 
 if (!webOrigin) {
   throw new Error("WEB_APP_ORIGIN is not configured");
 }
 
 const secureSessionCookie = new URL(webOrigin).protocol === "https:";
-
-class UnavailableEmailSender implements IEmailSender {
-  async sendAuthenticationCode(): Promise<void> {
-    throw new Error("Email delivery is not configured");
-  }
-}
 
 export class Container {
   private readonly accessTokenService: IAccessTokenService;
@@ -131,8 +128,8 @@ export class Container {
       new EmailOtpServiceImpl(
         new PostgresEmailOtpChallengeRepository(),
         this.emailOtpCodeService,
-        emailSender ?? new UnavailableEmailSender(),
-        clock ?? { now: () => new Date() },
+        emailSender ?? new BrevoEmailSender(emailServiceCredential),
+        clock ?? new SystemClock(),
         this.sessionTokenService,
       );
 

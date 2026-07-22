@@ -75,6 +75,7 @@ describe("EmailOtpServiceImpl", () => {
       email: "person@example.com",
       code: "012345",
       expiresInMinutes: 10,
+      deliveryId: "d9428888-122b-4e2b-9c24-2dc8442eaa31",
     });
     expect(result).toEqual({
       challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31",

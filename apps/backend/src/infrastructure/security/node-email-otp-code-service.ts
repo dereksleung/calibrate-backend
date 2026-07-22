@@ -27,7 +27,7 @@ export class NodeEmailOtpCodeService implements IEmailOtpCodeService {
   }
 
   createChallenge(purpose: "authentication"): CreatedEmailOtpCode {
-    const challengeId = randomUUID();
+    const challengeId = randomUUID(); // UUID used also as as an idempotency key for the email delivery
     const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
     const message = JSON.stringify(["email-otp", HMAC_FORMAT_VERSION, purpose, challengeId, code]);
 
