@@ -62,7 +62,7 @@
       "cache": true,
       "options": {
         "cwd": "apps/backend",
-        "command": "vitest run --passWithNoTests \"src/**/*.integration.test.ts\" \"integration/**/*.test.ts\" \"test/integration/**/*.test.ts\""
+        "command": "vitest run --config vitest.integration.config.ts"
       }
     },
     "test:e2e": {

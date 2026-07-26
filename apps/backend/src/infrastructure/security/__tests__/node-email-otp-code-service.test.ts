@@ -8,13 +8,19 @@ describe("NodeEmailOtpCodeService", () => {
     const key = createSecretKey(keyBytes);
     const service = new NodeEmailOtpCodeService({ key, keyVersion: 3 });
 
-    const result = service.createChallenge("authentication");
-    const message = JSON.stringify(["email-otp", 1, "authentication", result.challengeId, result.code]);
+    const result = service.createChallenge("signup-email-verification");
+    const message = JSON.stringify([
+      "calibrate-email-otp",
+      2,
+      "signup-email-verification",
+      result.challengeId,
+      result.code,
+    ]);
 
     expect(result.challengeId).toMatch(/^[0-9a-f-]{36}$/);
     expect(result.code).toMatch(/^\d{6}$/);
     expect(result.codeDigest).toBe(createHmac("sha256", keyBytes).update(message).digest("base64url"));
-    expect(result.hmacFormatVersion).toBe(1);
+    expect(result.hmacFormatVersion).toBe(2);
     expect(result.hmacKeyVersion).toBe(3);
   });
 
@@ -34,7 +40,13 @@ describe("NodeEmailOtpCodeService", () => {
     });
     const challengeId = "d9428888-122b-4e2b-9c24-2dc8442eaa31";
     const code = "012345";
-    const message = JSON.stringify(["email-otp", 1, "authentication", challengeId, code]);
+    const message = JSON.stringify([
+      "calibrate-email-otp",
+      2,
+      "signup-email-verification",
+      challengeId,
+      code,
+    ]);
     const codeDigest = createHmac("sha256", oldKey).update(message).digest("base64url");
 
     expect(
@@ -42,8 +54,8 @@ describe("NodeEmailOtpCodeService", () => {
         challengeId,
         code,
         codeDigest,
-        purpose: "authentication",
-        hmacFormatVersion: 1,
+        purpose: "signup-email-verification",
+        hmacFormatVersion: 2,
         hmacKeyVersion: 2,
       }),
     ).toBe(true);
@@ -52,9 +64,29 @@ describe("NodeEmailOtpCodeService", () => {
         challengeId,
         code: "999999",
         codeDigest,
-        purpose: "authentication",
-        hmacFormatVersion: 1,
+        purpose: "signup-email-verification",
+        hmacFormatVersion: 2,
         hmacKeyVersion: 2,
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects legacy format-one authentication challenges", () => {
+    const key = createSecretKey(Buffer.alloc(32, 7));
+    const service = new NodeEmailOtpCodeService({ key, keyVersion: 1 });
+    const challengeId = "d9428888-122b-4e2b-9c24-2dc8442eaa31";
+    const code = "012345";
+    const legacyMessage = JSON.stringify(["email-otp", 1, "authentication", challengeId, code]);
+    const codeDigest = createHmac("sha256", key).update(legacyMessage).digest("base64url");
+
+    expect(
+      service.verifyChallenge({
+        challengeId,
+        code,
+        codeDigest,
+        purpose: "signup-email-verification",
+        hmacFormatVersion: 1,
+        hmacKeyVersion: 1,
       }),
     ).toBe(false);
   });

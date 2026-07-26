@@ -1,10 +1,12 @@
 import type { MobilePlatform, SessionTransport } from "@application";
-import type { User } from "@domain";
+
+export type SignupEmailVerificationPurpose = "signup-email-verification";
+export type EmailOtpPurpose = "authentication" | SignupEmailVerificationPurpose;
 
 export interface NewEmailOtpChallenge {
   id: string;
   email: string;
-  purpose: "authentication";
+  purpose: SignupEmailVerificationPurpose;
   codeDigest: string;
   hmacFormatVersion: number;
   hmacKeyVersion: number;
@@ -12,7 +14,7 @@ export interface NewEmailOtpChallenge {
   maxAttempts: number;
   sessionTransport: SessionTransport;
   mobilePlatform: MobilePlatform | null;
-  requestingIp: string | null;
+  requestingIp: string;
   expiresAt: Date;
   createdAt: Date;
 }
@@ -20,7 +22,7 @@ export interface NewEmailOtpChallenge {
 export interface EmailOtpChallenge {
   id: string;
   email: string;
-  purpose: "authentication";
+  purpose: EmailOtpPurpose;
   codeDigest: string;
   hmacFormatVersion: number;
   hmacKeyVersion: number;
@@ -33,26 +35,9 @@ export interface EmailOtpChallenge {
   invalidatedAt: Date | null;
 }
 
-export interface NewAuthenticatedSession {
-  tokenDigest: string;
-  transport: SessionTransport;
-  mobilePlatform: MobilePlatform | null;
-  createdAt: Date;
-  lastSeenAt: Date;
-  inactivityExpiresAt: Date;
-  absoluteExpiresAt: Date;
-}
-
-export interface ConsumeEmailOtpChallengeProps {
-  challengeId: string;
-  verifiedAt: Date;
-  session: NewAuthenticatedSession;
-}
-
 export interface IEmailOtpChallengeRepository {
   create(challenge: NewEmailOtpChallenge): Promise<void>;
   invalidate(challengeId: string, invalidatedAt: Date): Promise<void>;
   findById(challengeId: string): Promise<EmailOtpChallenge | null>;
   recordFailedAttempt(challengeId: string, attemptedAt: Date): Promise<void>;
-  consumeAndCreateSession(props: ConsumeEmailOtpChallengeProps): Promise<User | null>;
 }

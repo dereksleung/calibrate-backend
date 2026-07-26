@@ -1,4 +1,4 @@
-export interface AuthenticationCodeEmailInfo {
+export interface SignupEmailVerificationCodeEmailInfo {
   email: string;
   code: string;
   expiresInMinutes: number;
@@ -6,5 +6,5 @@ export interface AuthenticationCodeEmailInfo {
 }
 
 export interface IEmailSender {
-  sendAuthenticationCode(message: AuthenticationCodeEmailInfo): Promise<void>;
+  sendSignupEmailVerificationCode(message: SignupEmailVerificationCodeEmailInfo): Promise<void>;
 }

@@ -125,7 +125,19 @@ JWT_ACCESS_TOKEN_TTL_SECONDS="900"
 JWT_ISSUER="http://localhost:3001/"
 JWT_AUDIENCE="http://localhost:3001/api"
 API_BASE_URL="http://localhost:3001/"
+OTP_HMAC_KEY="<base64url_encoded_random_key_of_at_least_32_bytes>"
+OTP_HMAC_CURRENT_KEY_VERSION="1"
+EMAIL_REQUEST_IP_HMAC_KEY="<independent_base64url_encoded_random_key_of_at_least_32_bytes>"
+EMAIL_VERIFICATION_GLOBAL_HOURLY_LIMIT="1000"
+TRUST_PROXY_HOPS="0"
+EMAIL_SERVICE_CREDENTIAL="<brevo_api_key>"
 ```
+
+`TRUST_PROXY_HOPS` must match the number of trusted reverse-proxy hops in front
+of the backend (`0` for direct local development). It controls which address
+Express exposes as the requesting IP; it does not authenticate the client. Use
+independently generated values for `OTP_HMAC_KEY` and
+`EMAIL_REQUEST_IP_HMAC_KEY`.
 
 3. Generate an Ed25519 private key .pem file using `openssl genpkey -algorithm ED25519 -out jwt-ed25519-private.pem`.
 

@@ -1,14 +1,13 @@
+import { RateLimitError, ServiceUnavailableError } from "@application";
 import {
   AppPlatformHeaderValueSchema,
   LoginRequestBodySchema,
-  RequestEmailOtpRequestBodySchema,
-  VerifyEmailOtpRequestBodySchema,
+  RequestSignupEmailVerificationRequestBodySchema,
   type LoginResponse,
-  type RequestEmailOtpResponse,
-  type VerifyEmailOtpResponse,
+  type RequestSignupEmailVerificationResponse,
 } from "@calibrate/api-contracts";
 import { handleControllerError } from "@common";
-import { IAuthService, IEmailOtpService } from "@services";
+import { IAuthService, ISignupEmailVerificationService } from "@services";
 import { validate } from "@validation";
 import { Request, Response } from "express";
 
@@ -17,15 +16,12 @@ import { UserResponseMapper } from "../mappers/user-response-mapper.js";
 export class AuthController {
   constructor(
     private readonly authService: IAuthService,
-    private readonly emailOtpService: IEmailOtpService,
-    private readonly emailOtpConfig: {
-      webOrigin: string;
-      sessionCookie: { name: string; secure: boolean };
-    },
+    private readonly signupEmailVerificationService: ISignupEmailVerificationService,
   ) {}
 
-  async requestEmailOtp(req: Request, res: Response): Promise<void> {
-    const validatedBody = validate(RequestEmailOtpRequestBodySchema, req.body);
+  async requestSignupEmailVerification(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const validatedBody = validate(RequestSignupEmailVerificationRequestBodySchema, req.body);
     const platformHeader = req.get("X-App-Platform");
     const validatedPlatform = platformHeader
       ? AppPlatformHeaderValueSchema.safeParse(platformHeader)
@@ -36,66 +32,33 @@ export class AuthController {
       return;
     }
 
-    try {
-      const response: RequestEmailOtpResponse = await this.emailOtpService.request({
-        email: validatedBody.data.email,
-        platform: validatedPlatform.data,
-        requestingIp: req.ip ?? null,
+    if (!req.ip) {
+      res.status(503).json({
+        error: "Email verification is temporarily unavailable",
       });
+      return;
+    }
+
+    try {
+      const response: RequestSignupEmailVerificationResponse =
+        await this.signupEmailVerificationService.request({
+          email: validatedBody.data.email,
+          platform: validatedPlatform.data,
+          requestingIp: req.ip,
+        });
       res.status(202).json(response);
     } catch (error) {
-      handleControllerError(error, res);
-    }
-  }
-
-  async verifyEmailOtp(req: Request, res: Response): Promise<void> {
-    const validatedBody = validate(VerifyEmailOtpRequestBodySchema, req.body);
-    const platformHeader = req.get("X-App-Platform");
-    const validatedPlatform = platformHeader
-      ? AppPlatformHeaderValueSchema.safeParse(platformHeader)
-      : { success: true as const, data: null };
-
-    if (!validatedBody.isValid || !validatedPlatform.success) {
-      res.status(400).json({ error: "Validation failed" });
-      return;
-    }
-
-    if (validatedPlatform.data === null && req.get("Origin") !== this.emailOtpConfig.webOrigin) {
-      res.status(403).json({ error: "Forbidden" });
-      return;
-    }
-
-    try {
-      const result = await this.emailOtpService.verify({
-        challengeId: validatedBody.data.challengeId,
-        code: validatedBody.data.code,
-        platform: validatedPlatform.data,
-      });
-
-      const user = UserResponseMapper.toResponse(result.user);
-      let response: VerifyEmailOtpResponse;
-      if (result.sessionTransport === "cookie") {
-        res.cookie(this.emailOtpConfig.sessionCookie.name, result.sessionToken, {
-          httpOnly: true,
-          secure: this.emailOtpConfig.sessionCookie.secure,
-          sameSite: "lax",
-          path: "/",
-          expires: result.expiresAt,
-        });
-        response = { sessionTransport: "cookie", user };
-      } else {
-        response = {
-          sessionTransport: "bearer",
-          user,
-          sessionToken: result.sessionToken,
-          expiresAt: result.expiresAt.toISOString(),
-        };
+      if (error instanceof RateLimitError) {
+        res.status(429).json({ error: "Too many verification-code requests" });
+        return;
       }
-
-      res.set("Cache-Control", "no-store");
-      res.status(200).json(response);
-    } catch (error) {
-      handleControllerError(error, res);
+      if (error instanceof ServiceUnavailableError) {
+        res.status(503).json({
+          error: "Email verification is temporarily unavailable",
+        });
+        return;
+      }
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 

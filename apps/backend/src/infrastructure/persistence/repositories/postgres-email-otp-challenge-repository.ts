@@ -1,37 +1,52 @@
 import type { Kysely } from "kysely";
 
 import {
-  ConsumeEmailOtpChallengeProps,
   EmailOtpChallenge,
   IEmailOtpChallengeRepository,
   NewEmailOtpChallenge,
   RateLimitError,
 } from "@application";
-import { User } from "@domain";
 import { sql } from "kysely";
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 import { db, type Database } from "../database.js";
 
 const RESEND_COOLDOWN_MILLISECONDS = 60_000;
+const RATE_LIMIT_WINDOW_MILLISECONDS = 60 * 60 * 1000;
+const MAX_REQUESTS_PER_EMAIL_PER_HOUR = 5;
+const MAX_REQUESTS_PER_IP_PER_HOUR = 20;
+const DELIVERY_RATE_LIMIT_LOCK_ID = 1_426_374_925;
+const RATE_LIMIT_MESSAGE = "Too many verification-code requests";
 
 export class PostgresEmailOtpChallengeRepository implements IEmailOtpChallengeRepository {
   constructor(
+    private readonly config: {
+      ipDigestKey: Buffer;
+      globalHourlyLimit: number;
+    },
     private readonly database: Kysely<Database> = db,
-    private readonly ipDigestKey?: Buffer,
   ) {}
 
   async create(challenge: NewEmailOtpChallenge): Promise<void> {
+    const requestingIpDigest = this.digestIp(challenge.requestingIp);
+    const rateLimitWindowStart = new Date(challenge.createdAt.getTime() - RATE_LIMIT_WINDOW_MILLISECONDS);
+
     await this.database.transaction().execute(async (trx) => {
-      // Prevents lock aquisition waiting indefinitely
+      // Prevent lock acquisition or rate-limit queries from waiting indefinitely.
       await sql`set local lock_timeout = '2s'`.execute(trx);
       await sql`set local statement_timeout = '5s'`.execute(trx);
-      await sql`select pg_advisory_xact_lock(hashtextextended(${challenge.email}, 0))`.execute(trx);
+      await sql`select pg_advisory_xact_lock(${DELIVERY_RATE_LIMIT_LOCK_ID})`.execute(trx);
 
       const latest = await trx
         .selectFrom("email_otp_challenges")
         .select("created_at")
         .where("email", "=", challenge.email)
+        .where("purpose", "=", challenge.purpose)
+        .where("session_transport", "=", challenge.sessionTransport)
+        .$if(challenge.mobilePlatform === null, (query) => query.where("mobile_platform", "is", null))
+        .$if(challenge.mobilePlatform !== null, (query) =>
+          query.where("mobile_platform", "=", challenge.mobilePlatform),
+        )
         .where("invalidated_at", "is", null)
         .orderBy("created_at", "desc")
         .limit(1)
@@ -41,17 +56,54 @@ export class PostgresEmailOtpChallengeRepository implements IEmailOtpChallengeRe
         latest &&
         challenge.createdAt.getTime() - latest.created_at.getTime() < RESEND_COOLDOWN_MILLISECONDS
       ) {
-        throw new RateLimitError("Please wait before requesting another code");
+        throw new RateLimitError(RATE_LIMIT_MESSAGE);
       }
 
-      await trx
+      const emailRequestCount = await trx
+        .selectFrom("email_otp_challenges")
+        .select(({ fn }) => fn.countAll<number>().as("count"))
+        .where("email", "=", challenge.email)
+        .where("purpose", "=", challenge.purpose)
+        .where("created_at", ">=", rateLimitWindowStart)
+        .executeTakeFirstOrThrow();
+
+      const ipRequestCount = await trx
+        .selectFrom("email_otp_challenges")
+        .select(({ fn }) => fn.countAll<number>().as("count"))
+        .where("requesting_ip_digest", "=", requestingIpDigest)
+        .where("created_at", ">=", rateLimitWindowStart)
+        .executeTakeFirstOrThrow();
+
+      const globalRequestCount = await trx
+        .selectFrom("email_otp_challenges")
+        .select(({ fn }) => fn.countAll<number>().as("count"))
+        .where("purpose", "=", challenge.purpose)
+        .where("created_at", ">=", rateLimitWindowStart)
+        .executeTakeFirstOrThrow();
+
+      if (
+        Number(emailRequestCount.count) >= MAX_REQUESTS_PER_EMAIL_PER_HOUR ||
+        Number(ipRequestCount.count) >= MAX_REQUESTS_PER_IP_PER_HOUR ||
+        Number(globalRequestCount.count) >= this.config.globalHourlyLimit
+      ) {
+        throw new RateLimitError(RATE_LIMIT_MESSAGE);
+      }
+
+      let invalidationQuery = trx
         .updateTable("email_otp_challenges")
         .set({ invalidated_at: challenge.createdAt })
         .where("email", "=", challenge.email)
         .where("purpose", "=", challenge.purpose)
+        .where("session_transport", "=", challenge.sessionTransport)
         .where("consumed_at", "is", null)
-        .where("invalidated_at", "is", null)
-        .execute();
+        .where("invalidated_at", "is", null);
+
+      invalidationQuery =
+        challenge.mobilePlatform === null
+          ? invalidationQuery.where("mobile_platform", "is", null)
+          : invalidationQuery.where("mobile_platform", "=", challenge.mobilePlatform);
+
+      await invalidationQuery.execute();
 
       await trx
         .insertInto("email_otp_challenges")
@@ -66,7 +118,7 @@ export class PostgresEmailOtpChallengeRepository implements IEmailOtpChallengeRe
           max_attempts: challenge.maxAttempts,
           session_transport: challenge.sessionTransport,
           mobile_platform: challenge.mobilePlatform,
-          requesting_ip_digest: this.digestIp(challenge.requestingIp),
+          requesting_ip_digest: requestingIpDigest,
           expires_at: challenge.expiresAt,
           consumed_at: null,
           invalidated_at: null,
@@ -108,94 +160,14 @@ export class PostgresEmailOtpChallengeRepository implements IEmailOtpChallengeRe
       .execute();
   }
 
-  async consumeAndCreateSession(props: ConsumeEmailOtpChallengeProps): Promise<User | null> {
-    return this.database.transaction().execute(async (trx) => {
-      await sql`set local lock_timeout = '2s'`.execute(trx);
-      await sql`set local statement_timeout = '5s'`.execute(trx);
-
-      const challenge = await trx
-        .selectFrom("email_otp_challenges")
-        .selectAll()
-        .where("id", "=", props.challengeId)
-        .forUpdate()
-        .executeTakeFirst();
-
-      if (
-        !challenge ||
-        challenge.consumed_at ||
-        challenge.invalidated_at ||
-        challenge.expires_at.getTime() <= props.verifiedAt.getTime() ||
-        challenge.attempt_count >= challenge.max_attempts ||
-        challenge.session_transport !== props.session.transport ||
-        challenge.mobile_platform !== props.session.mobilePlatform
-      ) {
-        return null;
-      }
-
-      await trx
-        .updateTable("email_otp_challenges")
-        .set({ consumed_at: props.verifiedAt })
-        .where("id", "=", challenge.id)
-        .execute();
-
-      const userRow = await trx
-        .insertInto("users")
-        .values({
-          id: randomUUID(),
-          email: challenge.email,
-          password_hash: null,
-          email_verified_at: props.verifiedAt,
-          tier: "FREE",
-          created_at: props.verifiedAt.toISOString(),
-          updated_at: props.verifiedAt.toISOString(),
-        })
-        .onConflict((conflict) =>
-          conflict.column("email").doUpdateSet({
-            email_verified_at: props.verifiedAt,
-            updated_at: props.verifiedAt,
-          }),
-        )
-        .returningAll()
-        .executeTakeFirstOrThrow();
-
-      await trx
-        .insertInto("sessions")
-        .values({
-          id: randomUUID(),
-          user_id: userRow.id,
-          token_digest: props.session.tokenDigest,
-          transport: props.session.transport,
-          mobile_platform: props.session.mobilePlatform,
-          created_at: props.session.createdAt,
-          last_seen_at: props.session.lastSeenAt,
-          inactivity_expires_at: props.session.inactivityExpiresAt,
-          absolute_expires_at: props.session.absoluteExpiresAt,
-          revoked_at: null,
-          renewed_at: null,
-        })
-        .execute();
-
-      return User.reconstitute({
-        id: userRow.id,
-        email: userRow.email,
-        passwordHash: userRow.password_hash,
-        emailVerifiedAt: userRow.email_verified_at,
-        tier: userRow.tier,
-        createdAt: new Date(userRow.created_at),
-        updatedAt: new Date(userRow.updated_at),
-      });
-    });
-  }
-
-  private digestIp(ip: string | null): string | null {
-    if (!ip || !this.ipDigestKey) return null;
-    return createHmac("sha256", this.ipDigestKey).update(ip).digest("base64url");
+  private digestIp(ip: string): string {
+    return createHmac("sha256", this.config.ipDigestKey).update(ip).digest("base64url");
   }
 
   private mapChallenge(row: {
     id: string;
     email: string;
-    purpose: "authentication";
+    purpose: EmailOtpChallenge["purpose"];
     code_digest: string;
     hmac_format_version: number;
     hmac_key_version: number;

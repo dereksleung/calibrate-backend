@@ -1,7 +1,8 @@
 import { IEmailOtpCodeService, type CreatedEmailOtpCode, type VerifyEmailOtpCodeProps } from "@application";
 import { createHmac, KeyObject, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 
-const HMAC_FORMAT_VERSION = 1;
+const HMAC_FORMAT_VERSION = 2;
+const HMAC_NAMESPACE = "calibrate-email-otp";
 
 export class NodeEmailOtpCodeService implements IEmailOtpCodeService {
   private readonly key: KeyObject;
@@ -26,10 +27,10 @@ export class NodeEmailOtpCodeService implements IEmailOtpCodeService {
     ]);
   }
 
-  createChallenge(purpose: "authentication"): CreatedEmailOtpCode {
+  createChallenge(purpose: VerifyEmailOtpCodeProps["purpose"]): CreatedEmailOtpCode {
     const challengeId = randomUUID(); // UUID used also as as an idempotency key for the email delivery
     const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
-    const message = JSON.stringify(["email-otp", HMAC_FORMAT_VERSION, purpose, challengeId, code]);
+    const message = JSON.stringify([HMAC_NAMESPACE, HMAC_FORMAT_VERSION, purpose, challengeId, code]);
 
     return {
       challengeId,
@@ -46,7 +47,7 @@ export class NodeEmailOtpCodeService implements IEmailOtpCodeService {
     if (!key) return false;
 
     const message = JSON.stringify([
-      "email-otp",
+      HMAC_NAMESPACE,
       props.hmacFormatVersion,
       props.purpose,
       props.challengeId,

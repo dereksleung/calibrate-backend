@@ -1,5 +1,6 @@
-import { AuthenticationCodeEmailInfo, IEmailSender, ServiceUnavailableError } from "@application";
-import { otpLoginEmailTemplate } from "./otp-login-email-template.js";
+import { IEmailSender, ServiceUnavailableError, SignupEmailVerificationCodeEmailInfo } from "@application";
+
+import { signupEmailVerificationTemplate } from "./signup-email-verification-template.js";
 
 /**
  * Requirements for timeout and retry logic:
@@ -16,25 +17,17 @@ const TOTAL_BUDGET_MS = 12_000;
 const MAX_ATTEMPTS = 2;
 const ATTEMPT_TIMEOUT_MS_BASE = 5_000;
 
-const RETRYABLE_STATUSES = new Set([
-  408,
-  429,
-  500,
-  502,
-  503,
-  504,
-]);
+const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 
 const IDEMPOTENT_REQUEST_REPEATED_CODE = "duplicate_parameter";
 
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class BrevoEmailSender implements IEmailSender {
   constructor(private readonly apiKey: string) {}
 
   // Using normal fetch instead of Brevo's SDK because the SDK does not have a license file
-  async sendAuthenticationCode(message: AuthenticationCodeEmailInfo): Promise<void> {
+  async sendSignupEmailVerificationCode(message: SignupEmailVerificationCodeEmailInfo): Promise<void> {
     const deadline = Date.now() + TOTAL_BUDGET_MS;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -47,26 +40,24 @@ export class BrevoEmailSender implements IEmailSender {
           headers: {
             "Content-Type": "application/json",
             "api-key": this.apiKey,
-            "Accept": "application/json",
+            Accept: "application/json",
           },
           body: JSON.stringify({
-            sender: { 
-              name: "Calibrate", 
+            sender: {
+              name: "Calibrate",
               email: "noreply.verification.codes@calibrateapp.org",
             },
             to: [{ email: message.email }],
-            subject: "Your Calibrate Verification Code",
-            htmlContent: otpLoginEmailTemplate,
+            subject: "Verify your Calibrate recovery email",
+            htmlContent: signupEmailVerificationTemplate,
             params: {
               code: message.code,
             },
             headers: {
               idempotencyKey: message.deliveryId,
-            }
+            },
           }),
-          signal: AbortSignal.timeout(
-            Math.min(ATTEMPT_TIMEOUT_MS_BASE, remainingMs)
-          ),
+          signal: AbortSignal.timeout(Math.min(ATTEMPT_TIMEOUT_MS_BASE, remainingMs)),
         });
 
         if (response.status === 201) {
@@ -90,14 +81,12 @@ export class BrevoEmailSender implements IEmailSender {
           // Most causes for Brevo API errors for this endpoint are not things the frontend user can fix,
           // such as incorrect sender configuration, malformed template fields, etc.
           // https://developers.brevo.com/reference/send-transac-email#response.error
-          throw new ServiceUnavailableError(
-            "Email authentication is temporarily unavailable",
-          );
+          throw new ServiceUnavailableError("Email verification is temporarily unavailable");
         }
 
         const canRetry = RETRYABLE_STATUSES.has(response.status) && attempt + 1 < MAX_ATTEMPTS;
         if (!canRetry) {
-          throw new ServiceUnavailableError("Email authentication is temporarily unavailable.");
+          throw new ServiceUnavailableError("Email verification is temporarily unavailable");
         }
 
         const delayMs = getRetryDelayMs(response, attempt);
@@ -105,7 +94,6 @@ export class BrevoEmailSender implements IEmailSender {
         if (delayMs >= deadline - Date.now()) break;
 
         await sleep(delayMs);
-
       } catch (error) {
         if (error instanceof ServiceUnavailableError) {
           throw error;
@@ -122,9 +110,7 @@ export class BrevoEmailSender implements IEmailSender {
       }
     }
 
-    throw new ServiceUnavailableError(
-      "Email authentication is temporarily unavailable",
-    );
+    throw new ServiceUnavailableError("Email verification is temporarily unavailable");
   }
 }
 
@@ -136,8 +122,7 @@ const getRetryDelayMs = (response: Response, attempt: number): number => {
   }
 
   return 250 * 2 ** attempt + Math.random() * 250;
-}
-
+};
 
 interface BrevoErrorResponse {
   code?: string;
@@ -147,16 +132,11 @@ const readBrevoError = async (response: Response): Promise<BrevoErrorResponse> =
   try {
     const value: unknown = await response.json();
 
-    if (
-      typeof value === "object" &&
-      value !== null &&
-      "code" in value &&
-      typeof value.code === "string"
-    ) {
+    if (typeof value === "object" && value !== null && "code" in value && typeof value.code === "string") {
       return { code: value.code };
     }
   } catch {
     return {};
   }
   return {};
-}
+};

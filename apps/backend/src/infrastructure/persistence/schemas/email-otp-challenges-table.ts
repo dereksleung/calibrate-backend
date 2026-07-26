@@ -1,10 +1,10 @@
+import type { MobilePlatform, SessionTransport } from "@application";
 import type { ColumnType, Generated } from "kysely";
-import { MobilePlatform, SessionTransport } from "src/application/auth/session-client.js";
 
 export interface EmailOtpChallengesTable {
   id: string;
   email: string;
-  purpose: "authentication";
+  purpose: "authentication" | "signup-email-verification";
   code_digest: string;
   hmac_format_version: number;
   hmac_key_version: number;
