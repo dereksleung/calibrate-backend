@@ -25,6 +25,7 @@
     "@calibrate/api-contracts": "*",
     "@fontsource-variable/inter": "5.2.8",
     "@fontsource-variable/manrope": "5.2.8",
+    "@simplewebauthn/browser": "13.3.0",
     "@tailwindcss/vite": "4.2.2",
     "@tanstack/react-devtools": "0.10.2",
     "@tanstack/react-query": "5.100.5",
