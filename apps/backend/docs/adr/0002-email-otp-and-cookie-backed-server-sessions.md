@@ -176,7 +176,7 @@ On successful refresh, one repository transaction:
 7. revokes or replaces the previous access session; and
 8. creates a new short access session.
 
-Only after the transaction commits does the response set the new refresh and access cookies. Refresh, authentication, and session responses use `Cache-Control: no-store`.
+Only after the transaction commits does the response set the new refresh and access cookies and provide the next DPoP nonce. Refresh, authentication, and session responses use `Cache-Control: no-store`.
 
 Refresh occurs when the access session needs renewal. Daily use is the expected product pattern, but correctness does not depend on a once-per-day timer: a user may refresh more than once in a day, and a user with a still-valid access session does not rotate merely because a calendar day changed.
 
@@ -186,13 +186,15 @@ Use the proof format and sender-constraining semantics defined by RFC 9449 for r
 
 After passkey registration or authentication, the web client creates a separate asymmetric key pair. Its private key must be non-extractable and persisted by the browser where supported. The client sends the public JWK in the authorized completion request; the backend validates it and computes the thumbprint stored on the family. A future native client stores this key in Keychain/Keystore-backed hardware when available.
 
+When a successful signup, login, recovery, or re-authentication completion creates a remembered-device family, the response proactively provides that family's initial opaque nonce in a `DPoP-Nonce` header after the transaction commits. The client persists the most recently received nonce with its DPoP-key state, scoped to the API origin, and coordinates nonce updates with its cross-tab refresh coordinator. The nonce is not a credential or secret; it is unpredictable server-provided freshness input for the next proof. A cross-origin deployment exposes the header to browser JavaScript with `Access-Control-Expose-Headers: DPoP-Nonce`.
+
 The DPoP key is not the passkey key:
 
 - the passkey private key is controlled by the authenticator and signs WebAuthn ceremony data only after user verification;
 - the DPoP private key is available to the application for silent refresh proofs; and
 - creating or possessing a DPoP key alone never authenticates a user or resets a family lifetime.
 
-Each refresh request includes a signed DPoP JWT containing the public JWK and the required `jti`, `htm`, `htu`, and `iat` claims. The server verifies:
+Each refresh request includes a signed DPoP JWT containing the public JWK, the required `jti`, `htm`, `htu`, and `iat` claims, and the most recently received server nonce. The server verifies:
 
 - the `typ` header is `dpop+jwt`, the JWK is public, and `alg` is an allowed asymmetric algorithm rather than `none` or a symmetric algorithm;
 - the signature and allowed asymmetric algorithm;
@@ -203,7 +205,11 @@ Each refresh request includes a signed DPoP JWT containing the public JWK and th
 - a server-provided nonce is current; and
 - the signing key thumbprint equals the key bound to the family.
 
-The server can challenge a missing or stale proof with a fresh `DPoP-Nonce`; it does not consume the refresh token until proof verification succeeds.
+After a successful refresh commits, the response proactively supplies the nonce for the next proof in a new `DPoP-Nonce` header. The client replaces its stored nonce with that value. The server may retain a tightly bounded window of recently issued nonces to tolerate in-flight requests, but proof-ID replay and issue-time checks continue to apply.
+
+If the client has no nonce because local state was lost or no family-creation response was observed, it sends a fresh signed proof without a `nonce` claim. If a proof omits the nonce or presents a stale nonce, the server returns `400` with the `use_dpop_nonce` error and a fresh `DPoP-Nonce` header. This challenge is a safe pre-consumption response: it does not accept the proof's `jti`, consume or rotate the refresh token, extend the family lifetime, or replace the access session.
+
+After a nonce challenge, the client stores the supplied nonce, creates an entirely new signed proof with a new `jti` and `iat`, and retries through the single-flight refresh coordinator. It never reuses the challenged JWT. This challenge path is also the fallback when a successful refresh committed but the client did not observe the proactively supplied next nonce.
 
 When logout relies on the refresh credential because no access session is valid, it uses the same proof rules with `htm` and `htu` bound to the logout request.
 
@@ -258,6 +264,8 @@ Expose these operations under the existing `/api/v1` prefix:
 - `DELETE /auth/session` revokes the current family and its access sessions idempotently, then clears both cookies.
 
 Shared request, response, and error schemas remain owned by the API-contract package. Web JSON never contains access or refresh tokens.
+
+Responses that create a remembered-device family and successful refresh responses provide the next `DPoP-Nonce` header. A refresh nonce challenge returns `400 use_dpop_nonce` with a replacement `DPoP-Nonce` header and no credential-state mutation.
 
 `DELETE /auth/session` is full logout for the current remembered device. A valid access session identifies the family. If only the refresh credential remains, the endpoint requires a valid DPoP proof before revoking that family. With no valid credential, it still clears both cookies idempotently without changing server state. Cookie clearing uses the same names, paths, and security attributes used when each cookie was set. A future session-management endpoint may support revoking selected or all other families.
 
@@ -335,7 +343,7 @@ Focused tests cover:
 - access inactivity and absolute expiry;
 - refresh inactivity and absolute expiry;
 - atomic rotation, concurrent tabs, the bounded `409` path, consumed-token reuse, and family revocation;
-- DPoP signature, method, URL, issue time, nonce, proof-ID replay, algorithm, and key binding;
+- DPoP signature, method, URL, issue time, proactive nonce delivery, missing and stale nonce challenges, fresh-proof retry, proof-ID replay, algorithm, and key binding;
 - exact cookie flags and path scoping;
 - exact-origin and CSRF rejection;
 - transient restoration without credential deletion; and
