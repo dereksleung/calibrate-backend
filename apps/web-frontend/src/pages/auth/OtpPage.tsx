@@ -2,6 +2,7 @@ import { MailCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "#/shared/components/base/Button";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "#/verticals/auth/components/InputOtp.tsx";
 
 const DEFAULT_RESEND_AFTER_SECONDS = 60;
 
@@ -15,6 +16,7 @@ function OtpPage({
   resendAfterSeconds = DEFAULT_RESEND_AFTER_SECONDS,
 }: OtpPageProps) {
   const displayEmail = email ?? "example@calibrate.com";
+  const [otpCode, setOtpCode] = useState("");
   const [resendCountdown, setResendCountdown] = useState(resendAfterSeconds);
 
   useEffect(() => {
@@ -61,6 +63,19 @@ function OtpPage({
               We sent a 6-digit code to{" "}
               <span className="font-semibold text-on-background">{displayEmail}</span>
             </p>
+          </div>
+
+          <div className="mt-xl flex justify-center">
+            <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+              <InputOTPGroup>
+                <InputOTPSlot index={0} />
+                <InputOTPSlot index={1} />
+                <InputOTPSlot index={2} />
+                <InputOTPSlot index={3} />
+                <InputOTPSlot index={4} />
+                <InputOTPSlot index={5} />
+              </InputOTPGroup>
+            </InputOTP>
           </div>
 
           <div className="mt-xl flex flex-col gap-md">
