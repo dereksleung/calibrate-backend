@@ -3,10 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   AppPlatformHeaderValueSchema,
   AuthenticatedSessionResponseSchema,
-  RequestEmailOtpRequestBodySchema,
-  RequestEmailOtpResponseSchema,
-  VerifyEmailOtpRequestBodySchema,
-  VerifyEmailOtpResponseSchema,
+  RequestSignupEmailVerificationRequestBodySchema,
+  RequestSignupEmailVerificationResponseSchema,
 } from "./index.js";
 
 const user = {
@@ -17,17 +15,28 @@ const user = {
   updatedAt: "2026-07-12T12:00:00.000Z",
 };
 
-describe("email OTP request contracts", () => {
-  it("accepts a valid email without password credentials", () => {
-    expect(RequestEmailOtpRequestBodySchema.parse({ email: "person@example.com" })).toEqual({
+describe("signup email verification request contracts", () => {
+  it("normalizes a valid recovery email without accepting credentials", () => {
+    expect(
+      RequestSignupEmailVerificationRequestBodySchema.parse({
+        email: "  Person@Example.COM ",
+      }),
+    ).toEqual({
       email: "person@example.com",
     });
   });
 
-  it("rejects invalid emails and unexpected request fields", () => {
-    expect(() => RequestEmailOtpRequestBodySchema.parse({ email: "not-an-email" })).toThrow();
+  it("rejects invalid, oversized, and unexpected request fields", () => {
     expect(() =>
-      RequestEmailOtpRequestBodySchema.parse({
+      RequestSignupEmailVerificationRequestBodySchema.parse({ email: "not-an-email" }),
+    ).toThrow();
+    expect(() =>
+      RequestSignupEmailVerificationRequestBodySchema.parse({
+        email: `${"a".repeat(310)}@example.com`,
+      }),
+    ).toThrow();
+    expect(() =>
+      RequestSignupEmailVerificationRequestBodySchema.parse({
         email: "person@example.com",
         password: "Password123!",
       }),
@@ -42,7 +51,7 @@ describe("email OTP request contracts", () => {
   });
 
   it("returns public challenge timing metadata without the OTP", () => {
-    const result = RequestEmailOtpResponseSchema.parse({
+    const result = RequestSignupEmailVerificationResponseSchema.parse({
       challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
       expiresInSeconds: 600,
       resendAfterSeconds: 60,
@@ -54,73 +63,8 @@ describe("email OTP request contracts", () => {
       resendAfterSeconds: 60,
     });
     expect(result).not.toHaveProperty("code");
-  });
-});
-
-describe("email OTP verification contracts", () => {
-  it("requires a UUID challenge identifier and exactly six numeric digits", () => {
-    expect(
-      VerifyEmailOtpRequestBodySchema.parse({
-        challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
-        code: "004219",
-      }),
-    ).toEqual({
-      challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
-      code: "004219",
-    });
-
-    expect(() =>
-      VerifyEmailOtpRequestBodySchema.parse({ challengeId: "challenge-1", code: "004219" }),
-    ).toThrow();
-    expect(() =>
-      VerifyEmailOtpRequestBodySchema.parse({
-        challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
-        code: "4219",
-      }),
-    ).toThrow();
-    expect(() =>
-      VerifyEmailOtpRequestBodySchema.parse({
-        challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
-        code: "abcdef",
-      }),
-    ).toThrow();
-  });
-
-  it("returns a cookie-backed authenticated session without exposing a token", () => {
-    const result = VerifyEmailOtpResponseSchema.parse({
-      user,
-      sessionTransport: "cookie",
-    });
-
-    expect(result.sessionTransport).toBe("cookie");
+    expect(result).not.toHaveProperty("user");
     expect(result).not.toHaveProperty("sessionToken");
-  });
-
-  it("returns an opaque bearer session only for mobile verification", () => {
-    const result = VerifyEmailOtpResponseSchema.parse({
-      user,
-      sessionTransport: "bearer",
-      sessionToken: "7WsxZrb5gk6O9HrprY2kh5vRl7V0SJUn9YhlAOzTo7A",
-      expiresAt: "2026-08-11T12:00:00.000Z",
-    });
-
-    expect(result.sessionTransport).toBe("bearer");
-    expect(result).toHaveProperty("sessionToken");
-    if (result.sessionTransport !== "bearer") {
-      throw new Error("Expected bearer session");
-    }
-    expect(result.expiresAt).toEqual("2026-08-11T12:00:00.000Z");
-  });
-
-  it("rejects a session token on the cookie response variant", () => {
-    expect(() =>
-      VerifyEmailOtpResponseSchema.parse({
-        user,
-        sessionTransport: "cookie",
-        sessionToken: "7WsxZrb5gk6O9HrprY2kh5vRl7V0SJUn9YhlAOzTo7A",
-        expiresAt: "2026-08-11T12:00:00.000Z",
-      }),
-    ).toThrow();
   });
 });
 

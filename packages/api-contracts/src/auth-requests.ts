@@ -2,12 +2,28 @@ import { z } from "zod";
 
 export const AppPlatformHeaderValueSchema = z.enum(["ios", "android"]);
 
-export const RequestEmailOtpRequestBodySchema = z
+export const RequestSignupEmailVerificationRequestBodySchema = z
   .object({
-    email: z.email(),
+    email: z.string().trim().toLowerCase().max(320).pipe(z.email()),
   })
   .strict();
 
+/** @deprecated Use passkey authentication contracts when they are available. */
+export const LoginRequestBodySchema = z.object({
+  email: z.email(),
+  password: z.string().min(1, "Password is required"),
+});
+
+export type AppPlatformHeaderValue = z.infer<typeof AppPlatformHeaderValueSchema>;
+export type RequestSignupEmailVerificationRequestBody = z.infer<
+  typeof RequestSignupEmailVerificationRequestBodySchema
+>;
+
+/** @deprecated Use RequestSignupEmailVerificationRequestBodySchema. */
+export const RequestEmailOtpRequestBodySchema =
+  RequestSignupEmailVerificationRequestBodySchema;
+
+/** @deprecated The email-OTP authentication verification endpoint is being retired. */
 export const VerifyEmailOtpRequestBodySchema = z
   .object({
     challengeId: z.uuid(),
@@ -15,15 +31,11 @@ export const VerifyEmailOtpRequestBodySchema = z
   })
   .strict();
 
-/** @deprecated Use RequestEmailOtpRequestBodySchema for passwordless authentication. */
-export const LoginRequestBodySchema = z.object({
-  email: z.email(),
-  password: z.string().min(1, "Password is required"),
-});
+/** @deprecated Use RequestSignupEmailVerificationRequestBody. */
+export type RequestEmailOtpRequestBody = RequestSignupEmailVerificationRequestBody;
 
-export type AppPlatformHeaderValue = z.infer<typeof AppPlatformHeaderValueSchema>;
-export type RequestEmailOtpRequestBody = z.infer<typeof RequestEmailOtpRequestBodySchema>;
+/** @deprecated The email-OTP authentication verification endpoint is being retired. */
 export type VerifyEmailOtpRequestBody = z.infer<typeof VerifyEmailOtpRequestBodySchema>;
 
-/** @deprecated Use RequestEmailOtpRequestBody. */
+/** @deprecated Use passkey authentication contracts when they are available. */
 export type LoginRequestBody = z.infer<typeof LoginRequestBodySchema>;
