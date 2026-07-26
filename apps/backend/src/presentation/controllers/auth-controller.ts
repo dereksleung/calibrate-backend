@@ -29,7 +29,7 @@ export class AuthController {
     const platformHeader = req.get("X-App-Platform");
     const validatedPlatform = platformHeader
       ? AppPlatformHeaderValueSchema.safeParse(platformHeader)
-      : { success: true as const, data: null };
+      : { success: true as const, data: null }; // web origin does not send this header
 
     if (!validatedBody.isValid || !validatedPlatform.success) {
       res.status(400).json({ error: "Validation failed" });

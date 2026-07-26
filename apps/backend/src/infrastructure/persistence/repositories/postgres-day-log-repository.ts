@@ -5,6 +5,7 @@ import {
   GetDayLogByDateAndUserDto,
 } from "../../../application/dtos/day-log-dtos.js";
 import { IDayLogRepository } from "../../../application/ports/day-log-repository.js";
+// TO-DO: Remove dependency on db and use constructor dependency injection instead. 
 import { db } from "../../persistence/database.js";
 import { SelectableDayLog } from "../schemas/day-logs-table.js";
 import { InsertableFoodEntry, SelectableFoodEntry } from "../schemas/food-entries-table.js";
