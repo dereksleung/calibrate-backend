@@ -45,7 +45,7 @@ describe("requestSignupEmailVerification", () => {
 });
 
 describe("getRequestSignupEmailVerificationMutationOptions", () => {
-  it("uses an email-scoped key and requests an OTP when invoked", async () => {
+  it("uses the signup-verification key and requests an OTP when invoked", async () => {
     const request = vi.fn(async ({ responseBodySchema }) =>
       responseBodySchema.parse({
         challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",

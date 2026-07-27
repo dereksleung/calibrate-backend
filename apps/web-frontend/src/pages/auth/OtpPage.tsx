@@ -97,7 +97,7 @@ function OtpPage({ handoff }: OtpPageProps) {
           </div>
 
           <div className="mt-xl flex justify-center">
-            <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+            <InputOTP aria-label="Verification code" maxLength={6} value={otpCode} onChange={setOtpCode}>
               <InputOTPGroup>
                 <InputOTPSlot index={0} />
                 <InputOTPSlot index={1} />
@@ -120,7 +120,7 @@ function OtpPage({ handoff }: OtpPageProps) {
             </Button>
 
             <div className="flex flex-col items-center gap-sm">
-              <p aria-live="polite" className="text-xs text-on-surface-variant/70">
+              <p className="text-xs text-on-surface-variant/70">
                 Didn&apos;t receive a code?
                 {resendCountdown > 0 ? (
                   <>

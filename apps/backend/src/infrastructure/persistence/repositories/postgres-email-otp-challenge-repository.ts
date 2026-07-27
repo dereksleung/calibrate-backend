@@ -77,7 +77,6 @@ export class PostgresEmailOtpChallengeRepository implements IEmailOtpChallengeRe
       const globalRequestCount = await trx
         .selectFrom("email_otp_challenges")
         .select(({ fn }) => fn.countAll<number>().as("count"))
-        .where("purpose", "=", challenge.purpose)
         .where("created_at", ">=", rateLimitWindowStart)
         .executeTakeFirstOrThrow();
 
