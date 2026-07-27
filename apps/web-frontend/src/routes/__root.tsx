@@ -29,7 +29,9 @@ export const Route = createRootRoute({
 function RootComponent() {
   const isMobile = useIsMobile();
   const isAuthRoute = useRouterState({
-    select: (state) => state.location.pathname === '/signup-login',
+    select: (state) =>
+      state.location.pathname === '/signup-login' ||
+      state.location.pathname === '/auth/otp',
   });
 
   return (

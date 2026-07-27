@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run --exclude \"**/*.integration.test.{ts,tsx}\" --exclude \"**/*.e2e.test.{ts,tsx}\" --exclude \"integration/**\" --exclude \"e2e/**\" --exclude \"test/integration/**\" --exclude \"test/e2e/**\"",
-    "test:integration": "sh -c 'files=$(find src integration test/integration -type f \\( -name \"*.integration.test.ts\" -o -name \"*.integration.test.tsx\" -o -path \"integration/*.test.ts\" -o -path \"integration/*.test.tsx\" -o -path \"test/integration/*.test.ts\" -o -path \"test/integration/*.test.tsx\" \\) 2>/dev/null); if [ -z \"$files\" ]; then vitest run --passWithNoTests __no_integration_tests__; else vitest run $files; fi'",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "vitest run --passWithNoTests \"src/**/*.e2e.test.{ts,tsx}\" \"e2e/**/*.test.{ts,tsx}\" \"test/e2e/**/*.test.{ts,tsx}\"",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",

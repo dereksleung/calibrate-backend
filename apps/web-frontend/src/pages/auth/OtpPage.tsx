@@ -1,27 +1,39 @@
+import { apiTransport } from "#/shared/api/api-client";
+import { Button } from "#/shared/components/base/Button";
+import { WarningBanner } from "#/shared/components/base/WarningBanner";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "#/verticals/auth/components/InputOtp.tsx";
+import {
+  createSignupEmailVerificationHandoff,
+  type SignupEmailVerificationHandoff,
+} from "#/verticals/auth/signup-email-verification-handoff";
+import { useRequestSignupEmailVerification } from "@calibrate/api-client";
+import { useNavigate } from "@tanstack/react-router";
 import { MailCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Button } from "#/shared/components/base/Button";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "#/verticals/auth/components/InputOtp.tsx";
-
-const DEFAULT_RESEND_AFTER_SECONDS = 60;
-
 type OtpPageProps = {
-  email?: string;
-  resendAfterSeconds?: number;
+  handoff: SignupEmailVerificationHandoff;
 };
 
-function OtpPage({
-  email,
-  resendAfterSeconds = DEFAULT_RESEND_AFTER_SECONDS,
-}: OtpPageProps) {
-  const displayEmail = email ?? "example@calibrate.com";
+function getResendCountdown(handoff: SignupEmailVerificationHandoff): number {
+  const availableAtEpochMs = handoff.requestedAtEpochMs + handoff.resendAfterSeconds * 1000;
+
+  return Math.max(0, Math.ceil((availableAtEpochMs - Date.now()) / 1000));
+}
+
+function OtpPage({ handoff }: OtpPageProps) {
+  const navigate = useNavigate();
+  const { isPending, mutateAsync: requestSignupEmailVerification } =
+    useRequestSignupEmailVerification(apiTransport);
   const [otpCode, setOtpCode] = useState("");
-  const [resendCountdown, setResendCountdown] = useState(resendAfterSeconds);
+  const [resendCountdown, setResendCountdown] = useState(() => getResendCountdown(handoff));
+  const [resendError, setResendError] = useState<string>();
+  const expiryMinutes = Math.ceil(handoff.expiresInSeconds / 60);
 
   useEffect(() => {
-    setResendCountdown(resendAfterSeconds);
-  }, [resendAfterSeconds]);
+    setResendCountdown(getResendCountdown(handoff));
+    setResendError(undefined);
+  }, [handoff.challengeId, handoff.requestedAtEpochMs, handoff.resendAfterSeconds]);
 
   useEffect(() => {
     if (resendCountdown <= 0) {
@@ -35,8 +47,24 @@ function OtpPage({
     return () => window.clearTimeout(timer);
   }, [resendCountdown]);
 
-  function handleResend() {
-    setResendCountdown(resendAfterSeconds);
+  async function handleResend() {
+    setResendError(undefined);
+
+    try {
+      const response = await requestSignupEmailVerification(handoff.email);
+      const replacement = createSignupEmailVerificationHandoff(handoff.email, response);
+
+      await navigate({
+        replace: true,
+        state: (previous) => ({
+          ...previous,
+          signupEmailVerification: replacement,
+        }),
+        to: "/auth/otp",
+      });
+    } catch {
+      setResendError("We couldn't resend your verification code. Please try again.");
+    }
   }
 
   return (
@@ -61,7 +89,10 @@ function OtpPage({
             </h1>
             <p className="mt-sm max-w-[20rem] text-sm font-light text-on-surface-variant/80">
               We sent a 6-digit code to{" "}
-              <span className="font-semibold text-on-background">{displayEmail}</span>
+              <span className="font-semibold text-on-background">{handoff.email}</span>
+            </p>
+            <p className="mt-xs text-xs text-on-surface-variant/70">
+              This code expires in {expiryMinutes} {expiryMinutes === 1 ? "minute" : "minutes"}.
             </p>
           </div>
 
@@ -79,6 +110,7 @@ function OtpPage({
           </div>
 
           <div className="mt-xl flex flex-col gap-md">
+            {resendError && <WarningBanner>{resendError}</WarningBanner>}
             <Button
               className="h-14 w-full gap-sm rounded-full text-xs shadow-[0_12px_24px_-12px_rgba(51,79,43,0.45)]"
               disabled
@@ -88,24 +120,23 @@ function OtpPage({
             </Button>
 
             <div className="flex flex-col items-center gap-sm">
-              <p className="text-xs text-on-surface-variant/70">
+              <p aria-live="polite" className="text-xs text-on-surface-variant/70">
                 Didn&apos;t receive a code?
                 {resendCountdown > 0 ? (
                   <>
                     {" "}
-                    Resend in{" "}
-                    <span className="font-semibold text-on-background">{resendCountdown}s</span>
+                    Resend in <span className="font-semibold text-on-background">{resendCountdown}s</span>
                   </>
                 ) : null}
               </p>
               <Button
                 variant="ghost"
                 className="h-auto px-0 py-xs text-xs font-bold tracking-[0.12em] text-primary uppercase hover:bg-transparent"
-                disabled={resendCountdown > 0}
+                disabled={resendCountdown > 0 || isPending}
                 type="button"
-                onClick={handleResend}
+                onClick={() => void handleResend()}
               >
-                Resend Code
+                {isPending ? "Sending…" : "Resend Code"}
               </Button>
             </div>
           </div>

@@ -1,9 +1,3 @@
-import { useRequestEmailOtp } from "@calibrate/api-client";
-import { RequestEmailOtpRequestBodySchema, type RequestEmailOtpRequestBody } from "@calibrate/api-contracts";
-import { useForm } from "@tanstack/react-form";
-import { ArrowRight, Mail } from "lucide-react";
-import { useState } from "react";
-
 import { apiTransport } from "#/shared/api/api-client";
 import { Button } from "#/shared/components/base/Button";
 import {
@@ -16,13 +10,21 @@ import {
   FieldLabel,
 } from "#/shared/components/base/Field";
 import { WarningBanner } from "#/shared/components/base/WarningBanner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "#/shared/components/tabs/Tabs";
+import { createSignupEmailVerificationHandoff } from "#/verticals/auth/signup-email-verification-handoff";
+import { useRequestSignupEmailVerification } from "@calibrate/api-client";
+import {
+  RequestSignupEmailVerificationRequestBodySchema,
+  type RequestSignupEmailVerificationRequestBody,
+} from "@calibrate/api-contracts";
+import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
+import { ArrowRight, Mail } from "lucide-react";
+import { useState } from "react";
 
-type SignUpLoginFormValues = RequestEmailOtpRequestBody;
+type SignUpLoginFormValues = RequestSignupEmailVerificationRequestBody;
 
 function firstContractError(field: "email", value: string): string | undefined {
-  const result = RequestEmailOtpRequestBodySchema.shape[field].safeParse(value);
+  const result = RequestSignupEmailVerificationRequestBodySchema.shape[field].safeParse(value);
   return result.success ? undefined : result.error.issues[0]?.message;
 }
 
@@ -40,16 +42,7 @@ function fieldErrors(errors: unknown[]): Array<{ message?: string }> {
 function SignUpLoginForm() {
   const [requestError, setRequestError] = useState<string>();
   const navigate = useNavigate();
-
-  const { mutateAsync: onSubmitEmail } = useRequestEmailOtp(apiTransport, {
-    onSuccess: () => {
-      navigate({ to: "/auth/otp" });
-    },
-    onError: (error) => {
-      console.log("🚀 ~ SignUpLoginForm ~ error:", error)
-      setRequestError("We couldn't create your account. Please try again.");
-    }
-  }); 
+  const { mutateAsync: requestSignupEmailVerification } = useRequestSignupEmailVerification(apiTransport);
 
   const form = useForm({
     defaultValues: {
@@ -57,11 +50,20 @@ function SignUpLoginForm() {
     } satisfies SignUpLoginFormValues,
     onSubmit: async ({ value }) => {
       setRequestError(undefined);
-      navigate({ to: "/auth/otp" });
+
       try {
-        await onSubmitEmail(value.email);
+        const response = await requestSignupEmailVerification(value.email);
+        const handoff = createSignupEmailVerificationHandoff(value.email, response);
+
+        await navigate({
+          to: "/auth/otp",
+          state: (previous) => ({
+            ...previous,
+            signupEmailVerification: handoff,
+          }),
+        });
       } catch {
-        setRequestError("We couldn't create your account. Please try again.");
+        setRequestError("We couldn't send your verification code. Please try again.");
       }
     },
   });
@@ -119,7 +121,7 @@ function SignUpLoginForm() {
             disabled={!canSubmit || isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "Creating account…" : "Start Journey"}
+            {isSubmitting ? "Sending code…" : "Send verification code"}
             {!isSubmitting && <ArrowRight aria-hidden="true" />}
           </Button>
         )}
@@ -163,23 +165,25 @@ function SignupLoginPage() {
               />
             </svg>
           </div>
-          <h1 className="font-heading text-4xl font-light tracking-[-0.02em] text-primary">
-            Calibrate
-          </h1>
+          <h1 className="font-heading text-4xl font-light tracking-[-0.02em] text-primary">Calibrate</h1>
           <p className="mt-xs max-w-[24rem] text-sm font-light text-on-surface-variant/80">
             Mindful nourishment for a balanced life.
           </p>
         </header>
 
-        <section className="glass-card rounded-4xl p-lg md:p-xl" aria-label="Authentication">
-          <Tabs defaultValue="unified-sign-up-in">
-            <TabsList aria-label="Authentication method" className="mb-xl">
-              <TabsTrigger value="unified-sign-up-in">Unified Sign Up / In</TabsTrigger>
-            </TabsList>
-            <TabsContent value="unified-sign-up-in">
-              <SignUpLoginForm />
-            </TabsContent>
-          </Tabs>
+        <section className="glass-card rounded-4xl p-lg md:p-xl" aria-labelledby="signup-heading">
+          <div className="mb-xl text-center">
+            <h2
+              id="signup-heading"
+              className="font-heading text-2xl font-light tracking-[-0.01em] text-primary"
+            >
+              Create your account
+            </h2>
+            <p className="mt-sm text-sm font-light text-on-surface-variant/80">
+              Start with a recovery email. We&apos;ll send a six-digit verification code.
+            </p>
+          </div>
+          <SignUpLoginForm />
         </section>
 
         <p className="mx-auto mt-lg max-w-[24rem] text-center text-[10px] leading-4 text-outline">
