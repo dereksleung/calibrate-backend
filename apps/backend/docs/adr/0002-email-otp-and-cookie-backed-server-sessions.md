@@ -229,9 +229,17 @@ Reuse outside a tightly bounded concurrent-request window revokes the entire fam
 
 Without sender constraining, possession of a consumed token can also be used to trigger family revocation after the concurrency window. This denial-of-service risk is accepted for the MVP because possession of a current token is already sufficient to impersonate the family, and failing closed prevents silent continued replay.
 
-Within a short, fixed, non-sliding concurrency window, a second request presenting the just-consumed token returns 409 REFRESH_ALREADY_ROTATED. The response sets no cookies, returns no credentials, extends no lifetime, and does not revoke the family. The client must not retry that refresh request with the consumed token. A losing browser tab waits for the in-flight refresh to finish and then retries its original protected request using the browser’s shared, updated cookie state.
+Within a short, fixed, non-sliding concurrency window, a second request presenting the just-consumed token returns `409 REFRESH_ALREADY_ROTATED`. The response sets no cookies, returns no credentials, extends no lifetime, and does not revoke the family. The client must not retry that refresh request with the consumed token. The fixed window is measured from the original consumption time; repeated presentations never restart or extend it.
 
-The web client uses a single-flight refresh coordinator across tabs, such as Web Locks plus `BroadcastChannel`, and retries only after observing the browser's updated cookie state. The repository uses row locking or equivalent conditional atomic writes so only one request can consume a generation. Lost responses outside the concurrency accommodation may require passkey re-authentication; this is accepted in preference to storing recoverable plaintext successor tokens.
+The web client uses a single-flight refresh coordinator across tabs, such as Web Locks plus `BroadcastChannel`. After `409 REFRESH_ALREADY_ROTATED`, the losing tab waits for the locally coordinated refresh to finish and then calls `GET /auth/session`. JavaScript does not inspect the `HttpOnly` cookies: it observes coordinator completion and lets the browser attach its current shared access cookie to the session check.
+
+- If `GET /auth/session` returns `200`, another local tab installed the successor refresh cookie and new access session. The client continues with that session. It may retry an idempotent read that originally required refresh, but it does not automatically replay a protected mutation.
+- If `GET /auth/session` returns `401 ACCESS_SESSION_REQUIRED` after the bounded coordination wait, no usable successor reached this browser. The cause may be an off-device holder winning the rotation or a successful refresh response being lost. The client does not present the consumed token to the refresh endpoint again. It explicitly calls `DELETE /auth/session`, which may use the recognized consumed-token digest solely to identify and revoke the family, clears the local cookies after the idempotent revocation succeeds, and requires passkey authentication to create a new family.
+- If the coordination wait or session check fails because of a timeout, network error, or `5xx` response, the client enters the recoverably unavailable state. It does not infer token theft, clear cookies, revoke the family, or replay a protected mutation from an availability failure.
+
+The second requester may be malicious; the backend cannot infer that a request inside the concurrency window came from another tab. It therefore never returns the successor token or access session to the `409` requester. If an off-device attacker won the rotation, the legitimate browser cannot silently recover the attacker-held successor. Explicit family revocation invalidates that successor and its access sessions before passkey authentication creates a replacement family. A holder of a consumed token can abuse this revocation path for denial of service, but that does not grant credentials and is the same accepted bearer-token possession risk described above.
+
+The repository uses row locking or equivalent conditional atomic writes so only one request can consume a generation. Lost responses may require passkey authentication; this is accepted in preference to storing recoverable plaintext successor tokens.
 
 ### Thirty-day passkey re-authentication
 
@@ -268,7 +276,7 @@ Expose these operations under the existing `/api/v1` prefix:
 
 Shared request, response, and error schemas remain owned by the API-contract package. Web JSON never contains access or refresh tokens.
 
-`DELETE /auth/session` is full logout for the current remembered device. A valid access session identifies the family. If only the refresh credential remains, the endpoint verifies that credential before revoking its family. With no valid credential, it still clears both cookies idempotently without changing server state. Cookie clearing uses the same names, paths, and security attributes used when each cookie was set. A future session-management endpoint may support revoking selected or all other families.
+`DELETE /auth/session` is full logout for the current remembered device and is idempotent. A valid access session identifies the family. If only a refresh cookie remains, a recognized current or consumed refresh-token digest may identify the family solely for revocation; expired, revoked, consumed, or otherwise unusable refresh tokens never authorize renewal or credential issuance. If the digest identifies an active family, the endpoint revokes that family and all of its access sessions before clearing both cookies. With no recognized credential, it still clears both cookies without changing server state. Cookie clearing uses the same names, paths, and security attributes used when each cookie was set. A future session-management endpoint may support revoking selected or all other families.
 
 ### Session restoration and client states
 
@@ -277,6 +285,7 @@ Shared request, response, and error schemas remain owned by the API-contract pac
 - `200` returns the authenticated user.
 - `401 ACCESS_SESSION_REQUIRED` means the access session is missing or unusable and the client may attempt one coordinated refresh.
 - a successful refresh is followed by `GET /auth/session` or returns the same current-user representation by contract;
+- `409 REFRESH_ALREADY_ROTATED` follows the bounded concurrency recovery flow: wait for local coordinator completion, check `GET /auth/session`, and explicitly revoke the family and require passkey authentication if no usable successor session reached the browser;
 - `REAUTHENTICATION_REQUIRED` presents the passkey ceremony;
 - invalid, revoked, or replayed family state presents passkey login; and
 - network failures, bounded timeouts, and `5xx` responses are availability failures, not logout decisions.
@@ -325,7 +334,7 @@ Cookie authentication MUST NOT ship or be enabled in production until every cont
 
 #### Session correctness and recovery
 
-- HTTP-level tests cover expiry, revocation, exact-origin rejection, atomic rotation, concurrent-tab behavior, consumed-token reuse, family revocation, logout, session restoration, protected-resource ownership, sensitive-operation step-up, and recovery-driven global revocation.
+- HTTP-level tests cover expiry, revocation, exact-origin rejection, atomic rotation, concurrent-tab behavior, the bounded `409` recovery path, consumed-token reuse, family revocation by a recognized consumed token, logout, session restoration, protected-resource ownership, sensitive-operation step-up, and recovery-driven global revocation.
 - Repository tests prove that refresh consumption, successor creation, family renewal, prior-access-session replacement, and new-access-session creation commit atomically.
 - Recovery, passkey addition or removal, recovery-email changes, and family revocation produce auditable security events and the required user notifications.
 - A failed or unavailable session check is not treated as logout, does not clear credentials, and cannot authorize protected data or mutations.
@@ -378,7 +387,7 @@ Focused tests cover:
 - recovery enumeration resistance, attempt limits, limited authorization, global revocation, and notifications;
 - access inactivity and absolute expiry;
 - refresh inactivity and absolute expiry;
-- atomic rotation, concurrent tabs, the bounded `409` path, consumed-token reuse, and family revocation;
+- atomic rotation, concurrent tabs, the bounded `409` path for both a local winner and an off-device winner, consumed-token reuse, and family revocation by a recognized consumed token;
 - exact cookie flags and path scoping;
 - exact-origin and CSRF rejection;
 - recent passkey authentication for every sensitive operation;
