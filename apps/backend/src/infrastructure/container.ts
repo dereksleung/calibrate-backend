@@ -52,7 +52,7 @@ if (!encodedIpDigestKey) {
   throw new Error("EMAIL_REQUEST_IP_HMAC_KEY is not configured");
 }
 
-const ipDigestKeyBytes = Buffer.from(encodedIpDigestKey, "base64url");
+const ipDigestKeyBytes = Buffer.from(encodedIpDigestKey, "hex");
 
 if (ipDigestKeyBytes.byteLength < 32) {
   throw new Error("The email request IP HMAC key must contain at least 32 bytes");
