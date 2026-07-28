@@ -1,4 +1,4 @@
-# ADR-0002: Use passkeys, short access sessions, and sender-constrained refresh rotation
+# ADR-0002: Use passkeys, short access sessions, and rotating refresh tokens
 
 ## Status
 
@@ -10,19 +10,19 @@ Accepted
 
 ## Last Updated
 
-2026-07-26
+2026-07-27
 
 ## Context
 
 The backend currently has authentication code for passwords, email OTP, and bearer-style sessions at different stages of migration. The intended end state needs one coherent lifecycle rather than another compatibility layer.
 
-Calibrate is a first-party consumer application whose primary authenticated workflow is recording food throughout the day. A user should not have to repeat full authentication every morning, but a credential that authorizes ordinary API calls should not remain valid for weeks or months.
+Calibrate is a first-party consumer application whose primary authenticated workflow is recording food throughout the day. It currently stores sensitive consumer wellness data, including food, weight, and habit history, but does not provide clinician workflows, diagnoses, treatment, medication management, or regulated clinical record keeping. A user should not have to repeat full authentication every morning, but a credential that authorizes ordinary API calls should not remain valid for weeks or months.
 
 The security model therefore separates three concerns:
 
 1. A passkey proves the user is present and has unlocked an authenticator. It is used for signup, login, re-authentication, and security-sensitive credential management.
 2. A short opaque access session authorizes ordinary API calls and limits the useful lifetime of a stolen browser cookie.
-3. A remembered-device family preserves convenient sign-in across access-session expiration. Its one-time refresh token is sender-constrained to a separate device proof-of-possession key and rotated whenever it is used.
+3. A remembered-device family preserves convenient sign-in across access-session expiration. Its one-time refresh token is rotated whenever it is used, and reuse detection revokes the family when a consumed token is presented outside the bounded concurrency accommodation.
 
 Email remains mandatory as an account-recovery channel. Email is not the normal login factor. Because control of the recovery inbox can ultimately regain the account, email remains the assurance ceiling of the overall recovery design and must not be represented as multi-factor or high-assurance identity proof.
 
@@ -41,12 +41,30 @@ Use the following distinct credentials and clocks:
 | WebAuthn passkey | User authentication and re-authentication | Not applicable | Until removed or revoked | Add or remove through an authenticated credential-management ceremony |
 | Access session | Authorize ordinary API requests | 30 minutes | 8 hours | Replaced by a successful refresh; activity may slide inactivity only up to the fixed absolute expiry |
 | Remembered-device family | Permit silent creation of new access sessions | 7 days | 30 days | Refresh use slides inactivity, capped by the fixed absolute expiry |
-| Refresh token | One-time secret within a remembered-device family | Inherits the family limit | Inherits the family limit | Rotated after every successful use |
-| DPoP key | Prove possession of the device key bound to a family | Inherits the family limit | Inherits the family limit | A new key is bound when a new family is created |
+| Refresh token | One-time bearer secret within a remembered-device family | Inherits the family limit | Inherits the family limit | Rotated after every successful use |
 
 The access-session limits and remembered-device limits serve different purposes. The 30-minute inactivity and 8-hour absolute access-session limits follow the short web-session model described by OWASP. The 7-day inactivity and 30-day absolute limits apply only to silent renewal. They do not make one access credential valid for seven or 30 days.
 
 The 30-day remembered-device absolute limit is a re-authentication boundary. It is never extended by refresh-token use. A successful passkey re-authentication creates a new family and resets that boundary.
+
+### MVP threat model and security boundary
+
+The MVP protects sensitive consumer wellness data rather than financial accounts, provider-managed clinical records, or privileged enterprise administration. The primary harms are disclosure of private food and weight history, unauthorized modification or deletion, and temporary impersonation. Persistent account takeover is a higher-impact outcome and is constrained through recent passkey authentication for credential and other sensitive account operations.
+
+The session design treats the following as in scope:
+
+- remote web attacks, including cross-site scripting, cross-site request forgery, and authorization bypass;
+- accidental disclosure through application, reverse-proxy, hosting, observability, analytics, or error-reporting systems;
+- off-device replay of a copied access or refresh token;
+- recovery-email compromise and abuse of recovery workflows;
+- lost devices, shared browsers, and the need for server-side revocation; and
+- dependency or frontend supply-chain compromise.
+
+A fully compromised operating system, continuously malicious browser extension, attacker-controlled browser, or attacker-controlled production backend cannot be made safe by the session protocol alone. Those cases require containment, detection, notification, and recovery. DPoP also does not prevent active same-origin malicious JavaScript from asking an available browser-held key to sign while the script is executing.
+
+Raw refresh-cookie theft is assessed as low likelihood per individual user when HTTPS, `HttpOnly`, host-only cookie scope, header redaction, and digest-only persistence are correctly enforced, but it remains realistic at scale through malware, malicious extensions, browser-profile theft, or operational logging mistakes. The MVP therefore uses short access sessions, refresh-token rotation, reuse detection, expiry, revocation, and recent-authentication gates without browser DPoP. This deliberately accepts that a copied current refresh token can be replayed off-device until rotation or reuse detection reacts, which is likeliest to happen in the same day when the user logs another meal.
+
+Reassess sender constraining and the overall assurance level before adding financial authority, provider or clinician access, EHR integration, treatment decisions, medication or medical-device data, regulated clinical records, enterprise administration, or evidence that refresh-token replay is occurring in production.
 
 ### Passkey-based signup
 
@@ -87,9 +105,23 @@ Each user may register multiple passkeys. A passkey credential record contains a
 
 Signature counters are recorded and evaluated as a risk signal. Synced passkeys may expose zero or non-monotonic counters, so a counter anomaly is not an unconditional authentication failure without considering authenticator capabilities and other signals.
 
-After a successful passkey registration or login, the client supplies a newly generated DPoP public key as part of the authorized completion request. The backend computes its thumbprint, creates a remembered-device family bound to that key, then issues its initial refresh token and access session.
+A remembered-client family is created only when a browser or app installation completes login, recovery, or periodic reauthentication and is issued renewal credentials. Registering an additional passkey adds an authentication credential but does not identify or authorize a new client installation, so it neither creates nor extends a family.
 
 Passkey addition requires a recent successful passkey authentication or a narrowly scoped recovery authorization. Passkey removal requires recent passkey authentication. Users are notified through their verified email when a passkey is added or removed.
+
+### Recent passkey authentication for sensitive operations
+
+A valid access session proves that the request belongs to an authenticated session; it does not by itself authorize persistent account takeover or other high-impact operations. The following operations require a successful passkey assertion within a short, server-enforced recent-authentication window, initially 10 minutes:
+
+- adding or removing a passkey;
+- changing the recovery email;
+- exporting the complete account data set;
+- deleting the account; and
+- revoking other remembered-device families.
+
+The server records the verified authentication time and purpose against the current remembered-device family or an equivalent server-side authorization bound to that family. Revoking the family invalidates this state. Client timestamps or UI state are never accepted as proof of recency. A narrowly scoped recovery authorization may add a replacement passkey only through the recovery lifecycle; it does not satisfy recent authentication for unrelated sensitive operations.
+
+Sensitive-operation step-up records recency on the existing authenticated context; it does not create a new remembered-device family, reset the 30-day absolute boundary, or issue new refresh credentials. Ordinary access-session refresh does not update the recent-authentication timestamp. Product features that add a new way to persist access, disclose the complete account, destroy account data, or materially affect another security boundary must be classified as sensitive and added to this policy before shipping.
 
 ### Mandatory email recovery
 
@@ -101,7 +133,7 @@ Recovery follows this lifecycle:
 2. The backend sends a code for the `account-recovery` purpose.
 3. Successful verification issues a short-lived, single-use recovery authorization. It does not create an ordinary access session.
 4. The recovery authorization may only start and complete registration of a new passkey for that account.
-5. Successful new-passkey registration revokes all access sessions and remembered-device families for the account, creates a new family bound to a fresh DPoP key, creates a new access session, and sends a security notification.
+5. Successful new-passkey registration revokes all access sessions and remembered-device families for the account, creates a new family and access session, and sends a security notification.
 
 Recovery does not automatically delete the user's other passkeys. This initially preserves an independent authentication route for the legitimate user and retains an audit trail. Passkeys can later be reviewed and explicitly revoked through the normal credential-management flow.
 
@@ -136,8 +168,8 @@ Each successful signup, login, recovery, or 30-day re-authentication creates a n
 A family stores at least:
 
 - user ID and family ID;
-- the DPoP public-key thumbprint and accepted algorithm;
 - creation, last-used, inactivity-expiry, and absolute-expiry timestamps;
+- recent passkey-authentication time and purpose, when applicable;
 - current refresh-token generation;
 - revocation time and reason; and
 - authentication-method and risk metadata suitable for auditing.
@@ -159,9 +191,11 @@ For the web, the refresh token is returned only in a separate host-only cookie:
 - no `Domain`; and
 - `Path=/api/v1/auth/session`.
 
-The narrow authentication-session path prevents the browser from sending the refresh credential on ordinary API requests while allowing refresh and logout to receive it. `GET /auth/session` ignores it and validates only the access session. Cookie `Path` is delivery scoping, not a security boundary; refresh and logout still validate the exact `Origin`, DPoP proof, token state, and family state.
+The narrow authentication-session path prevents the browser from sending the refresh credential on ordinary API requests while allowing refresh and logout to receive it. `GET /auth/session` ignores it and validates only the access session. Cookie `Path` is delivery scoping, not a security boundary; refresh and logout still validate the exact `Origin`, token state, and family state.
 
 The refresh cookie's expiry is capped by the family's inactivity and absolute expiries. An HTTP localhost environment uses a distinct unprefixed development cookie name if it cannot set `Secure`.
+
+The sign-in UI offers a clear option not to persist the remembered-device credential on a shared device. When persistence is disabled, the refresh cookie omits `Expires` and `Max-Age` so the browser treats it as a session cookie. The server-side family limits still apply and the user may revoke the family normally. When persistence is enabled, the cookie expiry remains capped by both family limits.
 
 The refresh endpoint is a `POST` endpoint outside the ordinary access-session middleware. It intentionally accepts the refresh cookie even when the broader access cookie is also present. Endpoints outside the authentication-session path do not receive the refresh cookie.
 
@@ -169,63 +203,33 @@ On successful refresh, one repository transaction:
 
 1. verifies that the family is active and inside both expiry limits;
 2. verifies the current refresh token and its generation;
-3. verifies a fresh DPoP proof from the key bound to the family;
-4. marks the presented refresh token consumed;
-5. creates the next refresh-token generation;
-6. updates the family inactivity expiry, capped by its absolute expiry;
-7. revokes or replaces the previous access session; and
-8. creates a new short access session.
+3. marks the presented refresh token consumed;
+4. creates the next refresh-token generation;
+5. updates the family inactivity expiry, capped by its absolute expiry;
+6. revokes or replaces the previous access session; and
+7. creates a new short access session.
 
-Only after the transaction commits does the response set the new refresh and access cookies and provide the next DPoP nonce. Refresh, authentication, and session responses use `Cache-Control: no-store`.
+Only after the transaction commits does the response set the new refresh and access cookies. Refresh, authentication, and session responses use `Cache-Control: no-store`.
 
 Refresh occurs when the access session needs renewal. Daily use is the expected product pattern, but correctness does not depend on a once-per-day timer: a user may refresh more than once in a day, and a user with a still-valid access session does not rotate merely because a calendar day changed.
 
-### DPoP device proof
+### Refresh-token protection rationale
 
-Use the proof format and sender-constraining semantics defined by RFC 9449 for refresh requests. Calibrate is not acting as a general OAuth authorization server, so this is a first-party DPoP profile rather than a claim of complete OAuth token-endpoint conformance.
+The refresh token is a bearer credential. Possession is sufficient to present it, so its confidentiality in transit, browser storage, infrastructure, and operational tooling is mandatory. The token is never placed in a URL, web JSON, JavaScript-readable storage, application log, trace attribute, analytics event, or error report.
 
-After passkey registration or authentication, the web client creates a separate asymmetric key pair. Its private key must be non-extractable and persisted by the browser where supported. The client sends the public JWK in the authorized completion request; the backend validates it and computes the thumbprint stored on the family. A future native client stores this key in Keychain/Keystore-backed hardware when available.
+Rotation and family reuse detection are the MVP replay controls. They expose concurrent use of a token generation and cap the lifetime of a copied token lineage. Short access sessions limit ordinary request-cookie exposure, while recent passkey authentication prevents a refresh-only attacker from silently establishing persistent account control through sensitive operations.
 
-When a successful signup, login, recovery, or re-authentication completion creates a remembered-device family, the response proactively provides that family's initial opaque nonce in a `DPoP-Nonce` header after the transaction commits. The client persists the most recently received nonce with its DPoP-key state, scoped to the API origin, and coordinates nonce updates with its cross-tab refresh coordinator. The nonce is not a credential or secret; it is unpredictable server-provided freshness input for the next proof. A cross-origin deployment exposes the header to browser JavaScript with `Access-Control-Expose-Headers: DPoP-Nonce`.
-
-The DPoP key is not the passkey key:
-
-- the passkey private key is controlled by the authenticator and signs WebAuthn ceremony data only after user verification;
-- the DPoP private key is available to the application for silent refresh proofs; and
-- creating or possessing a DPoP key alone never authenticates a user or resets a family lifetime.
-
-Each refresh request includes a signed DPoP JWT containing the public JWK, the required `jti`, `htm`, `htu`, and `iat` claims, and the most recently received server nonce. The server verifies:
-
-- the `typ` header is `dpop+jwt`, the JWK is public, and `alg` is an allowed asymmetric algorithm rather than `none` or a symmetric algorithm;
-- the signature and allowed asymmetric algorithm;
-- `htm` equals `POST`;
-- `htu` equals the normalized refresh endpoint URL;
-- `iat` is inside a short freshness window;
-- `jti` has not already been accepted inside the proof-retention window;
-- a server-provided nonce is current; and
-- the signing key thumbprint equals the key bound to the family.
-
-After a successful refresh commits, the response proactively supplies the nonce for the next proof in a new `DPoP-Nonce` header. The client replaces its stored nonce with that value. The server may retain a tightly bounded window of recently issued nonces to tolerate in-flight requests, but proof-ID replay and issue-time checks continue to apply.
-
-If the client has no nonce because local state was lost or no family-creation response was observed, it sends a fresh signed proof without a `nonce` claim. If a proof omits the nonce or presents a stale nonce, the server returns `400` with the `use_dpop_nonce` error and a fresh `DPoP-Nonce` header. This challenge is a safe pre-consumption response: it does not accept the proof's `jti`, consume or rotate the refresh token, extend the family lifetime, or replace the access session.
-
-After a nonce challenge, the client stores the supplied nonce, creates an entirely new signed proof with a new `jti` and `iat`, and retries through the single-flight refresh coordinator. It never reuses the challenged JWT. This challenge path is also the fallback when a successful refresh committed but the client did not observe the proactively supplied next nonce.
-
-When logout relies on the refresh credential because no access session is valid, it uses the same proof rules with `htm` and `htu` bound to the logout request.
-
-Sender constraining means a copied refresh-token cookie is insufficient off-device without the DPoP private key. It does not prevent active same-origin malicious JavaScript from asking the browser-held key to sign while that script is executing. Content Security Policy, dependency hygiene, output encoding, and other XSS controls remain required.
-
-If the DPoP key is lost but the refresh cookie remains, the refresh token cannot be rebound or used alone. The user performs passkey authentication to create a new family, or uses email recovery if no passkey is available.
+Browser DPoP is deferred rather than rejected. It could reduce off-device replay when an attacker obtains only the refresh cookie, but it adds browser-key persistence, nonce handling, proof validation, cross-tab coordination, lost-key recovery, cryptographic dependencies, and additional failure states. It does not stop an active same-origin XSS attacker or a fully compromised client that can invoke the browser-held key. The current product risk does not justify that complexity for the MVP.
 
 ### Refresh-token reuse and concurrency
 
-Presenting a consumed refresh token with a fresh, otherwise valid DPoP proof from the family-bound key is reuse. The family relationship allows the backend to identify the current descendant token even though only digests are stored.
+Presenting a consumed refresh token is reuse. The family relationship allows the backend to identify the current descendant token even though only digests are stored.
 
 Reuse outside a tightly bounded concurrent-request window revokes the entire family, including its current refresh token and access sessions. The response clears web cookies and requires passkey authentication. The backend cannot reliably determine whether the older token was replayed by an attacker or retried by the legitimate client, so it fails closed.
 
-DPoP verification occurs before reuse can trigger revocation. A request with a missing, invalid, wrong-key, or already-used DPoP proof is rejected without revoking the family, preventing possession of a copied refresh cookie alone from becoming a family-revocation primitive.
+Without sender constraining, possession of a consumed token can also be used to trigger family revocation after the concurrency window. This denial-of-service risk is accepted for the MVP because possession of a current token is already sufficient to impersonate the family, and failing closed prevents silent continued replay.
 
-Within a short configured concurrency window, a second request that presents the just-consumed token and a valid proof from the family's DPoP key returns a retryable `409 REFRESH_ALREADY_ROTATED`. It does not issue credentials, extend either lifetime, or revoke the family. This limits false family revocation from near-simultaneous browser tabs without returning a successor token twice.
+Within a short, fixed, non-sliding concurrency window, a second request presenting the just-consumed token returns 409 REFRESH_ALREADY_ROTATED. The response sets no cookies, returns no credentials, extends no lifetime, and does not revoke the family. The client must not retry that refresh request with the consumed token. A losing browser tab waits for the in-flight refresh to finish and then retries its original protected request using the browser’s shared, updated cookie state.
 
 The web client uses a single-flight refresh coordinator across tabs, such as Web Locks plus `BroadcastChannel`, and retries only after observing the browser's updated cookie state. The repository uses row locking or equivalent conditional atomic writes so only one request can consume a generation. Lost responses outside the concurrency accommodation may require passkey re-authentication; this is accepted in preference to storing recoverable plaintext successor tokens.
 
@@ -233,13 +237,12 @@ The web client uses a single-flight refresh coordinator across tabs, such as Web
 
 At the remembered-device family's absolute expiry, the refresh endpoint returns `REAUTHENTICATION_REQUIRED` and does not rotate or extend the family.
 
-The client performs an explicit WebAuthn assertion with `userVerification: "required"`. After success, the client creates a fresh DPoP key and the backend:
+The client performs an explicit WebAuthn assertion with `userVerification: "required"`. After success, the backend:
 
 1. revokes the old family and any remaining access sessions under it;
 2. creates a new family with new 7-day inactivity and 30-day absolute clocks;
-3. binds the new family to the fresh DPoP public key;
-4. issues the first refresh token for the new family; and
-5. creates a new short access session.
+3. issues the first refresh token for the new family; and
+4. creates a new short access session.
 
 The old family's absolute timestamp is never rewritten. Creating a new family preserves an auditable security boundary and retires the old refresh-token lineage.
 
@@ -254,20 +257,18 @@ Expose these operations under the existing `/api/v1` prefix:
 - `POST /auth/passkeys/registration/options` creates passkey-registration options for an enrollment, recovery, or recently authenticated credential-management authorization.
 - `POST /auth/passkeys/registration/verify` verifies registration and completes the authorized operation.
 - `POST /auth/passkeys/authentication/options` creates usernameless passkey-authentication options.
-- `POST /auth/passkeys/authentication/verify` verifies an assertion and completes login or re-authentication.
+- `POST /auth/passkeys/authentication/verify` verifies a purpose-bound assertion and completes login, periodic re-authentication, or sensitive-operation step-up.
 - `POST /auth/recovery/email` requests an account-recovery email code.
 - `POST /auth/recovery/email/verify` verifies that code and creates a limited recovery authorization.
 - `POST /auth/recovery-email/change` requests verification of a replacement recovery address after recent passkey authentication.
 - `POST /auth/recovery-email/change/verify` verifies and atomically installs the replacement recovery address.
-- `POST /auth/session/refresh` verifies the refresh cookie and DPoP proof, rotates the refresh token, and creates a new access session.
+- `POST /auth/session/refresh` verifies the refresh cookie, rotates the refresh token, and creates a new access session.
 - `GET /auth/session` validates only the access session and returns the current user.
 - `DELETE /auth/session` revokes the current family and its access sessions idempotently, then clears both cookies.
 
 Shared request, response, and error schemas remain owned by the API-contract package. Web JSON never contains access or refresh tokens.
 
-Responses that create a remembered-device family and successful refresh responses provide the next `DPoP-Nonce` header. A refresh nonce challenge returns `400 use_dpop_nonce` with a replacement `DPoP-Nonce` header and no credential-state mutation.
-
-`DELETE /auth/session` is full logout for the current remembered device. A valid access session identifies the family. If only the refresh credential remains, the endpoint requires a valid DPoP proof before revoking that family. With no valid credential, it still clears both cookies idempotently without changing server state. Cookie clearing uses the same names, paths, and security attributes used when each cookie was set. A future session-management endpoint may support revoking selected or all other families.
+`DELETE /auth/session` is full logout for the current remembered device. A valid access session identifies the family. If only the refresh credential remains, the endpoint verifies that credential before revoking its family. With no valid credential, it still clears both cookies idempotently without changing server state. Cookie clearing uses the same names, paths, and security attributes used when each cookie was set. A future session-management endpoint may support revoking selected or all other families.
 
 ### Session restoration and client states
 
@@ -282,9 +283,9 @@ Responses that create a remembered-device family and successful refresh response
 
 The client states are checking, authenticated, refreshing, re-authenticating, reconnecting, unauthenticated, and recoverably unavailable. A persisted hint that the client was authenticated may preserve the route shell while checking or reconnecting, but it is never backend proof and cannot authorize protected data or mutations.
 
-For a sleeping backend, clients retry idempotent session checks and safe pre-consumption refresh challenges with exponential backoff and jitter. The delay is capped at 30 seconds and the overall automatic retry window is five minutes. Clients do not blindly replay a refresh request after its outcome may have committed.
+For a sleeping backend, clients retry idempotent session checks with exponential backoff and jitter. The delay is capped at 30 seconds and the overall automatic retry window is five minutes. Clients do not blindly replay a refresh request after its outcome may have committed; ambiguous refresh outcomes use the bounded concurrency protocol and may ultimately require passkey re-authentication.
 
-Transient failure never clears cookies or local DPoP-key material. After five minutes, the client shows an explicit retry action rather than declaring logout. Protected mutations are not automatically replayed.
+Transient failure never clears cookies. After five minutes, the client shows an explicit retry action rather than declaring logout. Protected mutations are not automatically replayed.
 
 ### Web deployment and relying-party identity
 
@@ -296,9 +297,44 @@ Local development serves the frontend from `http://localhost:3000` and the API f
 
 Cookie-authenticated state-changing requests, including refresh, validate an exact configured `Origin` and reject missing, `null`, or unexpected values. `SameSite` cookies add defense in depth but do not replace origin validation. HTTPS is mandatory outside the localhost development exception.
 
+### Production cookie-authentication shipping gate
+
+Cookie authentication MUST NOT ship or be enabled in production until every control in this section is implemented and verified in a production-equivalent environment. Partial completion is not sufficient.
+
+#### Origin, transport, and browser boundaries
+
+- Production remains same-origin and does not enable unnecessary CORS. Where CORS is required, including localhost development, credentialed CORS uses an explicit per-environment allowlist and returns an allow-origin value only for the exact configured frontend origin. Wildcards, reflected arbitrary origins, `null`, sibling hosting domains, and an unparameterized default CORS configuration are prohibited.
+- Every cookie-authenticated state-changing endpoint validates the exact `Origin` server-side before changing credential or application state. Tests reject missing, `null`, malformed, and unexpected origins.
+- HTTPS is enforced outside the localhost development exception. Proxy trust is explicitly configured and tested so production requests cannot downgrade secure-cookie decisions through spoofed forwarding headers. HSTS and the planned security headers are present on production responses.
+- The production frontend has an enforced Content Security Policy. Script sources are restricted to the minimum required set, unsafe script execution is not enabled for convenience, and third-party scripts are avoided unless separately reviewed.
+
+#### Credential handling
+
+- Integration tests assert the complete access-cookie contract: the production name has the `__Host-` prefix, `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, no `Domain`, and expiry no later than the server-side access-session limit.
+- Integration tests assert the complete refresh-cookie contract: the production name has the `__Secure-` prefix, `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/v1/auth/session`, no `Domain`, and expiry no later than the family's inactivity or absolute limit. The session-only variant omits `Expires` and `Max-Age`.
+- Cookie clearing is tested with the same names, paths, and security attributes used when the cookies were created.
+- Access and refresh tokens never appear in web JSON, URLs, HTML, `localStorage`, `sessionStorage`, or JavaScript-readable cookies. Authentication responses use `Cache-Control: no-store`.
+- PostgreSQL contains only token digests. Raw-token absence is tested in persistence records, application errors, fixtures intended to represent production data, and serialized events.
+
+#### Redaction and operational controls
+
+- `Cookie`, `Set-Cookie`, `Authorization`, email OTP values, raw session tokens, and raw refresh tokens are redacted at every logging boundary, including application logs, reverse-proxy and hosting logs, load balancers, APM, distributed tracing, analytics, error reporting, and support diagnostics.
+- Production-equivalent verification sends canary credential values through authentication and refresh requests and confirms that those values do not appear in captured logs, traces, error events, or response bodies.
+- Authentication and refresh endpoints have shared production rate limits, enumeration-resistant responses, and security-event recording without raw credentials.
+- Secrets and HMAC keys are loaded from the production secret store, never source control, logs, build artifacts, or client bundles.
+
+#### Session correctness and recovery
+
+- HTTP-level tests cover expiry, revocation, exact-origin rejection, atomic rotation, concurrent-tab behavior, consumed-token reuse, family revocation, logout, session restoration, protected-resource ownership, sensitive-operation step-up, and recovery-driven global revocation.
+- Repository tests prove that refresh consumption, successor creation, family renewal, prior-access-session replacement, and new-access-session creation commit atomically.
+- Recovery, passkey addition or removal, recovery-email changes, and family revocation produce auditable security events and the required user notifications.
+- A failed or unavailable session check is not treated as logout, does not clear credentials, and cannot authorize protected data or mutations.
+
+The release checklist must link to passing automated evidence for these controls and to a manual review of production hosting, proxy, observability, and frontend-header configuration. A development-only assertion or an ADR statement is not evidence that the gate has passed.
+
 ### Future native-client transport
 
-A future native client uses platform WebAuthn/passkey APIs. It stores opaque access and refresh tokens in Keychain or Keystore-backed secure storage and sends them through explicit authorization fields rather than cookies. Its DPoP private key is non-exportable and hardware-backed when the platform permits.
+A future native client uses platform WebAuthn/passkey APIs. It stores opaque access and refresh tokens in Keychain or Keystore-backed secure storage and sends them through explicit authorization fields rather than cookies.
 
 Any platform-selection header remains untrusted presentation metadata. It does not prove an official app, grant authorization, or bypass abuse controls. Mobile app attestation is a separate future control.
 
@@ -312,14 +348,14 @@ Application services coordinate:
 - WebAuthn registration and authentication challenges;
 - passkey enrollment and credential management;
 - access-session validation and revocation;
-- refresh rotation, DPoP verification, and family revocation; and
+- refresh rotation, reuse detection, and family revocation; and
 - passkey re-authentication and family replacement.
 
-They depend on ports for credential verification, proof verification, persistence, email delivery, randomness, clocks, rate limiting, and security notifications.
+They depend on ports for credential verification, persistence, email delivery, randomness, clocks, rate limiting, and security notifications.
 
-Presentation owns HTTP validation, WebAuthn wire-format mapping, status codes, cookie creation and clearing, exact-origin enforcement, DPoP header extraction, and mapping application results to shared contracts.
+Presentation owns HTTP validation, WebAuthn wire-format mapping, status codes, cookie creation and clearing, exact-origin enforcement, and mapping application results to shared contracts.
 
-Infrastructure owns PostgreSQL repositories, vetted WebAuthn and JOSE/DPoP adapters, cryptographic randomness and hashing, email delivery, shared rate-limit persistence, notifications, and secret loading. Application policy must not depend directly on a chosen WebAuthn library.
+Infrastructure owns PostgreSQL repositories, vetted WebAuthn adapters, cryptographic randomness and hashing, email delivery, shared rate-limit persistence, notifications, and secret loading. Application policy must not depend directly on a chosen WebAuthn library.
 
 Repositories own transactions in accordance with ADR-0001. The following operations are conditional and atomic:
 
@@ -343,21 +379,23 @@ Focused tests cover:
 - access inactivity and absolute expiry;
 - refresh inactivity and absolute expiry;
 - atomic rotation, concurrent tabs, the bounded `409` path, consumed-token reuse, and family revocation;
-- DPoP signature, method, URL, issue time, proactive nonce delivery, missing and stale nonce challenges, fresh-proof retry, proof-ID replay, algorithm, and key binding;
 - exact cookie flags and path scoping;
 - exact-origin and CSRF rejection;
+- recent passkey authentication for every sensitive operation;
 - transient restoration without credential deletion; and
-- absence of raw secrets in persistence, JSON, and logs.
+- absence of raw secrets in persistence, JSON, browser storage, application logs, infrastructure logs, traces, analytics, and error reports.
+
+The production cookie-authentication shipping gate is part of the verification strategy. Its automated tests run with production cookie names and security settings, and its operational checks inspect the deployed proxy, hosting, observability, and frontend-header configuration rather than assuming local middleware configuration is sufficient.
 
 ### Abuse controls and operations
 
 Email requests are limited by normalized email, requesting IP, resend cooldown, and a global delivery ceiling. WebAuthn option and verification endpoints, recovery operations, and refresh failures are also rate limited. Production limits are shared across replicas.
 
-Responses do not reveal whether an email or passkey belongs to an account. Internal security events may distinguish outcomes, but logs never include OTP codes, raw session or refresh tokens, private keys, complete DPoP proofs, HMAC keys, or complete cookie values.
+Responses do not reveal whether an email or passkey belongs to an account. Internal security events may distinguish outcomes, but logs never include OTP codes, raw session or refresh tokens, passkey material, HMAC keys, authorization headers, or cookie values.
 
-Security events include passkey addition or removal, recovery completion, family creation and revocation, refresh-token reuse, repeated DPoP failure, and unusual signature-counter changes. User notifications avoid including secrets.
+Security events include passkey addition or removal, recovery completion, family creation and revocation, refresh-token reuse, sensitive-operation re-authentication, and unusual signature-counter changes. User notifications avoid including secrets.
 
-Expired challenges, authorizations, proofs, sessions, tokens, revoked families, and obsolete rate-limit records are cleaned up according to a retention policy. Consumed refresh-token digests remain available long enough for replay detection and incident investigation.
+Expired challenges, authorizations, sessions, tokens, revoked families, and obsolete rate-limit records are cleaned up according to a retention policy. Consumed refresh-token digests remain available long enough for replay detection and incident investigation.
 
 ## Alternatives Considered
 
@@ -371,13 +409,13 @@ Rejected for normal authentication. Email remains mandatory for recovery and ini
 
 This is simpler and avoids rotation races, but a copied bearer cookie remains useful for a long inactivity and absolute lifetime. It also conflates ordinary request authorization with remembered-device convenience.
 
-Rejected in favor of short access sessions plus a separately constrained renewal credential.
+Rejected in favor of short access sessions plus a separately scoped and rotating renewal credential.
 
-### Use short access sessions with an unbound refresh token
+### Use browser DPoP to sender-constrain refresh tokens
 
-This is common and simpler than DPoP, but a copied refresh token can be replayed from another device until rotation or family-reuse detection reacts.
+DPoP can prevent off-device replay when an attacker obtains only the refresh token and not the bound private key. It is valuable for higher-impact applications or observed token-theft threats.
 
-Rejected because the application has chosen sender-constrained silent renewal. Rotation remains necessary because DPoP alone does not provide token-family replay detection.
+Deferred for the MVP because it adds browser key and nonce lifecycle complexity, does not prevent active same-origin XSS or a fully compromised client, and addresses a lower-ranked threat for the current consumer-wellness product. Reconsider at the threat-model triggers defined above.
 
 ### Use JWT access tokens
 
@@ -401,7 +439,7 @@ Deferred rather than permanently rejected. Reconsider if operating WebAuthn and 
 
 This lets frontend JavaScript attach tokens directly, but any script executing in the origin can read and export them.
 
-Rejected. Web access and refresh secrets remain in `HttpOnly` cookies; JavaScript holds only the non-extractable DPoP key handle where supported.
+Rejected. Web access and refresh secrets remain in `HttpOnly` cookies and are never exposed to JavaScript.
 
 ### Extend an existing refresh family's absolute expiry after passkey use
 
@@ -415,19 +453,22 @@ Rejected. Passkey re-authentication creates a new family and revokes the old one
 - A user normally interacts with a passkey at initial login, after seven days of inactivity, or at the 30-day absolute boundary, while short access sessions continue to limit ordinary-cookie exposure.
 - Email is mandatory for recovery and therefore remains the account's recovery assurance ceiling. Compromise of the recovery inbox can ultimately regain the account.
 - Every protected request performs a server-side access-session lookup, and refresh performs a transactional token-family update.
-- DPoP reduces off-device use of a stolen refresh cookie but does not stop active same-origin XSS or prove that browser key storage is hardware-backed.
+- A copied current refresh token remains replayable off-device until rotation or reuse detection reacts; this residual risk is accepted for the MVP.
+- Recent passkey authentication prevents a refresh-only attacker from adding credentials, changing the recovery email, exporting the complete account, deleting the account, or revoking other remembered devices.
 - Strict rotation and replay detection can require passkey re-authentication after an ambiguous lost response. The bounded concurrency response reduces ordinary multi-tab false positives without silently returning the same successor twice.
+- Cookie authentication cannot ship until the production gate's automated and operational evidence is complete.
 - A stable production domain becomes an authentication dependency because passkeys are relying-party-bound.
 - Passkey support across modern browsers and platforms is sufficient for the primary flow, but detailed UX such as conditional mediation must be progressively enhanced rather than required.
 - Recovery, passkey management, and family replacement require security notifications and auditable events.
-- Database migrations add WebAuthn challenges, passkey credentials, limited enrollment and recovery authorizations, access sessions, remembered-device families, refresh-token generations, DPoP replay state, email challenges, and shared rate-limit state.
+- Database migrations add WebAuthn challenges, passkey credentials, limited enrollment and recovery authorizations, access sessions, remembered-device families, refresh-token generations, email challenges, and shared rate-limit state.
 - Password, JWT, and email-OTP-primary paths can be removed after migration. Existing users use verified-email recovery to enroll their first passkey without losing domain data.
-- The client must implement session restoration, cross-tab refresh coordination, passkey ceremonies, DPoP proof generation, and explicit re-authentication states.
+- The client must implement session restoration, cross-tab refresh coordination, passkey ceremonies, sensitive-operation step-up, and explicit re-authentication states.
 - Future native clients can share the application lifecycle but require platform-specific secure storage and passkey adapters.
 
 ## Explicitly Deferred
 
-- Selection and installation of WebAuthn, CBOR/COSE, JOSE, and DPoP implementation libraries.
+- Selection and installation of WebAuthn and CBOR/COSE implementation libraries.
+- Browser DPoP or another sender-constraining mechanism for refresh tokens.
 - Production transactional-email vendor and sending-domain operations.
 - Conditional passkey UI and passkey autofill as a required login path.
 - Authenticator attestation, enterprise passkey policy, and device-vendor restrictions.
@@ -443,5 +484,7 @@ Rejected. Passkey re-authentication creates a new family and revokes the old one
 - [RFC 9449: OAuth 2.0 Demonstrating Proof of Possession](https://www.rfc-editor.org/rfc/rfc9449.html)
 - [RFC 9700 section 4.14.2: Refresh Token Protection](https://www.rfc-editor.org/rfc/rfc9700.html#section-4.14.2)
 - [OWASP Session Management Cheat Sheet: Session Expiration](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#session-expiration)
+- [OWASP Cross-Site Request Forgery Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)
+- [OWASP Logging Cheat Sheet: Data to Exclude](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html#data-to-exclude)
 - [NIST SP 800-63B AAL1 Reauthentication](https://pages.nist.gov/800-63-4/sp800-63b/aal/#aal1reauth)
 - [RFC 6265 section 4.1.2.4: Cookie Path](https://www.rfc-editor.org/rfc/rfc6265.html#section-4.1.2.4)
