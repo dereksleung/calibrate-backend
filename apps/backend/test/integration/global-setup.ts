@@ -8,7 +8,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import {
-  createDatabase,
+  createDatabaseClient,
   type DatabaseConnectionConfig,
 } from "../../src/infrastructure/persistence/database-client.js";
 import { TEST_DATABASE_CONFIG, TEST_DATABASE_NAME } from "./database-context.js";
@@ -34,11 +34,11 @@ export async function setup(project: TestProject): Promise<void> {
     password: container.getPassword(),
     maxConnections: 10,
   };
-  const database = createDatabase(databaseConfig);
+  const databaseClient = createDatabaseClient(databaseConfig);
 
   try {
     const migrator = new Migrator({
-      db: database,
+      db: databaseClient,
       provider: new FileMigrationProvider({
         fs,
         path,
@@ -57,7 +57,7 @@ export async function setup(project: TestProject): Promise<void> {
     container = undefined;
     throw error;
   } finally {
-    await database.destroy();
+    await databaseClient.destroy();
   }
 }
 

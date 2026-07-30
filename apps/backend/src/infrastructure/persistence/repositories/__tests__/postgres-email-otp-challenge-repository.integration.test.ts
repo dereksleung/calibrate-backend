@@ -1,13 +1,13 @@
-import type { Insertable, Kysely } from "kysely";
+import type { Insertable } from "kysely";
 
 import { RateLimitError, type NewEmailOtpChallenge } from "@application";
 import { createHmac, randomUUID } from "node:crypto";
 
-import type { Database } from "../../database.js";
+import type { DatabaseClient, DatabaseSchema } from "../../database.js";
 
 import {
   clearIntegrationDatabase,
-  createIntegrationDatabase,
+  createIntegrationDatabaseClient,
 } from "../../../../../test/integration/database.js";
 import { PostgresEmailOtpChallengeRepository } from "../postgres-email-otp-challenge-repository.js";
 
@@ -34,10 +34,10 @@ function challenge(overrides: Partial<NewEmailOtpChallenge> = {}): NewEmailOtpCh
 }
 
 async function insertChallenge(
-  database: Kysely<Database>,
-  overrides: Partial<Insertable<Database["email_otp_challenges"]>> = {},
+  databaseClient: DatabaseClient,
+  overrides: Partial<Insertable<DatabaseSchema["email_otp_challenges"]>> = {},
 ): Promise<void> {
-  await database
+  await databaseClient
     .insertInto("email_otp_challenges")
     .values({
       id: randomUUID(),
@@ -61,20 +61,23 @@ async function insertChallenge(
 }
 
 describe("PostgresEmailOtpChallengeRepository", () => {
-  let database: Kysely<Database>;
+  let databaseClient: DatabaseClient;
   let repository: PostgresEmailOtpChallengeRepository;
 
   beforeAll(() => {
-    database = createIntegrationDatabase();
-    repository = new PostgresEmailOtpChallengeRepository({ ipDigestKey, globalHourlyLimit: 1000 }, database);
+    databaseClient = createIntegrationDatabaseClient();
+    repository = new PostgresEmailOtpChallengeRepository(
+      { ipDigestKey, globalHourlyLimit: 1000 },
+      databaseClient,
+    );
   });
 
   beforeEach(async () => {
-    await clearIntegrationDatabase(database);
+    await clearIntegrationDatabase(databaseClient);
   });
 
   afterAll(async () => {
-    await database.destroy();
+    await databaseClient.destroy();
   });
 
   it("persists the challenge fields and stores only the requesting IP HMAC", async () => {
@@ -85,7 +88,7 @@ describe("PostgresEmailOtpChallengeRepository", () => {
 
     await repository.create(input);
 
-    const row = await database
+    const row = await databaseClient
       .selectFrom("email_otp_challenges")
       .selectAll()
       .where("id", "=", input.id)
@@ -113,12 +116,12 @@ describe("PostgresEmailOtpChallengeRepository", () => {
   it("invalidates only the older active challenge with the same delivery binding", async () => {
     const matchingId = randomUUID();
     const otherPlatformId = randomUUID();
-    await insertChallenge(database, {
+    await insertChallenge(databaseClient, {
       id: matchingId,
       session_transport: "bearer",
       mobile_platform: "ios",
     });
-    await insertChallenge(database, {
+    await insertChallenge(databaseClient, {
       id: otherPlatformId,
       session_transport: "bearer",
       mobile_platform: "android",
@@ -131,7 +134,7 @@ describe("PostgresEmailOtpChallengeRepository", () => {
       }),
     );
 
-    const rows = await database
+    const rows = await databaseClient
       .selectFrom("email_otp_challenges")
       .select(["id", "invalidated_at"])
       .where("id", "in", [matchingId, otherPlatformId])
@@ -144,8 +147,8 @@ describe("PostgresEmailOtpChallengeRepository", () => {
   it("rolls back invalidation when inserting the replacement fails", async () => {
     const previousId = randomUUID();
     const duplicateId = randomUUID();
-    /**  
-     * This first inserted challenge with previousId will later have a transaction with an invalidation attempt 
+    /**
+     * This first inserted challenge with previousId will later have a transaction with an invalidation attempt
      * rolled back when it fails.
      * Existing OTP Challenge rows are invalidated based on having the same delivery binding, consisting of:
      *  - Email
@@ -153,9 +156,9 @@ describe("PostgresEmailOtpChallengeRepository", () => {
      *  - Session transport
      *  - Mobile platform
      * and being active/unconsumed.
-     */ 
-    await insertChallenge(database, { id: previousId });
-    await insertChallenge(database, {
+     */
+    await insertChallenge(databaseClient, { id: previousId });
+    await insertChallenge(databaseClient, {
       id: duplicateId,
       email: "other@example.com",
     });
@@ -166,7 +169,7 @@ describe("PostgresEmailOtpChallengeRepository", () => {
       code: "23505",
     });
 
-    const previous = await database
+    const previous = await databaseClient
       .selectFrom("email_otp_challenges")
       .select("invalidated_at")
       .where("id", "=", previousId)
@@ -187,7 +190,7 @@ describe("PostgresEmailOtpChallengeRepository", () => {
       shouldReject: false,
     },
   ])("$description the sixty-second cooldown boundary", async ({ ageMilliseconds, shouldReject }) => {
-    await insertChallenge(database, {
+    await insertChallenge(databaseClient, {
       created_at: new Date(createdAt.getTime() - ageMilliseconds),
     });
 
@@ -213,7 +216,7 @@ describe("PostgresEmailOtpChallengeRepository", () => {
         .digest("base64url");
 
       for (let index = 0; index < existingCount; index += 1) {
-        await insertChallenge(database, {
+        await insertChallenge(databaseClient, {
           email: dimension === "email" ? input.email : `other-${index}@example.com`,
           requesting_ip_digest: dimension === "IP" ? expectedIpDigest : `unrelated-ip-digest-${index}`,
         });
@@ -221,14 +224,14 @@ describe("PostgresEmailOtpChallengeRepository", () => {
 
       const limitedRepository = new PostgresEmailOtpChallengeRepository(
         { ipDigestKey, globalHourlyLimit },
-        database,
+        databaseClient,
       );
 
       await expect(limitedRepository.create(input)).rejects.toEqual(
         new RateLimitError("Too many verification-code requests"),
       );
       await expect(
-        database
+        databaseClient
           .selectFrom("email_otp_challenges")
           .select("id")
           .where("id", "=", input.id)
@@ -240,7 +243,7 @@ describe("PostgresEmailOtpChallengeRepository", () => {
   it("serializes concurrent creates so the global limit cannot be oversubscribed", async () => {
     const limitedRepository = new PostgresEmailOtpChallengeRepository(
       { ipDigestKey, globalHourlyLimit: 1 },
-      database,
+      databaseClient,
     );
 
     const results = await Promise.allSettled([
@@ -260,7 +263,7 @@ describe("PostgresEmailOtpChallengeRepository", () => {
       reason: new RateLimitError("Too many verification-code requests"),
     });
 
-    const count = await database
+    const count = await databaseClient
       .selectFrom("email_otp_challenges")
       .select(({ fn }) => fn.countAll<number>().as("count"))
       .executeTakeFirstOrThrow();
@@ -271,7 +274,7 @@ describe("PostgresEmailOtpChallengeRepository", () => {
     const id = randomUUID();
     const consumedAt = new Date("2026-07-29T12:01:00.000Z");
     const invalidatedAt = new Date("2026-07-29T12:02:00.000Z");
-    await insertChallenge(database, {
+    await insertChallenge(databaseClient, {
       id,
       code_digest: "persisted-code-digest",
       hmac_format_version: 3,
@@ -308,12 +311,12 @@ describe("PostgresEmailOtpChallengeRepository", () => {
     const consumedId = randomUUID();
     const alreadyInvalidatedId = randomUUID();
     const previousInvalidatedAt = new Date("2026-07-29T11:50:00.000Z");
-    await insertChallenge(database, { id: activeId });
-    await insertChallenge(database, {
+    await insertChallenge(databaseClient, { id: activeId });
+    await insertChallenge(databaseClient, {
       id: consumedId,
       consumed_at: new Date("2026-07-29T11:55:00.000Z"),
     });
-    await insertChallenge(database, {
+    await insertChallenge(databaseClient, {
       id: alreadyInvalidatedId,
       invalidated_at: previousInvalidatedAt,
     });
@@ -324,7 +327,7 @@ describe("PostgresEmailOtpChallengeRepository", () => {
       repository.invalidate(alreadyInvalidatedId, createdAt),
     ]);
 
-    const rows = await database
+    const rows = await databaseClient
       .selectFrom("email_otp_challenges")
       .select(["id", "invalidated_at"])
       .where("id", "in", [activeId, consumedId, alreadyInvalidatedId])
@@ -343,14 +346,14 @@ describe("PostgresEmailOtpChallengeRepository", () => {
     const consumedId = randomUUID();
     const invalidatedId = randomUUID();
     const maximumId = randomUUID();
-    await insertChallenge(database, { id: activeId });
-    await insertChallenge(database, {
+    await insertChallenge(databaseClient, { id: activeId });
+    await insertChallenge(databaseClient, {
       id: expiredId,
       expires_at: new Date("2026-07-29T11:59:59.000Z"),
     });
-    await insertChallenge(database, { id: consumedId, consumed_at: createdAt });
-    await insertChallenge(database, { id: invalidatedId, invalidated_at: createdAt });
-    await insertChallenge(database, { id: maximumId, attempt_count: 5 });
+    await insertChallenge(databaseClient, { id: consumedId, consumed_at: createdAt });
+    await insertChallenge(databaseClient, { id: invalidatedId, invalidated_at: createdAt });
+    await insertChallenge(databaseClient, { id: maximumId, attempt_count: 5 });
 
     await Promise.all(
       [activeId, expiredId, consumedId, invalidatedId, maximumId].map((id) =>
@@ -358,7 +361,7 @@ describe("PostgresEmailOtpChallengeRepository", () => {
       ),
     );
 
-    const rows = await database
+    const rows = await databaseClient
       .selectFrom("email_otp_challenges")
       .select(["id", "attempt_count"])
       .where("id", "in", [activeId, expiredId, consumedId, invalidatedId, maximumId])
@@ -373,11 +376,11 @@ describe("PostgresEmailOtpChallengeRepository", () => {
 
   it("atomically caps concurrent failed-attempt increments", async () => {
     const id = randomUUID();
-    await insertChallenge(database, { id });
+    await insertChallenge(databaseClient, { id });
 
     await Promise.all(Array.from({ length: 10 }, () => repository.recordFailedAttempt(id, createdAt)));
 
-    const row = await database
+    const row = await databaseClient
       .selectFrom("email_otp_challenges")
       .select("attempt_count")
       .where("id", "=", id)

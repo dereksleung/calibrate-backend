@@ -7,13 +7,15 @@ import { FoodEntriesTable } from "./schemas/food-entries-table.js";
 import { SessionsTable } from "./schemas/sessions-table.js";
 import { UsersTable } from "./schemas/users-table.js";
 
-export interface Database {
+export interface DatabaseSchema {
   email_otp_challenges: EmailOtpChallengesTable;
   sessions: SessionsTable;
   users: UsersTable;
   food_entries: FoodEntriesTable;
   day_logs: DayLogsTable;
 }
+
+export type DatabaseClient = Kysely<DatabaseSchema>;
 
 export interface DatabaseConnectionConfig {
   database: string;
@@ -24,8 +26,8 @@ export interface DatabaseConnectionConfig {
   maxConnections?: number;
 }
 
-export function createDatabase(config: DatabaseConnectionConfig): Kysely<Database> {
-  return new Kysely<Database>({
+export function createDatabaseClient(config: DatabaseConnectionConfig): DatabaseClient {
+  return new Kysely<DatabaseSchema>({
     dialect: new PostgresDialect({
       pool: new Pool({
         database: config.database,

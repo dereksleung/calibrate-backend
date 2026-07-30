@@ -1,5 +1,3 @@
-import type { Kysely } from "kysely";
-
 import {
   EmailOtpChallenge,
   IEmailOtpChallengeRepository,
@@ -9,7 +7,7 @@ import {
 import { sql } from "kysely";
 import { createHmac } from "node:crypto";
 
-import type { Database } from "../database-client.js";
+import type { DatabaseClient } from "../database-client.js";
 
 const RESEND_COOLDOWN_MILLISECONDS = 60_000;
 const RATE_LIMIT_WINDOW_MILLISECONDS = 60 * 60 * 1000;
@@ -24,14 +22,14 @@ export class PostgresEmailOtpChallengeRepository implements IEmailOtpChallengeRe
       ipDigestKey: Buffer;
       globalHourlyLimit: number;
     },
-    private readonly database: Kysely<Database>,
+    private readonly databaseClient: DatabaseClient,
   ) {}
 
   async create(challenge: NewEmailOtpChallenge): Promise<void> {
     const requestingIpDigest = this.digestIp(challenge.requestingIp);
     const rateLimitWindowStart = new Date(challenge.createdAt.getTime() - RATE_LIMIT_WINDOW_MILLISECONDS);
 
-    await this.database.transaction().execute(async (trx) => {
+    await this.databaseClient.transaction().execute(async (trx) => {
       // Prevent lock acquisition or rate-limit queries from waiting indefinitely.
       await sql`set local lock_timeout = '2s'`.execute(trx);
       await sql`set local statement_timeout = '5s'`.execute(trx);
@@ -128,7 +126,7 @@ export class PostgresEmailOtpChallengeRepository implements IEmailOtpChallengeRe
   }
 
   async invalidate(challengeId: string, invalidatedAt: Date): Promise<void> {
-    await this.database
+    await this.databaseClient
       .updateTable("email_otp_challenges")
       .set({ invalidated_at: invalidatedAt })
       .where("id", "=", challengeId)
@@ -138,7 +136,7 @@ export class PostgresEmailOtpChallengeRepository implements IEmailOtpChallengeRe
   }
 
   async findById(challengeId: string): Promise<EmailOtpChallenge | null> {
-    const row = await this.database
+    const row = await this.databaseClient
       .selectFrom("email_otp_challenges")
       .selectAll()
       .where("id", "=", challengeId)
@@ -148,7 +146,7 @@ export class PostgresEmailOtpChallengeRepository implements IEmailOtpChallengeRe
   }
 
   async recordFailedAttempt(challengeId: string, attemptedAt: Date): Promise<void> {
-    await this.database
+    await this.databaseClient
       .updateTable("email_otp_challenges")
       .set({ attempt_count: sql<number>`attempt_count + 1` })
       .where("id", "=", challengeId)

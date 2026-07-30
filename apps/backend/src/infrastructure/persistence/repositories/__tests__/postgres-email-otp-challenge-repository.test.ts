@@ -4,7 +4,7 @@ import { RateLimitError, type NewEmailOtpChallenge } from "@application";
 import { Kysely, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from "kysely";
 import { createHmac } from "node:crypto";
 
-import type { Database } from "../../database.js";
+import type { DatabaseClient, DatabaseSchema } from "../../database.js";
 
 import { PostgresEmailOtpChallengeRepository } from "../postgres-email-otp-challenge-repository.js";
 
@@ -74,8 +74,8 @@ class RecordingDriver implements Driver {
   async destroy(): Promise<void> {}
 }
 
-function createDatabase(driver: RecordingDriver): Kysely<Database> {
-  return new Kysely<Database>({
+function createRecordingDatabaseClient(driver: RecordingDriver): DatabaseClient {
+  return new Kysely<DatabaseSchema>({
     dialect: {
       createAdapter: () => new PostgresAdapter(),
       createDriver: () => driver,
@@ -111,7 +111,7 @@ function createRepository(rows: ScriptedRows = {}, globalHourlyLimit = 1000) {
   const ipDigestKey = Buffer.alloc(32, 9);
   const repository = new PostgresEmailOtpChallengeRepository(
     { ipDigestKey, globalHourlyLimit },
-    createDatabase(driver),
+    createRecordingDatabaseClient(driver),
   );
 
   return { driver, ipDigestKey, repository };

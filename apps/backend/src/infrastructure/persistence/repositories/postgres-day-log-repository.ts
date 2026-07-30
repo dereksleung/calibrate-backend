@@ -1,8 +1,6 @@
-import type { Kysely } from "kysely";
-
 import { DayLog, FoodEntry, MealNameEnum } from "@domain";
 
-import type { Database } from "../../persistence/database-client.js";
+import type { DatabaseClient } from "../../persistence/database-client.js";
 
 import {
   FindOrCreateDayLogByDateAndUserIdRepositoryDto,
@@ -13,7 +11,7 @@ import { SelectableDayLog } from "../schemas/day-logs-table.js";
 import { InsertableFoodEntry, SelectableFoodEntry } from "../schemas/food-entries-table.js";
 
 export class PostgresDayLogRepository implements IDayLogRepository {
-  constructor(private readonly database: Kysely<Database>) {}
+  constructor(private readonly databaseClient: DatabaseClient) {}
 
   async findOrCreateByDateAndUserId({
     date,
@@ -22,7 +20,7 @@ export class PostgresDayLogRepository implements IDayLogRepository {
     if (!date) throw new Error("Date is required");
     let dayLogRow: SelectableDayLog;
     if (date) {
-      const foundRow = await this.database
+      const foundRow = await this.databaseClient
         .selectFrom("day_logs")
         .selectAll()
         .where("user_id", "=", userId)
@@ -32,7 +30,7 @@ export class PostgresDayLogRepository implements IDayLogRepository {
       if (!foundRow) throw new Error("Day log not found");
       dayLogRow = foundRow;
     } else {
-      const newRow = await this.database
+      const newRow = await this.databaseClient
         .insertInto("day_logs")
         .values({
           date: new Date().toDateString(),
@@ -61,7 +59,7 @@ export class PostgresDayLogRepository implements IDayLogRepository {
   }
 
   async countDayLogsByUserId(userId: string): Promise<number> {
-    const count = await this.database
+    const count = await this.databaseClient
       .selectFrom("day_logs")
       .select((eb) => eb.fn.countAll().as("count"))
       .where("user_id", "=", userId)
@@ -78,7 +76,7 @@ export class PostgresDayLogRepository implements IDayLogRepository {
    * The probability is vanishingly small.
    */
   async addFoodEntry(dayLogId: string, foodEntry: FoodEntry): Promise<FoodEntry> {
-    const foodEntryRow = await this.database
+    const foodEntryRow = await this.databaseClient
       .insertInto("food_entries")
       .values({
         ...this.mapFoodEntryToRow(foodEntry),
@@ -91,7 +89,7 @@ export class PostgresDayLogRepository implements IDayLogRepository {
   }
 
   async findLogByDateAndUserId({ userId, date }: GetDayLogByDateAndUserDto): Promise<DayLog | null> {
-    const dayLogRow = await this.database
+    const dayLogRow = await this.databaseClient
       .selectFrom("day_logs")
       .selectAll()
       .where("user_id", "=", userId)
@@ -176,7 +174,7 @@ export class PostgresDayLogRepository implements IDayLogRepository {
     dinner: FoodEntry[];
     snacks: FoodEntry[];
   }> {
-    const foodEntries = await this.database
+    const foodEntries = await this.databaseClient
       .selectFrom("food_entries")
       .selectAll()
       .where("day_log_id", "=", dayLogId)

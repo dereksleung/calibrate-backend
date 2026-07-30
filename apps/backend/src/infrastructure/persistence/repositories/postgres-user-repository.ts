@@ -1,17 +1,15 @@
-import type { Kysely } from "kysely";
-
 import { IUserRepository } from "@application";
 import { User } from "@domain";
 
-import type { Database } from "../database-client.js";
+import type { DatabaseClient } from "../database-client.js";
 
 import { SelectableUser } from "../schemas/users-table.js";
 
 export class PostgresUserRepository implements IUserRepository {
-  constructor(private readonly database: Kysely<Database>) {}
+  constructor(private readonly databaseClient: DatabaseClient) {}
 
   async findById(id: string): Promise<User | null> {
-    const userRow = await this.database
+    const userRow = await this.databaseClient
       .selectFrom("users")
       .selectAll()
       .where("id", "=", id)
@@ -20,7 +18,7 @@ export class PostgresUserRepository implements IUserRepository {
   }
 
   async save(user: User): Promise<User> {
-    const userRow = await this.database
+    const userRow = await this.databaseClient
       .insertInto("users")
       .values({
         id: user.id,
@@ -41,7 +39,7 @@ export class PostgresUserRepository implements IUserRepository {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    const userRow = await this.database
+    const userRow = await this.databaseClient
       .selectFrom("users")
       .selectAll()
       .where("email", "=", email)
