@@ -144,12 +144,24 @@ describe("PostgresEmailOtpChallengeRepository", () => {
   it("rolls back invalidation when inserting the replacement fails", async () => {
     const previousId = randomUUID();
     const duplicateId = randomUUID();
+    /**  
+     * This first inserted challenge with previousId will later have a transaction with an invalidation attempt 
+     * rolled back when it fails.
+     * Existing OTP Challenge rows are invalidated based on having the same delivery binding, consisting of:
+     *  - Email
+     *  - Purpose
+     *  - Session transport
+     *  - Mobile platform
+     * and being active/unconsumed.
+     */ 
     await insertChallenge(database, { id: previousId });
     await insertChallenge(database, {
       id: duplicateId,
       email: "other@example.com",
     });
 
+    // This new challenge has the same email, purpose, session transport, and mobile platform as the first challenge,
+    // and the duplicateId is only used to cause inserting the replacement to fail, rolling back the transaction.
     await expect(repository.create(challenge({ id: duplicateId }))).rejects.toMatchObject({
       code: "23505",
     });
