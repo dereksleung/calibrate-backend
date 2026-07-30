@@ -9,7 +9,7 @@ import {
 import { sql } from "kysely";
 import { createHmac } from "node:crypto";
 
-import { db, type Database } from "../database.js";
+import type { Database } from "../database-client.js";
 
 const RESEND_COOLDOWN_MILLISECONDS = 60_000;
 const RATE_LIMIT_WINDOW_MILLISECONDS = 60 * 60 * 1000;
@@ -24,7 +24,7 @@ export class PostgresEmailOtpChallengeRepository implements IEmailOtpChallengeRe
       ipDigestKey: Buffer;
       globalHourlyLimit: number;
     },
-    private readonly database: Kysely<Database> = db,
+    private readonly database: Kysely<Database>,
   ) {}
 
   async create(challenge: NewEmailOtpChallenge): Promise<void> {

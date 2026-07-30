@@ -59,7 +59,7 @@
     },
     "test:integration": {
       "executor": "nx:run-commands",
-      "cache": true,
+      "cache": false,
       "options": {
         "cwd": "apps/backend",
         "command": "vitest run --config vitest.integration.config.ts"

@@ -24,6 +24,7 @@ import {
 import { createSecretKey } from "crypto";
 
 import { BrevoEmailSender } from "./email/brevo-email-sender.js";
+import { db } from "./persistence/database.js";
 import {
   PostgresDayLogRepository,
   PostgresEmailOtpChallengeRepository,
@@ -117,8 +118,8 @@ export class Container {
     userController?: UserController;
     passwordHasher?: IPasswordHasher;
   }) {
-    this.userRepository = userRepository ?? new PostgresUserRepository();
-    this.dayLogRepository = dayLogRepository ?? new PostgresDayLogRepository();
+    this.userRepository = userRepository ?? new PostgresUserRepository(db);
+    this.dayLogRepository = dayLogRepository ?? new PostgresDayLogRepository(db);
     this.dayLogService = dayLogService ?? new DayLogServiceImpl(this.dayLogRepository, this.userRepository);
     this.dayLogController = dayLogController ?? new DayLogController(this.dayLogService);
 
@@ -135,10 +136,13 @@ export class Container {
       signupEmailVerificationService ??
       (configuredEmailSender
         ? new SignupEmailVerificationServiceImpl(
-            new PostgresEmailOtpChallengeRepository({
-              ipDigestKey: ipDigestKeyBytes,
-              globalHourlyLimit,
-            }),
+            new PostgresEmailOtpChallengeRepository(
+              {
+                ipDigestKey: ipDigestKeyBytes,
+                globalHourlyLimit,
+              },
+              db,
+            ),
             this.emailOtpCodeService,
             configuredEmailSender,
             clock ?? new SystemClock(),
