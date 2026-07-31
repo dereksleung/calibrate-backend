@@ -91,6 +91,7 @@ export function createApiTransport(options: ApiTransportOptions): ApiTransport {
 
       const response = await fetchImplementation(buildUrl(options.baseUrl, path, query), {
         method,
+        credentials: "include",
         headers: await buildHeaders(options, requestHeaders, body),
         body: body === undefined ? undefined : JSON.stringify(body),
       });

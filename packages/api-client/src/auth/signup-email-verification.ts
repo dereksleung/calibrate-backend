@@ -1,8 +1,12 @@
 import {
   RequestSignupEmailVerificationRequestBodySchema,
   RequestSignupEmailVerificationResponseSchema,
+  VerifySignupEmailVerificationRequestBodySchema,
+  VerifySignupEmailVerificationResponseSchema,
   type RequestSignupEmailVerificationRequestBody,
   type RequestSignupEmailVerificationResponse,
+  type VerifySignupEmailVerificationRequestBody,
+  type VerifySignupEmailVerificationResponse,
 } from "@calibrate/api-contracts";
 import { MutationOptions, mutationOptions, useMutation } from "@tanstack/react-query";
 
@@ -22,6 +26,20 @@ export function requestSignupEmailVerification(
   });
 }
 
+export function verifySignupEmailVerification(
+  transport: ApiTransport,
+  input: VerifySignupEmailVerificationRequestBody,
+): Promise<VerifySignupEmailVerificationResponse> {
+  const body = VerifySignupEmailVerificationRequestBodySchema.parse(input);
+
+  return transport.request({
+    path: "/auth/email-verification/verify",
+    method: "POST",
+    body,
+    responseBodySchema: VerifySignupEmailVerificationResponseSchema,
+  });
+}
+
 export function getRequestSignupEmailVerificationMutationOptions(
   transport: ApiTransport,
   options?: MutationOptions<RequestSignupEmailVerificationResponse, unknown, string>,
@@ -38,4 +56,22 @@ export function useRequestSignupEmailVerification(
   options?: MutationOptions<RequestSignupEmailVerificationResponse, unknown, string>,
 ) {
   return useMutation(getRequestSignupEmailVerificationMutationOptions(transport, options));
+}
+
+export function useVerifySignupEmailVerification(
+  transport: ApiTransport,
+  options?: MutationOptions<
+    VerifySignupEmailVerificationResponse,
+    unknown,
+    VerifySignupEmailVerificationRequestBody
+  >,
+) {
+  return useMutation(
+    mutationOptions({
+      mutationKey: ["verifySignupEmailVerification"],
+      mutationFn: (input: VerifySignupEmailVerificationRequestBody) =>
+        verifySignupEmailVerification(transport, input),
+      ...options,
+    }),
+  );
 }

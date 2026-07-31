@@ -4,9 +4,10 @@ import { WarningBanner } from "#/shared/components/base/WarningBanner";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "#/verticals/auth/components/InputOtp.tsx";
 import {
   createSignupEmailVerificationHandoff,
+  createPasskeyEnrollmentHandoff,
   type SignupEmailVerificationHandoff,
 } from "#/verticals/auth/signup-email-verification-handoff";
-import { useRequestSignupEmailVerification } from "@calibrate/api-client";
+import { useRequestSignupEmailVerification, useVerifySignupEmailVerification } from "@calibrate/api-client";
 import { useNavigate } from "@tanstack/react-router";
 import { MailCheck } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -25,9 +26,12 @@ function OtpPage({ handoff }: OtpPageProps) {
   const navigate = useNavigate();
   const { isPending, mutateAsync: requestSignupEmailVerification } =
     useRequestSignupEmailVerification(apiTransport);
+  const { isPending: isVerifying, mutateAsync: verifySignupEmailVerification } =
+    useVerifySignupEmailVerification(apiTransport);
   const [otpCode, setOtpCode] = useState("");
   const [resendCountdown, setResendCountdown] = useState(() => getResendCountdown(handoff));
   const [resendError, setResendError] = useState<string>();
+  const [verificationError, setVerificationError] = useState<string>();
   const expiryMinutes = Math.ceil(handoff.expiresInSeconds / 60);
 
   useEffect(() => {
@@ -64,6 +68,24 @@ function OtpPage({ handoff }: OtpPageProps) {
       });
     } catch {
       setResendError("We couldn't resend your verification code. Please try again.");
+    }
+  }
+
+  async function handleVerify() {
+    setVerificationError(undefined);
+    if (!/^[0-9]{6}$/.test(otpCode)) {
+      setVerificationError("Enter the 6-digit code from your email.");
+      return;
+    }
+    try {
+      const response = await verifySignupEmailVerification({ challengeId: handoff.challengeId, code: otpCode });
+      const enrollment = createPasskeyEnrollmentHandoff(handoff.email, response);
+      await navigate({
+        to: "/auth/passkey-enrollment",
+        state: (previous) => ({ ...previous, passkeyEnrollment: enrollment }),
+      });
+    } catch {
+      setVerificationError("This verification code is invalid or has expired. Request a new code and try again.");
     }
   }
 
@@ -110,13 +132,15 @@ function OtpPage({ handoff }: OtpPageProps) {
           </div>
 
           <div className="mt-xl flex flex-col gap-md">
+            {verificationError && <WarningBanner>{verificationError}</WarningBanner>}
             {resendError && <WarningBanner>{resendError}</WarningBanner>}
             <Button
               className="h-14 w-full gap-sm rounded-full text-xs shadow-[0_12px_24px_-12px_rgba(51,79,43,0.45)]"
-              disabled
+              disabled={isVerifying}
               type="button"
+              onClick={() => void handleVerify()}
             >
-              Verify Code
+              {isVerifying ? "Verifying…" : "Verify Code"}
             </Button>
 
             <div className="flex flex-col items-center gap-sm">

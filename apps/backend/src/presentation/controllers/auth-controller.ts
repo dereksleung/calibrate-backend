@@ -1,10 +1,12 @@
-import { RateLimitError, ServiceUnavailableError } from "@application";
+import { InvalidEmailVerificationCodeError, RateLimitError, ServiceUnavailableError } from "@application";
 import {
   AppPlatformHeaderValueSchema,
   LoginRequestBodySchema,
   RequestSignupEmailVerificationRequestBodySchema,
+  VerifySignupEmailVerificationRequestBodySchema,
   type LoginResponse,
   type RequestSignupEmailVerificationResponse,
+  type VerifySignupEmailVerificationResponse,
 } from "@calibrate/api-contracts";
 import { handleControllerError } from "@common";
 import { IAuthService, ISignupEmailVerificationService } from "@services";
@@ -12,6 +14,7 @@ import { validate } from "@validation";
 import { Request, Response } from "express";
 
 import { UserResponseMapper } from "../mappers/user-response-mapper.js";
+import { getEnrollmentCookieConfiguration } from "../auth/enrollment-cookie.js";
 
 export class AuthController {
   constructor(
@@ -56,6 +59,53 @@ export class AuthController {
         res.status(503).json({
           error: "Email verification is temporarily unavailable",
         });
+        return;
+      }
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  async verifySignupEmailVerification(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const validatedBody = validate(VerifySignupEmailVerificationRequestBodySchema, req.body);
+    const platformHeader = req.get("X-App-Platform");
+    const validatedPlatform = platformHeader
+      ? AppPlatformHeaderValueSchema.safeParse(platformHeader)
+      : { success: true as const, data: null };
+
+    if (!validatedBody.isValid || !validatedPlatform.success) {
+      res.status(400).json({ error: "Validation failed" });
+      return;
+    }
+
+    // Native credential delivery is intentionally deferred; never create a credential
+    // that cannot be delivered without exposing it in the response body.
+    if (validatedPlatform.data !== null) {
+      res.status(501).json({ error: "Passkey enrollment is not available for this client" });
+      return;
+    }
+
+    try {
+      const result = await this.signupEmailVerificationService.verify({
+        challengeId: validatedBody.data.challengeId,
+        code: validatedBody.data.code,
+        platform: validatedPlatform.data,
+      });
+
+      const cookie = getEnrollmentCookieConfiguration();
+      res.cookie(cookie.name, result.enrollmentToken, cookie.options);
+      const response: VerifySignupEmailVerificationResponse = {
+        next: "passkey-registration",
+        expiresAt: result.expiresAt.toISOString(),
+      };
+      res.status(200).json(response);
+    } catch (error) {
+      if (error instanceof InvalidEmailVerificationCodeError) {
+        res.status(400).json({ error: "Invalid or expired verification code" });
+        return;
+      }
+      if (error instanceof ServiceUnavailableError) {
+        res.status(503).json({ error: "Email verification is temporarily unavailable" });
         return;
       }
       res.status(500).json({ error: "Internal server error" });

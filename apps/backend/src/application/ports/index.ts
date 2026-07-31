@@ -5,5 +5,6 @@ export * from "./email-otp-challenge-repository.js";
 export * from "./email-otp-code-service.js";
 export * from "./email-sender.js";
 export * from "./session-token-service.js";
+export * from "./signup-enrollment-authorization-repository.js";
 export * from "./user-repository.js";
 export * from "./password-hasher.js";

@@ -7,6 +7,9 @@ export function createAuthRoutes(authController: AuthController): Router {
   router.post("/auth/email-verification", (req, res) =>
     authController.requestSignupEmailVerification(req, res),
   );
+  router.post("/auth/email-verification/verify", (req, res) =>
+    authController.verifySignupEmailVerification(req, res),
+  );
   router.post("/auth/login", (req, res) => authController.login(req, res));
   return router;
 }

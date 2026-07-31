@@ -3,9 +3,13 @@ import type {
   IAuthService,
   IEmailOtpChallengeRepository,
   IEmailSender,
+  ISignupEnrollmentAuthorizationRepository,
   NewEmailOtpChallenge,
 } from "@application";
-import { RequestSignupEmailVerificationResponseSchema } from "@calibrate/api-contracts";
+import {
+  RequestSignupEmailVerificationResponseSchema,
+  VerifySignupEmailVerificationResponseSchema,
+} from "@calibrate/api-contracts";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -14,6 +18,7 @@ import express from "express";
 import { createSecretKey } from "node:crypto";
 
 import { NodeEmailOtpCodeService } from "../../../infrastructure/security/node-email-otp-code-service.js";
+import { NodeOpaqueTokenService } from "../../../infrastructure/security/node-session-token-service.js";
 import { AuthController } from "../../controllers/auth-controller.js";
 import { createAuthRoutes } from "../auth-routes.js";
 
@@ -26,11 +31,27 @@ class InMemoryChallengeRepository implements IEmailOtpChallengeRepository {
 
   async invalidate(): Promise<void> {}
 
-  async findById(): Promise<EmailOtpChallenge | null> {
-    return null;
+  async findById(challengeId: string): Promise<EmailOtpChallenge | null> {
+    const challenge = this.created.find((item) => item.id === challengeId);
+    return challenge
+      ? {
+          ...challenge,
+          consumedAt: null,
+          invalidatedAt: null,
+        }
+      : null;
   }
 
   async recordFailedAttempt(): Promise<void> {}
+}
+
+class InMemoryEnrollmentRepository implements ISignupEnrollmentAuthorizationRepository {
+  readonly authorizations: unknown[] = [];
+
+  async consumeAndCreate({ authorization }: Parameters<ISignupEnrollmentAuthorizationRepository["consumeAndCreate"]>[0]): Promise<boolean> {
+    this.authorizations.push(authorization);
+    return true;
+  }
 }
 
 describe("signup email verification HTTP route", () => {
@@ -44,6 +65,7 @@ describe("signup email verification HTTP route", () => {
   const authService: IAuthService = {
     login: vi.fn(),
   };
+  const enrollmentRepository = new InMemoryEnrollmentRepository();
   const service = new SignupEmailVerificationServiceImpl(
     challengeRepository,
     new NodeEmailOtpCodeService({
@@ -51,6 +73,8 @@ describe("signup email verification HTTP route", () => {
       keyVersion: 2,
     }),
     emailSender,
+    enrollmentRepository,
+    new NodeOpaqueTokenService(),
     { now: () => new Date("2026-07-26T12:00:00.000Z") },
   );
   const app = express();
@@ -112,6 +136,34 @@ describe("signup email verification HTTP route", () => {
         expiresInMinutes: 10,
         deliveryId: body.challengeId,
       },
+    ]);
+  });
+
+  it("verifies a delivered OTP and sends the enrollment authorization only as a cookie", async () => {
+    const requestResponse = await fetch(`${baseUrl}/api/v1/auth/email-verification`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "verify@example.com" }),
+    });
+    const requestBody = RequestSignupEmailVerificationResponseSchema.parse(await requestResponse.json());
+    const code = deliveredMessages[deliveredMessages.length - 1]?.code;
+
+    const response = await fetch(`${baseUrl}/api/v1/auth/email-verification/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ challengeId: requestBody.challengeId, code }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("set-cookie")).toMatch(
+      /passkey-enrollment=[^;]+; Max-Age=300; Path=\/api\/v1\/auth\/passkeys\/registration; HttpOnly; SameSite=Strict/,
+    );
+    const body = VerifySignupEmailVerificationResponseSchema.parse(await response.json());
+    expect(body).toEqual({ next: "passkey-registration", expiresAt: "2026-07-26T12:05:00.000Z" });
+    expect(JSON.stringify(body)).not.toContain("token");
+    expect(enrollmentRepository.authorizations).toEqual([
+      expect.objectContaining({ email: "verify@example.com", tokenDigest: expect.any(String) }),
     ]);
   });
 

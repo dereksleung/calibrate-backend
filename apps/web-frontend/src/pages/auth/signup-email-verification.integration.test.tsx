@@ -110,6 +110,7 @@ describe("signup email verification routing", () => {
       email: "person@example.com",
     });
     expect(new Headers(init.headers).has("X-App-Platform")).toBe(false);
+    expect(init.credentials).toBe("include");
   });
 
   it("redirects a direct OTP visit back to signup", async () => {

@@ -13,7 +13,12 @@ const container = new Container({});
 // Middleware
 app.set("trust proxy", container.getTrustProxyHops());
 app.use(helmet());
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.NODE_ENV === "production" ? false : "http://localhost:3000",
+    credentials: true,
+  }),
+);
 app.use(morgan(":method :url :status :res[content-length] - :response-time ms"));
 app.use(express.json());
 

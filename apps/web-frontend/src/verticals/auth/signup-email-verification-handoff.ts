@@ -1,6 +1,7 @@
 import {
   RequestSignupEmailVerificationRequestBodySchema,
   RequestSignupEmailVerificationResponseSchema,
+  VerifySignupEmailVerificationResponseSchema,
   type RequestSignupEmailVerificationResponse,
 } from "@calibrate/api-contracts";
 
@@ -9,10 +10,39 @@ export interface SignupEmailVerificationHandoff extends RequestSignupEmailVerifi
   requestedAtEpochMs: number;
 }
 
+export interface PasskeyEnrollmentHandoff {
+  email: string;
+  next: "passkey-registration";
+  expiresAt: string;
+}
+
 declare module "@tanstack/history" {
   interface HistoryState {
     signupEmailVerification?: SignupEmailVerificationHandoff;
+    passkeyEnrollment?: PasskeyEnrollmentHandoff;
   }
+}
+
+export function createPasskeyEnrollmentHandoff(
+  email: string,
+  response: { next: "passkey-registration"; expiresAt: string },
+): PasskeyEnrollmentHandoff {
+  return {
+    email: RequestSignupEmailVerificationRequestBodySchema.parse({ email }).email,
+    ...VerifySignupEmailVerificationResponseSchema.parse(response),
+  };
+}
+
+export function parsePasskeyEnrollmentHandoff(value: unknown): PasskeyEnrollmentHandoff | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (Object.keys(candidate).some((key) => !["email", "next", "expiresAt"].includes(key))) return null;
+  const email = RequestSignupEmailVerificationRequestBodySchema.safeParse({ email: candidate.email });
+  const response = VerifySignupEmailVerificationResponseSchema.safeParse({
+    next: candidate.next,
+    expiresAt: candidate.expiresAt,
+  });
+  return email.success && response.success ? { email: email.data.email, ...response.data } : null;
 }
 
 export function createSignupEmailVerificationHandoff(

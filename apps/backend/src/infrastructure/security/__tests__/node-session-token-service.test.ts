@@ -1,8 +1,8 @@
-import { NodeSessionTokenService } from "../node-session-token-service.js";
+import { NodeOpaqueTokenService } from "../node-session-token-service.js";
 
-describe("NodeSessionTokenService", () => {
+describe("NodeOpaqueTokenService", () => {
   it("creates an opaque token with at least 256 random bits and a separate digest", () => {
-    const service = new NodeSessionTokenService();
+    const service = new NodeOpaqueTokenService();
 
     const first = service.create();
     const second = service.create();

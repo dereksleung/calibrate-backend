@@ -1,4 +1,9 @@
-import { AuthenticationError, RateLimitError, ServiceUnavailableError } from "@application";
+import {
+  AuthenticationError,
+  InvalidEmailVerificationCodeError,
+  RateLimitError,
+  ServiceUnavailableError,
+} from "@application";
 import { User } from "@domain";
 import { AuthController } from "@presentation";
 import { IAuthService, ISignupEmailVerificationService } from "@services";
@@ -23,6 +28,7 @@ describe("AuthController", () => {
     mockAuthService = { login: vi.fn() } as MockedObject<IAuthService>;
     mockSignupEmailVerificationService = {
       request: vi.fn(),
+      verify: vi.fn(),
     };
     authController = new AuthController(mockAuthService, mockSignupEmailVerificationService);
   });
@@ -82,6 +88,63 @@ describe("AuthController", () => {
     expect(mockSignupEmailVerificationService.request).toHaveBeenCalledWith(
       expect.objectContaining({ platform: "ios" }),
     );
+  });
+
+  it("sets a scoped enrollment cookie while returning metadata only", async () => {
+    mockSignupEmailVerificationService.verify.mockResolvedValue({
+      enrollmentToken: "raw-enrollment-token",
+      expiresAt: new Date("2026-07-12T12:05:00.000Z"),
+    });
+    const req = {
+      body: { challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "012345" },
+      get: vi.fn().mockReturnValue(undefined),
+    } as unknown as Request;
+    const res = {
+      set: vi.fn(),
+      cookie: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
+
+    await authController.verifySignupEmailVerification(req, res);
+
+    expect(mockSignupEmailVerificationService.verify).toHaveBeenCalledWith({
+      challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31",
+      code: "012345",
+      platform: null,
+    });
+    expect(res.set).toHaveBeenCalledWith("Cache-Control", "no-store");
+    expect(res.cookie).toHaveBeenCalledWith(
+      "passkey-enrollment",
+      "raw-enrollment-token",
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: "strict",
+        secure: false,
+        path: "/api/v1/auth/passkeys/registration",
+        maxAge: 300_000,
+      }),
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      next: "passkey-registration",
+      expiresAt: "2026-07-12T12:05:00.000Z",
+    });
+  });
+
+  it("returns the generic verification failure without issuing a cookie", async () => {
+    mockSignupEmailVerificationService.verify.mockRejectedValue(new InvalidEmailVerificationCodeError());
+    const req = {
+      body: { challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "012345" },
+      get: vi.fn().mockReturnValue(undefined),
+    } as unknown as Request;
+    const res = { set: vi.fn(), cookie: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+
+    await authController.verifySignupEmailVerification(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "Invalid or expired verification code" });
+    expect(res.cookie).not.toHaveBeenCalled();
   });
 
   it.each([

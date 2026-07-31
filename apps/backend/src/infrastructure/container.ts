@@ -28,9 +28,15 @@ import { databaseClient } from "./persistence/database.js";
 import {
   PostgresDayLogRepository,
   PostgresEmailOtpChallengeRepository,
+  PostgresSignupEnrollmentAuthorizationRepository,
   PostgresUserRepository,
 } from "./persistence/repositories/index.js";
-import { Argon2PasswordHasher, JoseAccessTokenService, NodeEmailOtpCodeService } from "./security/index.js";
+import {
+  Argon2PasswordHasher,
+  JoseAccessTokenService,
+  NodeEmailOtpCodeService,
+  NodeOpaqueTokenService,
+} from "./security/index.js";
 
 const encodedKey = dotenvx.get("OTP_HMAC_KEY");
 
@@ -145,6 +151,8 @@ export class Container {
             ),
             this.emailOtpCodeService,
             configuredEmailSender,
+            new PostgresSignupEnrollmentAuthorizationRepository(databaseClient),
+            new NodeOpaqueTokenService(),
             clock ?? new SystemClock(),
           )
         : new UnavailableSignupEmailVerificationService());

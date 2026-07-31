@@ -1,9 +1,9 @@
-import type { CreatedSessionToken, ISessionTokenService } from "@application";
+import type { CreatedOpaqueToken, IOpaqueTokenService } from "@application";
 
 import { createHash, randomBytes } from "node:crypto";
 
-export class NodeSessionTokenService implements ISessionTokenService {
-  create(): CreatedSessionToken {
+export class NodeOpaqueTokenService implements IOpaqueTokenService {
+  create(): CreatedOpaqueToken {
     const token = randomBytes(32).toString("base64url");
     return {
       token,

@@ -6,8 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OtpPage } from "./OtpPage";
 
-const { mockMutateAsync, mockNavigate } = vi.hoisted(() => ({
+const { mockMutateAsync, mockVerifyMutateAsync, mockNavigate } = vi.hoisted(() => ({
   mockMutateAsync: vi.fn(),
+  mockVerifyMutateAsync: vi.fn(),
   mockNavigate: vi.fn(),
 }));
 
@@ -18,6 +19,10 @@ vi.mock("@calibrate/api-client", async (importOriginal) => {
     useRequestSignupEmailVerification: vi.fn(() => ({
       isPending: false,
       mutateAsync: mockMutateAsync,
+    })),
+    useVerifySignupEmailVerification: vi.fn(() => ({
+      isPending: false,
+      mutateAsync: mockVerifyMutateAsync,
     })),
   };
 });
@@ -31,7 +36,12 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 });
 
 vi.mock("#/verticals/auth/components/InputOtp.tsx", () => ({
-  InputOTP: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  InputOTP: ({ children, onChange, value }: { children: ReactNode; onChange: (value: string) => void; value: string }) => (
+    <div>
+      <input aria-label="Verification code" value={value} onChange={(event) => onChange(event.target.value)} />
+      {children}
+    </div>
+  ),
   InputOTPGroup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   InputOTPSlot: ({ index }: { index: number }) => <span data-slot-index={index} />,
 }));
@@ -63,12 +73,32 @@ const handoff = {
 };
 
 describe("OtpPage", () => {
-  it("shows server handoff data while leaving verification disabled", () => {
+  it("shows server handoff data and validates the verification code", () => {
     render(<OtpPage handoff={handoff} />);
 
     expect(screen.getByText("person@example.com")).toBeTruthy();
     expect(screen.getByText(/expires in 10 minutes/i)).toBeTruthy();
-    expect((screen.getByRole("button", { name: /verify code/i }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: /verify code/i }));
+    expect(screen.getByRole("alert").textContent).toContain("Enter the 6-digit code");
+  });
+
+  it("submits the six-digit code and navigates with metadata only", async () => {
+    mockVerifyMutateAsync.mockResolvedValue({
+      next: "passkey-registration",
+      expiresAt: "2030-01-01T00:05:00.000Z",
+    });
+    render(<OtpPage handoff={handoff} />);
+
+    fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "012345" } });
+    fireEvent.click(screen.getByRole("button", { name: /verify code/i }));
+
+    await waitFor(() => {
+      expect(mockVerifyMutateAsync).toHaveBeenCalledWith({ challengeId: handoff.challengeId, code: "012345" });
+    });
+    expect(mockNavigate).toHaveBeenCalledWith({
+      to: "/auth/passkey-enrollment",
+      state: expect.any(Function),
+    });
   });
 
   it("counts down from the server-provided resend timing", () => {

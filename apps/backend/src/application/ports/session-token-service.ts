@@ -1,8 +1,8 @@
-export interface CreatedSessionToken {
+export interface CreatedOpaqueToken {
   token: string;
   digest: string;
 }
 
-export interface ISessionTokenService {
-  create(): CreatedSessionToken;
+export interface IOpaqueTokenService {
+  create(): CreatedOpaqueToken;
 }

@@ -5,6 +5,7 @@ import type { ApiTransport } from "../transport.js";
 import {
   getRequestSignupEmailVerificationMutationOptions,
   requestSignupEmailVerification,
+  verifySignupEmailVerification,
 } from "./signup-email-verification.js";
 
 describe("requestSignupEmailVerification", () => {
@@ -41,6 +42,37 @@ describe("requestSignupEmailVerification", () => {
 
     expect(() => requestSignupEmailVerification(transport, { email: "not-an-email" })).toThrow();
     expect(request).not.toHaveBeenCalled();
+  });
+});
+
+describe("verifySignupEmailVerification", () => {
+  it("posts a code and returns only the passkey-registration handoff", async () => {
+    const request = vi.fn(async ({ responseBodySchema }) =>
+      responseBodySchema.parse({
+        next: "passkey-registration",
+        expiresAt: "2030-01-01T00:05:00.000Z",
+      }),
+    );
+    const transport = { request } as unknown as ApiTransport;
+
+    await expect(
+      verifySignupEmailVerification(transport, {
+        challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
+        code: "012345",
+      }),
+    ).resolves.toEqual({
+      next: "passkey-registration",
+      expiresAt: "2030-01-01T00:05:00.000Z",
+    });
+    expect(request).toHaveBeenCalledWith({
+      path: "/auth/email-verification/verify",
+      method: "POST",
+      body: {
+        challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
+        code: "012345",
+      },
+      responseBodySchema: expect.any(Object),
+    });
   });
 });
 
