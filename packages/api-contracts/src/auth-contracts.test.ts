@@ -5,6 +5,8 @@ import {
   AuthenticatedSessionResponseSchema,
   RequestSignupEmailVerificationRequestBodySchema,
   RequestSignupEmailVerificationResponseSchema,
+  VerifySignupEmailVerificationRequestBodySchema,
+  VerifySignupEmailVerificationResponseSchema,
 } from "./index.js";
 
 const user = {
@@ -65,6 +67,47 @@ describe("signup email verification request contracts", () => {
     expect(result).not.toHaveProperty("code");
     expect(result).not.toHaveProperty("user");
     expect(result).not.toHaveProperty("sessionToken");
+  });
+});
+
+describe("signup email verification contracts", () => {
+  it("accepts a public challenge ID and exactly six ASCII digits", () => {
+    expect(
+      VerifySignupEmailVerificationRequestBodySchema.parse({
+        challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
+        code: "012345",
+      }),
+    ).toEqual({
+      challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
+      code: "012345",
+    });
+  });
+
+  it.each(["12345", "1234567", " 123456", "123456 ", "+12345", "12.345", "１２３４５６"]) (
+    "rejects non-canonical verification code %s",
+    (code) => {
+      expect(() =>
+        VerifySignupEmailVerificationRequestBodySchema.parse({
+          challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
+          code,
+        }),
+      ).toThrow();
+    },
+  );
+
+  it("returns workflow metadata without an enrollment credential", () => {
+    const result = VerifySignupEmailVerificationResponseSchema.parse({
+      next: "passkey-registration",
+      expiresAt: "2030-01-01T00:05:00.000Z",
+    });
+
+    expect(result).toEqual({
+      next: "passkey-registration",
+      expiresAt: "2030-01-01T00:05:00.000Z",
+    });
+    expect(result).not.toHaveProperty("enrollmentToken");
+    expect(result).not.toHaveProperty("tokenDigest");
+    expect(result).not.toHaveProperty("webauthnUserHandle");
   });
 });
 

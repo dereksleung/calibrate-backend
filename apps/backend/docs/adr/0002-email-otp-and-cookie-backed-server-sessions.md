@@ -10,7 +10,7 @@ Accepted
 
 ## Last Updated
 
-2026-07-27
+2026-07-30
 
 ## Context
 
@@ -75,6 +75,8 @@ Use WebAuthn passkeys as the primary credential. Signup requires both a verified
 3. Successful verification issues a short-lived, single-use enrollment authorization. It does not create an access session.
 4. The client requests WebAuthn registration options under that authorization and calls `navigator.credentials.create()`.
 5. The backend verifies the registration response and atomically creates the user, records the verified recovery email, binds the first passkey, consumes the enrollment authorization, and creates the first remembered-device family and access session.
+
+For web signup, the enrollment authorization is delivered only in a dedicated five-minute `HttpOnly`, `Secure`, `SameSite=Strict`, path-scoped cookie. It is not an authenticated session and cannot authorize ordinary APIs. The enrollment cookie is scoped to the passkey-registration API path; the user is created and access/refresh cookies are issued only after successful passkey registration. Existing OTP HMAC verification, one-time consumption, bounded attempts, generic failure responses, client-transport binding, origin restrictions, and digest-only secret storage continue to apply.
 
 User creation does not occur until both email control and passkey registration have been proven. A random, opaque WebAuthn user handle is created with the enrollment and retained as the account's stable WebAuthn handle; the email address is not used as that handle. Enrollment authorizations are stored server-side or represented by an opaque high-entropy token whose digest is stored server-side. They are narrowly scoped to completing one signup and cannot call ordinary protected APIs.
 

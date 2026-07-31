@@ -8,6 +8,13 @@ export const RequestSignupEmailVerificationRequestBodySchema = z
   })
   .strict();
 
+export const VerifySignupEmailVerificationRequestBodySchema = z
+  .object({
+    challengeId: z.uuid(),
+    code: z.string().regex(/^[0-9]{6}$/),
+  })
+  .strict();
+
 /** @deprecated Use passkey authentication contracts when they are available. */
 export const LoginRequestBodySchema = z.object({
   email: z.email(),
@@ -17,6 +24,9 @@ export const LoginRequestBodySchema = z.object({
 export type AppPlatformHeaderValue = z.infer<typeof AppPlatformHeaderValueSchema>;
 export type RequestSignupEmailVerificationRequestBody = z.infer<
   typeof RequestSignupEmailVerificationRequestBodySchema
+>;
+export type VerifySignupEmailVerificationRequestBody = z.infer<
+  typeof VerifySignupEmailVerificationRequestBodySchema
 >;
 
 /** @deprecated Use passkey authentication contracts when they are available. */

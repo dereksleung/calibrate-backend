@@ -14,6 +14,13 @@ export const RequestSignupEmailVerificationResponseSchema = z
   })
   .strict();
 
+export const VerifySignupEmailVerificationResponseSchema = z
+  .object({
+    next: z.literal("passkey-registration"),
+    expiresAt: z.iso.datetime(),
+  })
+  .strict();
+
 export const AuthenticatedSessionResponseSchema = z
   .object({
     user: UserResponseSchema,
@@ -24,6 +31,9 @@ export const AuthenticatedSessionResponseSchema = z
 export type SessionTransport = z.infer<typeof SessionTransportSchema>;
 export type RequestSignupEmailVerificationResponse = z.infer<
   typeof RequestSignupEmailVerificationResponseSchema
+>;
+export type VerifySignupEmailVerificationResponse = z.infer<
+  typeof VerifySignupEmailVerificationResponseSchema
 >;
 export type AuthenticatedSessionResponse = z.infer<typeof AuthenticatedSessionResponseSchema>;
 
