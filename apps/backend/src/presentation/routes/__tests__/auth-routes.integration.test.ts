@@ -156,9 +156,12 @@ describe("signup email verification HTTP route", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(response.headers.get("set-cookie")).toMatch(
-      /passkey-enrollment=[^;]+; Max-Age=300; Path=\/api\/v1\/auth\/passkeys\/registration; HttpOnly; SameSite=Strict/,
-    );
+    const cookie = response.headers.get("set-cookie") ?? "";
+    expect(cookie).toMatch(/passkey-enrollment=[^;]+/);
+    expect(cookie).toContain("Max-Age=300");
+    expect(cookie).toContain("Path=/api/v1/auth/passkeys/registration");
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("SameSite=Strict");
     const body = VerifySignupEmailVerificationResponseSchema.parse(await response.json());
     expect(body).toEqual({ next: "passkey-registration", expiresAt: "2026-07-26T12:05:00.000Z" });
     expect(JSON.stringify(body)).not.toContain("token");
