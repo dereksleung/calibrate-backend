@@ -1,4 +1,5 @@
-import { DayLog, FoodEntry } from "@domain";
+import { DayLog } from "@domain/entities/day-log.js";
+import { FoodEntry } from "@domain/entities/food-entry.js";
 
 import { FindOrCreateDayLogByDateAndUserIdRepositoryDto, GetDayLogByDateAndUserDto } from "../dtos/day-log-dtos.js";
 

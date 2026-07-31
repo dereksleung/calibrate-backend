@@ -1,5 +1,7 @@
 import { DayLogServiceImpl } from "@application";
-import { BusinessLogicError, DayLog, MealNameEnum } from "@domain";
+import { DayLog } from "@domain/entities/day-log.js";
+import { MealNameEnum } from "@domain/entities/food-entry.js";
+import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 import { buildDayLogResponse, buildFoodEntry, buildFoodEntryResponse } from "@factories";
 import { DayLogResponse, GetDayLogRequestRouteParams } from "@presentation";
 import { Request } from "express";

@@ -4,7 +4,7 @@ import {
   RateLimitError,
   ServiceUnavailableError,
 } from "@application";
-import { User } from "@domain";
+import { User } from "@domain/entities/user.js";
 import { AuthController } from "@presentation";
 import { IAuthService, ISignupEmailVerificationService } from "@services";
 import { Request } from "express";

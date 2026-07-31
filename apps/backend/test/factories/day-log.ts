@@ -1,4 +1,4 @@
-import { DayLog, DayLogProps } from "@domain";
+import { DayLog, DayLogProps } from "@domain/entities/day-log.js";
 import { DayLogResponse } from "@presentation";
 
 export const buildDayLog = (overrides: Partial<DayLogProps> = {}): DayLog =>

@@ -1,4 +1,4 @@
-import { FoodEntry, FoodEntryProps, MealNameEnum } from "@domain";
+import { FoodEntry, FoodEntryProps, MealNameEnum } from "@domain/entities/food-entry.js";
 import { FoodEntryResponse } from "@presentation";
 
 export const buildFoodEntry = (overrides: Partial<FoodEntryProps> = {}): FoodEntry =>

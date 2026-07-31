@@ -1,5 +1,5 @@
 import { AuthenticationError, RateLimitError, ServiceUnavailableError } from "@application";
-import { BusinessLogicError } from "@domain";
+import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 import { Response } from "express";
 
 export function handleControllerError(error: unknown, res: Response): void {

@@ -1,4 +1,4 @@
-import { DayLog } from "@domain";
+import { DayLog } from "@domain/entities/day-log.js";
 
 import type { DayLogResponse } from "@calibrate/api-contracts";
 import { FoodEntryResponseMapper } from "./food-entry-response-mapper.js";

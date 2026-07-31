@@ -1,5 +1,6 @@
 import { IPasswordHasher, IUserRepository, UserServiceImpl } from "@application";
-import { BusinessLogicError, User } from "@domain";
+import { User } from "@domain/entities/user.js";
+import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 import { MockedObject, vi } from "vitest";
 
 describe("UserServiceImpl", () => {

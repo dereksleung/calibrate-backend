@@ -1,4 +1,6 @@
-import { BusinessLogicError, DayLog, FoodEntry } from "@domain";
+import { DayLog } from "@domain/entities/day-log.js";
+import { FoodEntry } from "@domain/entities/food-entry.js";
+import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 
 import { AddFoodEntryRequestDto, GetDayLogRequestDto } from "../dtos/day-log-dtos.js";
 import { IDayLogRepository } from "../ports/day-log-repository.js";

@@ -1,4 +1,4 @@
-import { UserTierEnumType } from "@domain";
+import { UserTierEnumType } from "@domain/value-objects/user-tier.js";
 import { ColumnType, Generated, Selectable, Insertable, Updateable } from "kysely";
 
 export interface UsersTable {

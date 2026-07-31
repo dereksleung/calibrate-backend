@@ -1,4 +1,5 @@
-import { DayLog, MealNameEnum } from "@domain";
+import { DayLog } from "@domain/entities/day-log.js";
+import { MealNameEnum } from "@domain/entities/food-entry.js";
 import { buildDayLog, buildDayLogResponse, buildFoodEntry, buildFoodEntryResponse } from "@factories";
 import { DayLogResponseMapper } from "src/presentation/mappers/day-log-response-mapper.js";
 

@@ -1,4 +1,4 @@
-import { MealNameEnumType } from "@domain";
+import { MealNameEnumType } from "@domain/entities/food-entry.js";
 
 // Repository DTOs
 export interface GetDayLogByDateAndUserDto {

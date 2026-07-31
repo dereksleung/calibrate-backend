@@ -1,4 +1,5 @@
-import { DayLog, FoodEntry, MealNameEnum } from "@domain";
+import { DayLog } from "@domain/entities/day-log.js";
+import { FoodEntry, MealNameEnum } from "@domain/entities/food-entry.js";
 
 import type { DatabaseClient } from "../../persistence/database-client.js";
 

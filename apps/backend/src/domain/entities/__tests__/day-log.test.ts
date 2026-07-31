@@ -1,4 +1,5 @@
-import { BusinessLogicError, MealNameEnum } from "@domain";
+import { MealNameEnum } from "@domain/entities/food-entry.js";
+import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 import { buildDayLog, buildFoodEntry } from "@factories";
 import { describe, it, expect } from "vitest";
 

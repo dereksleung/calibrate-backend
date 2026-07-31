@@ -1,4 +1,4 @@
-import { User } from "@domain";
+import { User } from "@domain/entities/user.js";
 
 import type { UserResponse } from "@calibrate/api-contracts";
 

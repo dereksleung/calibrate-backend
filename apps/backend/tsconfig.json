@@ -19,7 +19,7 @@
     "declarationMap": true,
     "sourceMap": true,
     "paths": {
-      "@domain": ["./src/domain/index.ts"],
+      "@domain/*": ["./src/domain/*"],
       "@validation": ["./src/presentation/validation/index.ts"],
       "@services": ["./src/application/services/index.ts"],
       "@controllers": ["./src/presentation/controllers/index.ts"],

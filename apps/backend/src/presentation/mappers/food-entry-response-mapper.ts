@@ -1,4 +1,4 @@
-import { FoodEntry } from "@domain";
+import { FoodEntry } from "@domain/entities/food-entry.js";
 
 import type { FoodEntryResponse } from "@calibrate/api-contracts";
 

@@ -1,4 +1,4 @@
-import { MealNameEnumType } from "@domain";
+import { MealNameEnumType } from "@domain/entities/food-entry.js";
 import { ColumnType, Generated, Selectable, Insertable, Updateable } from "kysely";
 
 export interface FoodEntriesTable {

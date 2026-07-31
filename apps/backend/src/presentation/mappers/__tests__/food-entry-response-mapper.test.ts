@@ -1,4 +1,4 @@
-import { MealNameEnum } from "@domain";
+import { MealNameEnum } from "@domain/entities/food-entry.js";
 import { buildFoodEntry, buildFoodEntryResponse } from "@factories";
 import { FoodEntryResponseMapper } from "@presentation";
 
