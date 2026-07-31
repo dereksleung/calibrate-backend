@@ -1,9 +1,9 @@
-import { handleControllerError } from "@common/errors/controller-error-handler.js";
 import { IUserService } from "@application/services/user-service.js";
+import { CreateUserRequestBodySchema, type UserResponse } from "@calibrate/api-contracts";
+import { handleControllerError } from "@common/errors/controller-error-handler.js";
 import { validate } from "@validation/validation-helpers.js";
 import { Request, Response } from "express";
 
-import { CreateUserRequestBodySchema, type UserResponse } from "@calibrate/api-contracts";
 import { UserResponseMapper } from "../mappers/user-response-mapper.js";
 
 export class UserController {

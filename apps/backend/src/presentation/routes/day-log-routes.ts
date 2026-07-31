@@ -1,5 +1,9 @@
+import type {
+  CreateFoodEntryRequestRouteParams,
+  GetDayLogRequestRouteParams,
+} from "@calibrate/api-contracts";
+
 import { Request, RequestHandler, Router } from "express";
-import type { CreateFoodEntryRequestRouteParams, GetDayLogRequestRouteParams } from "@calibrate/api-contracts";
 import { DayLogController } from "src/presentation/controllers/day-log-controller.js";
 
 export function createDayLogRoutes(

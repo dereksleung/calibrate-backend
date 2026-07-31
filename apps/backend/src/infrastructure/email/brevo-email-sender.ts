@@ -1,5 +1,5 @@
-import { IEmailSender, SignupEmailVerificationCodeEmailInfo } from "@application/ports/email-sender.js";
 import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
+import { IEmailSender, SignupEmailVerificationCodeEmailInfo } from "@application/ports/email-sender.js";
 
 import { signupEmailVerificationTemplate } from "./signup-email-verification-template.js";
 

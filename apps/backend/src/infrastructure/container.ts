@@ -21,15 +21,9 @@ import { createSecretKey } from "crypto";
 
 import { BrevoEmailSender } from "./email/brevo-email-sender.js";
 import { databaseClient } from "./persistence/database.js";
-import {
-  PostgresDayLogRepository,
-} from "./persistence/repositories/postgres-day-log-repository.js";
-import {
-  PostgresEmailOtpChallengeRepository,
-} from "./persistence/repositories/postgres-email-otp-challenge-repository.js";
-import {
-  PostgresSignupEnrollmentAuthorizationRepository,
-} from "./persistence/repositories/postgres-signup-enrollment-authorization-repository.js";
+import { PostgresDayLogRepository } from "./persistence/repositories/postgres-day-log-repository.js";
+import { PostgresEmailOtpChallengeRepository } from "./persistence/repositories/postgres-email-otp-challenge-repository.js";
+import { PostgresSignupEnrollmentAuthorizationRepository } from "./persistence/repositories/postgres-signup-enrollment-authorization-repository.js";
 import { PostgresUserRepository } from "./persistence/repositories/postgres-user-repository.js";
 import { Argon2PasswordHasher } from "./security/argon2-password-hasher.js";
 import { JoseAccessTokenService } from "./security/jose-access-token-service.js";

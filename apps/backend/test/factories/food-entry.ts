@@ -1,5 +1,5 @@
-import { FoodEntry, FoodEntryProps, MealNameEnum } from "@domain/entities/food-entry.js";
 import { FoodEntryResponse } from "@calibrate/api-contracts";
+import { FoodEntry, FoodEntryProps, MealNameEnum } from "@domain/entities/food-entry.js";
 
 export const buildFoodEntry = (overrides: Partial<FoodEntryProps> = {}): FoodEntry =>
   FoodEntry.reconstitute({

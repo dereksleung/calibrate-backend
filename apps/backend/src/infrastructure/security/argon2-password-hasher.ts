@@ -6,14 +6,14 @@ export class Argon2PasswordHasher implements IPasswordHasher {
   async hash(password: string): Promise<string> {
     try {
       return await argon2.hash(password, {
-      memoryCost: 19456,
-      timeCost: 2,
-      parallelism: 1,
-      type: argon2.argon2id,
+        memoryCost: 19456,
+        timeCost: 2,
+        parallelism: 1,
+        type: argon2.argon2id,
       });
     } catch (_error) {
       // TODO: Add logging of particular infra error for ops monitoring
-      
+
       // Translate error of particular infra library to application-level error
       throw new HashingError("Failed to hash password");
     }

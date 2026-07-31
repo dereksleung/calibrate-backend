@@ -4,10 +4,7 @@
     "target": "ES2020",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": [
-      "ES2020",
-      "ESNext.Temporal"
-    ],
+    "lib": ["ES2020", "ESNext.Temporal"],
     "outDir": "./dist",
     "rootDir": ".",
     "strict": true,

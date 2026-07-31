@@ -1,6 +1,6 @@
-import { User } from "@domain/entities/user.js";
-
 import type { UserResponse } from "@calibrate/api-contracts";
+
+import { User } from "@domain/entities/user.js";
 
 export class UserResponseMapper {
   public static toResponse(user: User): UserResponse {

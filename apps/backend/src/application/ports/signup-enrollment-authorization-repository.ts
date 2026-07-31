@@ -18,7 +18,5 @@ export interface ConsumeAndCreateEnrollmentAuthorizationProps {
 
 /** Owns the transaction that gives a verified OTP exactly one enrollment authorization. */
 export interface ISignupEnrollmentAuthorizationRepository {
-  consumeAndCreate(
-    props: ConsumeAndCreateEnrollmentAuthorizationProps,
-  ): Promise<boolean>;
+  consumeAndCreate(props: ConsumeAndCreateEnrollmentAuthorizationProps): Promise<boolean>;
 }

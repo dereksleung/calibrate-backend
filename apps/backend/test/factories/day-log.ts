@@ -1,5 +1,5 @@
-import { DayLog, DayLogProps } from "@domain/entities/day-log.js";
 import { DayLogResponse } from "@calibrate/api-contracts";
+import { DayLog, DayLogProps } from "@domain/entities/day-log.js";
 
 export const buildDayLog = (overrides: Partial<DayLogProps> = {}): DayLog =>
   DayLog.reconstitute({
@@ -15,7 +15,7 @@ export const buildDayLog = (overrides: Partial<DayLogProps> = {}): DayLog =>
 export const buildDayLogResponse = (overrides: Partial<DayLogResponse> = {}): DayLogResponse => {
   return {
     id: "1",
-    date: '2026-02-22',
+    date: "2026-02-22",
     breakfast: [],
     lunch: [],
     dinner: [],

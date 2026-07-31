@@ -1,9 +1,5 @@
 import { AuthenticationError } from "@application/errors/authentication-error.js";
-import { handleControllerError } from "@common/errors/controller-error-handler.js";
 import { IDayLogService } from "@application/services/day-log-service.js";
-import { validate } from "@validation/validation-helpers.js";
-import { Request, Response } from "express";
-
 import {
   CreateFoodEntryRequestRouteParams,
   CreateFoodEntryRequestRouteParamsSchema,
@@ -12,6 +8,10 @@ import {
   GetDayLogRequestRouteParams,
   GetDayLogRequestRouteParamsSchema,
 } from "@calibrate/api-contracts";
+import { handleControllerError } from "@common/errors/controller-error-handler.js";
+import { validate } from "@validation/validation-helpers.js";
+import { Request, Response } from "express";
+
 import { DayLogResponseMapper } from "../mappers/day-log-response-mapper.js";
 import { FoodEntryResponseMapper } from "../mappers/food-entry-response-mapper.js";
 

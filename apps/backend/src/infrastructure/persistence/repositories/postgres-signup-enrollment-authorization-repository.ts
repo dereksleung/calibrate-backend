@@ -5,9 +5,7 @@ import type {
 
 import type { DatabaseClient } from "../database-client.js";
 
-export class PostgresSignupEnrollmentAuthorizationRepository
-  implements ISignupEnrollmentAuthorizationRepository
-{
+export class PostgresSignupEnrollmentAuthorizationRepository implements ISignupEnrollmentAuthorizationRepository {
   constructor(private readonly databaseClient: DatabaseClient) {}
 
   async consumeAndCreate(props: ConsumeAndCreateEnrollmentAuthorizationProps): Promise<boolean> {

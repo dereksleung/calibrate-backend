@@ -1,9 +1,9 @@
+import { RateLimitError } from "@application/errors/rate-limit-error.js";
 import {
   EmailOtpChallenge,
   IEmailOtpChallengeRepository,
   NewEmailOtpChallenge,
 } from "@application/ports/email-otp-challenge-repository.js";
-import { RateLimitError } from "@application/errors/rate-limit-error.js";
 import { sql } from "kysely";
 import { createHmac } from "node:crypto";
 

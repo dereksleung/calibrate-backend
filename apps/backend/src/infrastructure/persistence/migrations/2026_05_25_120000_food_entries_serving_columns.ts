@@ -31,11 +31,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .alterColumn("serving_label", (col) => col.setNotNull())
     .execute();
 
-  await db.schema
-    .alterTable("food_entries")
-    .dropColumn("quantity")
-    .dropColumn("quantity_unit")
-    .execute();
+  await db.schema.alterTable("food_entries").dropColumn("quantity").dropColumn("quantity_unit").execute();
 }
 
 export async function down(db: Kysely<any>): Promise<void> {

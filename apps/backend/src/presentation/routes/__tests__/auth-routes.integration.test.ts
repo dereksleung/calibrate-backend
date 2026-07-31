@@ -6,14 +6,14 @@ import type {
 import type { IEmailSender } from "@application/ports/email-sender.js";
 import type { ISignupEnrollmentAuthorizationRepository } from "@application/ports/signup-enrollment-authorization-repository.js";
 import type { IAuthService } from "@application/services/auth-service.js";
-import {
-  RequestSignupEmailVerificationResponseSchema,
-  VerifySignupEmailVerificationResponseSchema,
-} from "@calibrate/api-contracts";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import { SignupEmailVerificationServiceImpl } from "@application/services/signup-email-verification-service.js";
+import {
+  RequestSignupEmailVerificationResponseSchema,
+  VerifySignupEmailVerificationResponseSchema,
+} from "@calibrate/api-contracts";
 import express from "express";
 import { createSecretKey } from "node:crypto";
 
@@ -48,7 +48,9 @@ class InMemoryChallengeRepository implements IEmailOtpChallengeRepository {
 class InMemoryEnrollmentRepository implements ISignupEnrollmentAuthorizationRepository {
   readonly authorizations: unknown[] = [];
 
-  async consumeAndCreate({ authorization }: Parameters<ISignupEnrollmentAuthorizationRepository["consumeAndCreate"]>[0]): Promise<boolean> {
+  async consumeAndCreate({
+    authorization,
+  }: Parameters<ISignupEnrollmentAuthorizationRepository["consumeAndCreate"]>[0]): Promise<boolean> {
     this.authorizations.push(authorization);
     return true;
   }

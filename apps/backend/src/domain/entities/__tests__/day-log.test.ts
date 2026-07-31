@@ -11,11 +11,13 @@ describe("DayLog", () => {
       const dayLog = buildDayLog({ id: "abc", date, weight: 75.5 });
 
       expect(dayLog.id).toBe("abc");
-      expect(dayLog.date).toEqual(Temporal.PlainDate.from({
-        year: 2026,
-        month: 1,
-        day: 15,
-      }));
+      expect(dayLog.date).toEqual(
+        Temporal.PlainDate.from({
+          year: 2026,
+          month: 1,
+          day: 15,
+        }),
+      );
       expect(dayLog.weight).toBe(75.5);
       expect(dayLog.breakfast).toEqual([]);
       expect(dayLog.lunch).toEqual([]);

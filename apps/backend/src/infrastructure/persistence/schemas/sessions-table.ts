@@ -1,5 +1,5 @@
-import type { ColumnType } from "kysely";
 import type { MobilePlatform, SessionTransport } from "@application/auth/session-client.js";
+import type { ColumnType } from "kysely";
 
 export interface SessionsTable {
   id: string;

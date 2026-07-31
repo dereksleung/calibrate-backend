@@ -30,13 +30,15 @@ export class DayLog {
 
   private constructor({ id, date, breakfast, lunch, dinner, snacks, weight }: DayLogProps) {
     this._id = id;
-    this._date = Temporal.PlainDate.from(date instanceof Date
-      ? {
-          year: date.getUTCFullYear(),
-          month: date.getUTCMonth() + 1,
-          day: date.getUTCDate(),
-        }
-      : date);
+    this._date = Temporal.PlainDate.from(
+      date instanceof Date
+        ? {
+            year: date.getUTCFullYear(),
+            month: date.getUTCMonth() + 1,
+            day: date.getUTCDate(),
+          }
+        : date,
+    );
     this._breakfast = breakfast;
     this._lunch = lunch;
     this._dinner = dinner;
