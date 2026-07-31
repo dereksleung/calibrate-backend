@@ -1,4 +1,4 @@
-import { validate } from "@validation";
+import { validate } from "@validation/validation-helpers.js";
 import * as z from "zod";
 
 import { BusinessLogicError } from "../errors/business-logic-error.js";

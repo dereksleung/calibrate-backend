@@ -1,4 +1,6 @@
-import { AuthenticationError, RateLimitError, ServiceUnavailableError } from "@application";
+import { AuthenticationError } from "@application/errors/authentication-error.js";
+import { RateLimitError } from "@application/errors/rate-limit-error.js";
+import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
 import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 import { Response } from "express";
 

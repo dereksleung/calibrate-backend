@@ -20,15 +20,14 @@
     "sourceMap": true,
     "paths": {
       "@domain/*": ["./src/domain/*"],
-      "@validation": ["./src/presentation/validation/index.ts"],
-      "@services": ["./src/application/services/index.ts"],
-      "@controllers": ["./src/presentation/controllers/index.ts"],
-      "@routes": ["./src/presentation/routes/index.ts"],
-      "@infrastructure": ["./src/infrastructure/index.ts"],
-      "@application": ["./src/application/index.ts"],
-      "@presentation": ["./src/presentation/index.ts"],
-      "@factories": ["./test/factories/index.ts"],
-      "@common": ["./src/common/index.ts"],
+      "@validation/*": ["./src/presentation/validation/*"],
+      "@application/*": ["./src/application/*"],
+      "@controllers/*": ["./src/presentation/controllers/*"],
+      "@routes/*": ["./src/presentation/routes/*"],
+      "@infrastructure/*": ["./src/infrastructure/*"],
+      "@presentation/*": ["./src/presentation/*"],
+      "@factories/*": ["./test/factories/*"],
+      "@common/*": ["./src/common/*"],
       "*": ["./*"]
     },
     "types": ["vitest/globals"]

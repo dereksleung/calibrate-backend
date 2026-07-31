@@ -1,6 +1,6 @@
 import { MealNameEnum } from "@domain/entities/food-entry.js";
-import { buildFoodEntry, buildFoodEntryResponse } from "@factories";
-import { FoodEntryResponseMapper } from "@presentation";
+import { buildFoodEntry, buildFoodEntryResponse } from "@factories/food-entry.js";
+import { FoodEntryResponseMapper } from "@presentation/mappers/food-entry-response-mapper.js";
 
 describe("FoodEntryResponseMapper", () => {
   it("should map a fully populated FoodEntry to a FoodEntryResponse", () => {

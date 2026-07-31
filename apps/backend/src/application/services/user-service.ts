@@ -1,4 +1,6 @@
-import { CreateUserRequestDto, IPasswordHasher, IUserRepository } from "@application";
+import { CreateUserRequestDto } from "@application/dtos/user-dtos.js";
+import { IPasswordHasher } from "@application/ports/password-hasher.js";
+import { IUserRepository } from "@application/ports/user-repository.js";
 import { User } from "@domain/entities/user.js";
 import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 

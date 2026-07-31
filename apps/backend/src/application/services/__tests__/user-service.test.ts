@@ -1,4 +1,6 @@
-import { IPasswordHasher, IUserRepository, UserServiceImpl } from "@application";
+import { IPasswordHasher } from "@application/ports/password-hasher.js";
+import { IUserRepository } from "@application/ports/user-repository.js";
+import { UserServiceImpl } from "@application/services/user-service.js";
 import { User } from "@domain/entities/user.js";
 import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 import { MockedObject, vi } from "vitest";

@@ -1,11 +1,11 @@
 import type {
   EmailOtpChallenge,
-  IAuthService,
   IEmailOtpChallengeRepository,
-  IEmailSender,
-  ISignupEnrollmentAuthorizationRepository,
   NewEmailOtpChallenge,
-} from "@application";
+} from "@application/ports/email-otp-challenge-repository.js";
+import type { IEmailSender } from "@application/ports/email-sender.js";
+import type { ISignupEnrollmentAuthorizationRepository } from "@application/ports/signup-enrollment-authorization-repository.js";
+import type { IAuthService } from "@application/services/auth-service.js";
 import {
   RequestSignupEmailVerificationResponseSchema,
   VerifySignupEmailVerificationResponseSchema,
@@ -13,7 +13,7 @@ import {
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { SignupEmailVerificationServiceImpl } from "@services";
+import { SignupEmailVerificationServiceImpl } from "@application/services/signup-email-verification-service.js";
 import express from "express";
 import { createSecretKey } from "node:crypto";
 

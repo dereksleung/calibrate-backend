@@ -1,4 +1,4 @@
-import type { MobilePlatform, SessionTransport } from "@application";
+import type { MobilePlatform, SessionTransport } from "@application/auth/session-client.js";
 
 export type SignupEmailVerificationPurpose = "signup-email-verification";
 export type EmailOtpPurpose = "authentication" | SignupEmailVerificationPurpose;

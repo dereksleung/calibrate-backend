@@ -1,12 +1,11 @@
-import {
-  AuthenticationError,
-  InvalidEmailVerificationCodeError,
-  RateLimitError,
-  ServiceUnavailableError,
-} from "@application";
+import { AuthenticationError } from "@application/errors/authentication-error.js";
+import { InvalidEmailVerificationCodeError } from "@application/errors/invalid-email-verification-code-error.js";
+import { RateLimitError } from "@application/errors/rate-limit-error.js";
+import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
 import { User } from "@domain/entities/user.js";
-import { AuthController } from "@presentation";
-import { IAuthService, ISignupEmailVerificationService } from "@services";
+import { AuthController } from "@controllers/auth-controller.js";
+import { IAuthService } from "@application/services/auth-service.js";
+import { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
 import { Request } from "express";
 import { MockedObject, vi } from "vitest";
 

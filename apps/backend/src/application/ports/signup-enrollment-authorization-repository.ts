@@ -1,4 +1,4 @@
-import type { MobilePlatform, SessionTransport } from "@application";
+import type { MobilePlatform, SessionTransport } from "@application/auth/session-client.js";
 
 export interface NewSignupEnrollmentAuthorization {
   id: string;

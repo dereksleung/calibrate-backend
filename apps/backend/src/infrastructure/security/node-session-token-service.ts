@@ -1,4 +1,4 @@
-import type { CreatedOpaqueToken, IOpaqueTokenService } from "@application";
+import type { CreatedOpaqueToken, IOpaqueTokenService } from "@application/ports/session-token-service.js";
 
 import { createHash, randomBytes } from "node:crypto";
 

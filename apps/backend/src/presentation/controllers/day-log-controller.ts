@@ -1,7 +1,7 @@
-import { AuthenticationError } from "@application";
-import { handleControllerError } from "@common";
-import { IDayLogService } from "@services";
-import { validate } from "@validation";
+import { AuthenticationError } from "@application/errors/authentication-error.js";
+import { handleControllerError } from "@common/errors/controller-error-handler.js";
+import { IDayLogService } from "@application/services/day-log-service.js";
+import { validate } from "@validation/validation-helpers.js";
 import { Request, Response } from "express";
 
 import {

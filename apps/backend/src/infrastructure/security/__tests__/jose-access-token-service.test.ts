@@ -1,4 +1,4 @@
-import { AuthenticationError } from "@application";
+import { AuthenticationError } from "@application/errors/authentication-error.js";
 import * as dotenvx from "@dotenvx/dotenvx";
 import { generateKeyPairSync } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

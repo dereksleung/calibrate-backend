@@ -1,7 +1,10 @@
-import { DayLogServiceImpl, IDayLogRepository, IUserRepository } from "@application";
+import { IDayLogRepository } from "@application/ports/day-log-repository.js";
+import { IUserRepository } from "@application/ports/user-repository.js";
+import { DayLogServiceImpl } from "@application/services/day-log-service.js";
 import { DayLog } from "@domain/entities/day-log.js";
 import { MealNameEnum } from "@domain/entities/food-entry.js";
-import { buildDayLog, buildFoodEntry } from "@factories";
+import { buildDayLog } from "@factories/day-log.js";
+import { buildFoodEntry } from "@factories/food-entry.js";
 import { vi, MockedObject } from "vitest";
 
 describe("DayLogServiceImpl", () => {

@@ -1,5 +1,6 @@
-import { AuthenticationError, IAccessTokenService } from "@application";
-import { createAuthenticationMiddleware } from "@presentation";
+import { AuthenticationError } from "@application/errors/authentication-error.js";
+import { IAccessTokenService } from "@application/ports/access-token-service.js";
+import { createAuthenticationMiddleware } from "@presentation/middleware/auth-middleware.js";
 import { MockedObject, vi } from "vitest";
 
 describe("createAuthenticationMiddleware", () => {

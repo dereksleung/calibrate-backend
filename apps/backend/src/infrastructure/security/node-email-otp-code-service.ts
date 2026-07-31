@@ -1,4 +1,4 @@
-import { IEmailOtpCodeService, type CreatedEmailOtpCode, type VerifyEmailOtpCodeProps } from "@application";
+import { IEmailOtpCodeService, type CreatedEmailOtpCode, type VerifyEmailOtpCodeProps } from "@application/ports/email-otp-code-service.js";
 import { createHmac, KeyObject, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 
 const HMAC_FORMAT_VERSION = 2;

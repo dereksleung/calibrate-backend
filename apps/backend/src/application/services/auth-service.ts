@@ -1,11 +1,8 @@
-import {
-  AuthenticationError,
-  IAccessTokenService,
-  IPasswordHasher,
-  IUserRepository,
-  LoginRequestDto,
-  LoginResultDto,
-} from "@application";
+import { LoginRequestDto, LoginResultDto } from "@application/dtos/auth-dtos.js";
+import { AuthenticationError } from "@application/errors/authentication-error.js";
+import { IAccessTokenService } from "@application/ports/access-token-service.js";
+import { IPasswordHasher } from "@application/ports/password-hasher.js";
+import { IUserRepository } from "@application/ports/user-repository.js";
 
 export interface IAuthService {
   login(props: LoginRequestDto): Promise<LoginResultDto>;

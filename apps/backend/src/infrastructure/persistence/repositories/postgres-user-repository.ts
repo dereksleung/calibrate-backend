@@ -1,4 +1,4 @@
-import { IUserRepository } from "@application";
+import { IUserRepository } from "@application/ports/user-repository.js";
 import { User } from "@domain/entities/user.js";
 
 import type { DatabaseClient } from "../database-client.js";

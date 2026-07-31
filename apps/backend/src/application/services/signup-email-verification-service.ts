@@ -4,16 +4,14 @@ import type {
   SessionTransport,
 } from "@calibrate/api-contracts";
 
-import {
-  IClock,
-  IEmailOtpChallengeRepository,
-  IEmailOtpCodeService,
-  IEmailSender,
-  IOpaqueTokenService,
-  ISignupEnrollmentAuthorizationRepository,
-  InvalidEmailVerificationCodeError,
-  ServiceUnavailableError,
-} from "@application";
+import { InvalidEmailVerificationCodeError } from "@application/errors/invalid-email-verification-code-error.js";
+import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
+import { IClock } from "@application/ports/clock.js";
+import { IEmailOtpChallengeRepository } from "@application/ports/email-otp-challenge-repository.js";
+import { IEmailOtpCodeService } from "@application/ports/email-otp-code-service.js";
+import { IEmailSender } from "@application/ports/email-sender.js";
+import { IOpaqueTokenService } from "@application/ports/session-token-service.js";
+import { ISignupEnrollmentAuthorizationRepository } from "@application/ports/signup-enrollment-authorization-repository.js";
 import { randomUUID } from "node:crypto";
 
 const CHALLENGE_LIFETIME_SECONDS = 10 * 60;

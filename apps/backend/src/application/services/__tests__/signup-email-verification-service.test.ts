@@ -1,12 +1,10 @@
-import {
-  IClock,
-  IEmailOtpChallengeRepository,
-  IEmailOtpCodeService,
-  IEmailSender,
-  IOpaqueTokenService,
-  ISignupEnrollmentAuthorizationRepository,
-} from "@application";
-import { SignupEmailVerificationServiceImpl } from "@services";
+import { IClock } from "@application/ports/clock.js";
+import { IEmailOtpChallengeRepository } from "@application/ports/email-otp-challenge-repository.js";
+import { IEmailOtpCodeService } from "@application/ports/email-otp-code-service.js";
+import { IEmailSender } from "@application/ports/email-sender.js";
+import { IOpaqueTokenService } from "@application/ports/session-token-service.js";
+import { ISignupEnrollmentAuthorizationRepository } from "@application/ports/signup-enrollment-authorization-repository.js";
+import { SignupEmailVerificationServiceImpl } from "@application/services/signup-email-verification-service.js";
 import { MockedObject, vi } from "vitest";
 
 describe("SignupEmailVerificationServiceImpl", () => {

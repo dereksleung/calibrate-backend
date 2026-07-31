@@ -1,4 +1,5 @@
-import { AuthenticationError, IAccessTokenService, IssuedAccessToken } from "@application";
+import { AuthenticationError } from "@application/errors/authentication-error.js";
+import { IAccessTokenService, IssuedAccessToken } from "@application/ports/access-token-service.js";
 import dotenvx from "@dotenvx/dotenvx";
 import { importPKCS8, importSPKI, jwtVerify, SignJWT } from "jose";
 import { createPrivateKey, createPublicKey, type KeyObject } from "node:crypto";

@@ -1,7 +1,7 @@
 import type {
   ConsumeAndCreateEnrollmentAuthorizationProps,
   ISignupEnrollmentAuthorizationRepository,
-} from "@application";
+} from "@application/ports/signup-enrollment-authorization-repository.js";
 
 import type { DatabaseClient } from "../database-client.js";
 

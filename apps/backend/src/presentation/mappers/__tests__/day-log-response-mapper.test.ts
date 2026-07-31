@@ -1,6 +1,7 @@
 import { DayLog } from "@domain/entities/day-log.js";
 import { MealNameEnum } from "@domain/entities/food-entry.js";
-import { buildDayLog, buildDayLogResponse, buildFoodEntry, buildFoodEntryResponse } from "@factories";
+import { buildDayLog, buildDayLogResponse } from "@factories/day-log.js";
+import { buildFoodEntry, buildFoodEntryResponse } from "@factories/food-entry.js";
 import { DayLogResponseMapper } from "src/presentation/mappers/day-log-response-mapper.js";
 
 describe("DayLogResponseMapper", () => {

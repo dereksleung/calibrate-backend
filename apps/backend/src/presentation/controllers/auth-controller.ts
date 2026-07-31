@@ -1,4 +1,6 @@
-import { InvalidEmailVerificationCodeError, RateLimitError, ServiceUnavailableError } from "@application";
+import { InvalidEmailVerificationCodeError } from "@application/errors/invalid-email-verification-code-error.js";
+import { RateLimitError } from "@application/errors/rate-limit-error.js";
+import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
 import {
   AppPlatformHeaderValueSchema,
   LoginRequestBodySchema,
@@ -8,9 +10,12 @@ import {
   type RequestSignupEmailVerificationResponse,
   type VerifySignupEmailVerificationResponse,
 } from "@calibrate/api-contracts";
-import { handleControllerError } from "@common";
-import { IAuthService, ISignupEmailVerificationService } from "@services";
-import { validate } from "@validation";
+import { handleControllerError } from "@common/errors/controller-error-handler.js";
+import { IAuthService } from "@application/services/auth-service.js";
+import {
+  ISignupEmailVerificationService,
+} from "@application/services/signup-email-verification-service.js";
+import { validate } from "@validation/validation-helpers.js";
 import { Request, Response } from "express";
 
 import { UserResponseMapper } from "../mappers/user-response-mapper.js";

@@ -1,6 +1,7 @@
 import type { Insertable } from "kysely";
 
-import { RateLimitError, type NewEmailOtpChallenge } from "@application";
+import { RateLimitError } from "@application/errors/rate-limit-error.js";
+import type { NewEmailOtpChallenge } from "@application/ports/email-otp-challenge-repository.js";
 import { createHmac, randomUUID } from "node:crypto";
 
 import type { DatabaseClient, DatabaseSchema } from "../../database.js";

@@ -1,12 +1,9 @@
-import {
-  AccessTokenPayload,
-  AuthenticationError,
-  IAccessTokenService,
-  IPasswordHasher,
-  IUserRepository,
-} from "@application";
+import { AccessTokenPayload, IAccessTokenService } from "@application/ports/access-token-service.js";
+import { AuthenticationError } from "@application/errors/authentication-error.js";
+import { IPasswordHasher } from "@application/ports/password-hasher.js";
+import { IUserRepository } from "@application/ports/user-repository.js";
+import { AuthServiceImpl } from "@application/services/auth-service.js";
 import { User } from "@domain/entities/user.js";
-import { AuthServiceImpl } from "@services";
 import { MockedObject, vi } from "vitest";
 
 describe("AuthServiceImpl", () => {

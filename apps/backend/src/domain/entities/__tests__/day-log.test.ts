@@ -1,6 +1,7 @@
 import { MealNameEnum } from "@domain/entities/food-entry.js";
 import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
-import { buildDayLog, buildFoodEntry } from "@factories";
+import { buildDayLog } from "@factories/day-log.js";
+import { buildFoodEntry } from "@factories/food-entry.js";
 import { describe, it, expect } from "vitest";
 
 describe("DayLog", () => {

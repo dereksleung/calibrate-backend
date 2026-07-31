@@ -1,6 +1,7 @@
 import type { CompiledQuery, DatabaseConnection, Driver, QueryResult, TransactionSettings } from "kysely";
 
-import { RateLimitError, type NewEmailOtpChallenge } from "@application";
+import { RateLimitError } from "@application/errors/rate-limit-error.js";
+import type { NewEmailOtpChallenge } from "@application/ports/email-otp-challenge-repository.js";
 import { Kysely, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler } from "kysely";
 import { createHmac } from "node:crypto";
 

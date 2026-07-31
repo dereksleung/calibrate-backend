@@ -1,4 +1,4 @@
-import { AuthController } from "@controllers";
+import { AuthController } from "@controllers/auth-controller.js";
 import { Router } from "express";
 
 export function createAuthRoutes(authController: AuthController): Router {

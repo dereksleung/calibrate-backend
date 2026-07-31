@@ -1,6 +1,6 @@
-import { handleControllerError } from "@common";
-import { IUserService } from "@services";
-import { validate } from "@validation";
+import { handleControllerError } from "@common/errors/controller-error-handler.js";
+import { IUserService } from "@application/services/user-service.js";
+import { validate } from "@validation/validation-helpers.js";
 import { Request, Response } from "express";
 
 import { CreateUserRequestBodySchema, type UserResponse } from "@calibrate/api-contracts";

@@ -1,4 +1,5 @@
-import { HashingError, IPasswordHasher } from "@application";
+import { HashingError } from "@application/errors/hashing-error.js";
+import { IPasswordHasher } from "@application/ports/password-hasher.js";
 import argon2 from "argon2";
 
 export class Argon2PasswordHasher implements IPasswordHasher {

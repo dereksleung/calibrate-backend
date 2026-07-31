@@ -1,6 +1,8 @@
-import { Container } from "@infrastructure";
-import { createAuthenticationMiddleware } from "@presentation";
-import { createAuthRoutes, createDayLogRoutes, createUserRoutes } from "@routes";
+import { Container } from "@infrastructure/container.js";
+import { createAuthenticationMiddleware } from "@presentation/middleware/auth-middleware.js";
+import { createAuthRoutes } from "@routes/auth-routes.js";
+import { createDayLogRoutes } from "@routes/day-log-routes.js";
+import { createUserRoutes } from "@routes/user-routes.js";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";

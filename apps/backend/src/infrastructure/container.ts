@@ -1,26 +1,22 @@
+import { IAccessTokenService } from "@application/ports/access-token-service.js";
+import { IClock, SystemClock } from "@application/ports/clock.js";
+import { IDayLogRepository } from "@application/ports/day-log-repository.js";
+import { IEmailOtpCodeService } from "@application/ports/email-otp-code-service.js";
+import { IEmailSender } from "@application/ports/email-sender.js";
+import { IPasswordHasher } from "@application/ports/password-hasher.js";
+import { IUserRepository } from "@application/ports/user-repository.js";
+import { IAuthService, AuthServiceImpl } from "@application/services/auth-service.js";
+import { IDayLogService, DayLogServiceImpl } from "@application/services/day-log-service.js";
 import {
-  IAccessTokenService,
-  IDayLogRepository,
-  IPasswordHasher,
-  IAuthService,
-  IUserRepository,
-  IUserService,
-  IEmailOtpCodeService,
-  IClock,
-  IEmailSender,
-  SystemClock,
-} from "@application";
-import { AuthController, DayLogController, UserController } from "@controllers";
-import dotenvx from "@dotenvx/dotenvx";
-import {
-  AuthServiceImpl,
-  IDayLogService,
-  DayLogServiceImpl,
-  UserServiceImpl,
   ISignupEmailVerificationService,
   SignupEmailVerificationServiceImpl,
   UnavailableSignupEmailVerificationService,
-} from "@services";
+} from "@application/services/signup-email-verification-service.js";
+import { IUserService, UserServiceImpl } from "@application/services/user-service.js";
+import { AuthController } from "@controllers/auth-controller.js";
+import { DayLogController } from "@controllers/day-log-controller.js";
+import { UserController } from "@controllers/user-controller.js";
+import dotenvx from "@dotenvx/dotenvx";
 import { createSecretKey } from "crypto";
 
 import { BrevoEmailSender } from "./email/brevo-email-sender.js";
