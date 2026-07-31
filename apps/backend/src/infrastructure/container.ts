@@ -23,16 +23,18 @@ import { BrevoEmailSender } from "./email/brevo-email-sender.js";
 import { databaseClient } from "./persistence/database.js";
 import {
   PostgresDayLogRepository,
-  PostgresEmailOtpChallengeRepository,
-  PostgresSignupEnrollmentAuthorizationRepository,
-  PostgresUserRepository,
-} from "./persistence/repositories/index.js";
+} from "./persistence/repositories/postgres-day-log-repository.js";
 import {
-  Argon2PasswordHasher,
-  JoseAccessTokenService,
-  NodeEmailOtpCodeService,
-  NodeOpaqueTokenService,
-} from "./security/index.js";
+  PostgresEmailOtpChallengeRepository,
+} from "./persistence/repositories/postgres-email-otp-challenge-repository.js";
+import {
+  PostgresSignupEnrollmentAuthorizationRepository,
+} from "./persistence/repositories/postgres-signup-enrollment-authorization-repository.js";
+import { PostgresUserRepository } from "./persistence/repositories/postgres-user-repository.js";
+import { Argon2PasswordHasher } from "./security/argon2-password-hasher.js";
+import { JoseAccessTokenService } from "./security/jose-access-token-service.js";
+import { NodeEmailOtpCodeService } from "./security/node-email-otp-code-service.js";
+import { NodeOpaqueTokenService } from "./security/node-session-token-service.js";
 
 const encodedKey = dotenvx.get("OTP_HMAC_KEY");
 
