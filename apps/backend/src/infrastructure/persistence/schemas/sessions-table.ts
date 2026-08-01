@@ -7,6 +7,8 @@ export interface SessionsTable {
   token_digest: string;
   transport: SessionTransport;
   mobile_platform: MobilePlatform | null;
+  remembered_device_family_id: string | null;
+  replaced_by_session_id: string | null;
   created_at: ColumnType<Date, Date, never>;
   last_seen_at: ColumnType<Date, Date, Date>;
   inactivity_expires_at: ColumnType<Date, Date, Date>;

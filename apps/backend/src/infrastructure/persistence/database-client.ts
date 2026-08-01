@@ -4,15 +4,25 @@ import { Pool } from "pg";
 import { DayLogsTable } from "./schemas/day-logs-table.js";
 import { EmailOtpChallengesTable } from "./schemas/email-otp-challenges-table.js";
 import { FoodEntriesTable } from "./schemas/food-entries-table.js";
+import { PasskeyCredentialsTable } from "./schemas/passkey-credentials-table.js";
+import { RefreshTokenGenerationsTable } from "./schemas/refresh-token-generations-table.js";
+import { RememberedDeviceFamiliesTable } from "./schemas/remembered-device-families-table.js";
+import { SecurityEventsTable } from "./schemas/security-events-table.js";
 import { SessionsTable } from "./schemas/sessions-table.js";
 import { SignupEnrollmentAuthorizationsTable } from "./schemas/signup-enrollment-authorizations-table.js";
 import { UsersTable } from "./schemas/users-table.js";
+import { WebauthnChallengesTable } from "./schemas/webauthn-challenges-table.js";
 
 export interface DatabaseSchema {
   email_otp_challenges: EmailOtpChallengesTable;
+  passkey_credentials: PasskeyCredentialsTable;
+  refresh_token_generations: RefreshTokenGenerationsTable;
+  remembered_device_families: RememberedDeviceFamiliesTable;
+  security_events: SecurityEventsTable;
   sessions: SessionsTable;
   signup_enrollment_authorizations: SignupEnrollmentAuthorizationsTable;
   users: UsersTable;
+  webauthn_challenges: WebauthnChallengesTable;
   food_entries: FoodEntriesTable;
   day_logs: DayLogsTable;
 }

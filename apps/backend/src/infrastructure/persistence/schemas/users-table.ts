@@ -6,6 +6,7 @@ export interface UsersTable {
   email: string;
   password_hash: string | null;
   email_verified_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
+  webauthn_user_handle: string | null;
   tier: UserTierEnumType;
   created_at: ColumnType<Date, string, never>;
   updated_at: ColumnType<Date, string, Date>;

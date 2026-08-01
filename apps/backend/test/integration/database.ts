@@ -20,7 +20,13 @@ export function createIntegrationDatabaseClient(): DatabaseClient {
 export async function clearIntegrationDatabase(databaseClient: DatabaseClient): Promise<void> {
   await sql`
     truncate table
+      "security_events",
       "sessions",
+      "refresh_token_generations",
+      "remembered_device_families",
+      "passkey_credentials",
+      "webauthn_challenges",
+      "signup_enrollment_authorizations",
       "food_entries",
       "day_logs",
       "users",
