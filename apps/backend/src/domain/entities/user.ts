@@ -5,6 +5,7 @@ export interface UserProps {
   email: string;
   passwordHash: string | null;
   emailVerifiedAt?: Date | null;
+  webauthnUserHandle?: string | null;
   tier: UserTierEnumType;
   createdAt: Date;
   updatedAt: Date;
@@ -15,20 +16,39 @@ export interface CreateUserProps {
   passwordHash: string;
 }
 
+export interface CreatePasskeySignupUserProps {
+  email: string;
+  webauthnUserHandle: string;
+  emailVerifiedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export class User {
   private readonly _id: string;
   private readonly _email: string;
   private readonly _passwordHash: string | null;
   private readonly _emailVerifiedAt: Date | null;
+  private readonly _webauthnUserHandle: string | null;
   private readonly _tier: UserTier;
   private readonly _createdAt: Date;
   private readonly _updatedAt: Date;
 
-  private constructor({ id, email, passwordHash, emailVerifiedAt, tier, createdAt, updatedAt }: UserProps) {
+  private constructor({
+    id,
+    email,
+    passwordHash,
+    emailVerifiedAt,
+    webauthnUserHandle,
+    tier,
+    createdAt,
+    updatedAt,
+  }: UserProps) {
     this._id = id;
     this._email = email;
     this._passwordHash = passwordHash;
     this._emailVerifiedAt = emailVerifiedAt ?? null;
+    this._webauthnUserHandle = webauthnUserHandle ?? null;
     this._tier = UserTier.from(tier);
     this._createdAt = createdAt;
     this._updatedAt = updatedAt;
@@ -43,9 +63,23 @@ export class User {
       email: props.email,
       passwordHash: props.passwordHash,
       emailVerifiedAt: null,
+      webauthnUserHandle: null,
       tier: UserTierSchema.enum.FREE,
       createdAt: new Date(),
       updatedAt: new Date(),
+    });
+  }
+
+  public static createForPasskeySignup(props: CreatePasskeySignupUserProps): User {
+    return new User({
+      id: crypto.randomUUID(),
+      email: props.email,
+      passwordHash: null,
+      emailVerifiedAt: props.emailVerifiedAt,
+      webauthnUserHandle: props.webauthnUserHandle,
+      tier: UserTierSchema.enum.FREE,
+      createdAt: props.createdAt,
+      updatedAt: props.updatedAt,
     });
   }
 
@@ -60,6 +94,9 @@ export class User {
   }
   public get emailVerifiedAt(): Date | null {
     return this._emailVerifiedAt;
+  }
+  public get webauthnUserHandle(): string | null {
+    return this._webauthnUserHandle;
   }
   public get tier(): UserTier {
     return this._tier;

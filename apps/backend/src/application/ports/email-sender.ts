@@ -5,6 +5,12 @@ export interface SignupEmailVerificationCodeEmailInfo {
   deliveryId: string;
 }
 
+export interface PasskeyAddedNotificationEmailInfo {
+  email: string;
+  deliveryId: string;
+}
+
 export interface IEmailSender {
   sendSignupEmailVerificationCode(message: SignupEmailVerificationCodeEmailInfo): Promise<void>;
+  sendPasskeyAddedNotification(message: PasskeyAddedNotificationEmailInfo): Promise<void>;
 }

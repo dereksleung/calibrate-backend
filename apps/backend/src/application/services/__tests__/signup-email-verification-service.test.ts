@@ -26,7 +26,10 @@ describe("SignupEmailVerificationServiceImpl", () => {
       recordFailedAttempt: vi.fn(),
     };
     codeService = { createChallenge: vi.fn(), verifyChallenge: vi.fn() };
-    emailSender = { sendSignupEmailVerificationCode: vi.fn() };
+    emailSender = {
+      sendSignupEmailVerificationCode: vi.fn(),
+      sendPasskeyAddedNotification: vi.fn(),
+    };
     enrollmentRepository = { consumeAndCreate: vi.fn() };
     opaqueTokenService = { create: vi.fn() };
     service = new SignupEmailVerificationServiceImpl(
