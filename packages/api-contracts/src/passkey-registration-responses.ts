@@ -15,5 +15,18 @@ export const PasskeyRegistrationErrorResponseSchema = z
   })
   .strict();
 
+/**
+ * Minimal validation for WebAuthn registration options returned by the backend.
+ * Full shape is owned by SimpleWebAuthn; the client only needs a challenge-bearing object.
+ */
+export const PasskeyRegistrationOptionsResponseSchema = z
+  .object({
+    challenge: z.string().min(1),
+  })
+  .passthrough();
+
 export type PasskeyRegistrationErrorCode = z.infer<typeof PasskeyRegistrationErrorCodeSchema>;
 export type PasskeyRegistrationErrorResponse = z.infer<typeof PasskeyRegistrationErrorResponseSchema>;
+export type PasskeyRegistrationOptionsResponse = z.infer<
+  typeof PasskeyRegistrationOptionsResponseSchema
+>;
