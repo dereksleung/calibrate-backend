@@ -5,4 +5,7 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "";
 
 export const apiTransport = createApiTransport({
   baseUrl: apiBaseUrl,
+  getHeaders: () => ({
+    Origin: typeof window !== "undefined" ? window.location.origin : "http://localhost:3000",
+  }),
 });
