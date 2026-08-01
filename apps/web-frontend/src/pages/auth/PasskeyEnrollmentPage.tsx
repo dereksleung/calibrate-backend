@@ -149,7 +149,10 @@ export function PasskeyEnrollmentPage({
 
         {uiState.kind === "auth_required" && (
           <div className="mt-lg space-y-md">
-            <WarningBanner>Your enrollment authorization expired. Verify your email again to continue.</WarningBanner>
+            <WarningBanner>
+              Your enrollment authorization expired or can no longer be used. Verify your email
+              again to continue.
+            </WarningBanner>
             <Button className="w-full" onClick={() => void navigate({ to: "/signup-login" })}>
               Start again
             </Button>

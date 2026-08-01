@@ -2,6 +2,7 @@
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { ApiError } from "@calibrate/api-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createQueryClient } from "#/shared/api/query-client.ts";
@@ -138,5 +139,23 @@ describe("PasskeyEnrollmentPage", () => {
       expect(mockRequestOptions).toHaveBeenCalledTimes(2);
     });
     expect(mockVerifyRegistration).toHaveBeenCalledOnce();
+  });
+
+  it("directs the user back to email verification when the enrollment can no longer start ceremonies", async () => {
+    mockRequestOptions.mockRejectedValue(
+      new ApiError({
+        status: 401,
+        statusText: "Unauthorized",
+        body: { error: "ENROLLMENT_AUTHORIZATION_REQUIRED" },
+      }),
+    );
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /create passkey/i }));
+
+    expect(
+      await screen.findByText(/enrollment authorization expired or can no longer be used/i),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: /start again/i })).toBeTruthy();
   });
 });

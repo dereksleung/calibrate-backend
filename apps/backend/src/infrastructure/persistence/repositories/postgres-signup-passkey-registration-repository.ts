@@ -1,7 +1,7 @@
 import {
   EnrollmentAuthorizationRequiredError,
-  PasskeyRegistrationRateLimitedError,
   PasskeyRegistrationStateConflictError,
+  PasskeyRegistrationUnavailableError,
 } from "@application/errors/passkey-registration-errors.js";
 import {
   type ActiveSignupRegistrationChallenge,
@@ -52,36 +52,22 @@ export class PostgresSignupPasskeyRegistrationRepository implements ISignupPassk
         .executeTakeFirstOrThrow();
 
       if (Number(optionsCount.count) >= input.maxOptionsRequests) {
-        const retryAfterSeconds = Math.max(
-          1,
-          Math.ceil((authorization.expires_at.getTime() - input.now.getTime()) / 1000),
-        );
-        throw new PasskeyRegistrationRateLimitedError(retryAfterSeconds);
+        throw new EnrollmentAuthorizationRequiredError();
       }
 
       let userHandle = authorization.webauthn_user_handle;
-      if (!userHandle) {
+      if (userHandle === null) {
         const assigned = await trx
           .updateTable("signup_enrollment_authorizations")
           .set({ webauthn_user_handle: input.candidateUserHandle })
           .where("id", "=", authorization.id)
-          .where("webauthn_user_handle", "is", null)
+          .returning("webauthn_user_handle")
           .executeTakeFirst();
 
-        if (Number(assigned.numUpdatedRows) === 1) {
-          userHandle = input.candidateUserHandle;
-        } else {
-          const refreshed = await trx
-            .selectFrom("signup_enrollment_authorizations")
-            .select("webauthn_user_handle")
-            .where("id", "=", authorization.id)
-            .executeTakeFirstOrThrow();
-          userHandle = refreshed.webauthn_user_handle;
+        if (!assigned?.webauthn_user_handle) {
+          throw new PasskeyRegistrationUnavailableError();
         }
-      }
-
-      if (!userHandle) {
-        throw new PasskeyRegistrationStateConflictError();
+        userHandle = assigned.webauthn_user_handle;
       }
 
       await trx

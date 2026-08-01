@@ -160,10 +160,10 @@ Status mapping:
 | Status | Code | Meaning and client action |
 | --- | --- | --- |
 | `400` | `PASSKEY_REGISTRATION_FAILED` | Malformed or failed WebAuthn verification. Do not replay the assertion; the user may start a fresh ceremony while enrollment remains active. |
-| `401` | `ENROLLMENT_AUTHORIZATION_REQUIRED` | Cookie is missing or authorization is expired, consumed, invalidated, or incorrectly bound. Return to email verification. |
+| `401` | `ENROLLMENT_AUTHORIZATION_REQUIRED` | Cookie is missing, authorization is expired, consumed, invalidated, incorrectly bound, or its options-request quota is exhausted. Clear the enrollment cookie and return to email verification. |
 | `403` | `ORIGIN_NOT_ALLOWED` | Missing, `null`, malformed, or unexpected origin. Do not retry. |
 | `409` | `PASSKEY_REGISTRATION_STATE_CONFLICT` | Conditional consumption lost a race or signup state changed. Do not replay verification. |
-| `429` | `PASSKEY_REGISTRATION_RATE_LIMITED` | Wait for `Retry-After`, then start a fresh ceremony if enrollment is still valid. |
+| `429` | `PASSKEY_REGISTRATION_RATE_LIMITED` | A temporary shared endpoint abuse limit was reached. Wait for `Retry-After`, then start a fresh ceremony if enrollment is still valid. This does not represent the per-enrollment options quota. |
 | `503` | `PASSKEY_REGISTRATION_UNAVAILABLE` | Availability failure. Never infer logout or blindly replay verification. |
 
 Every response from the two endpoints uses `Cache-Control: no-store`.
@@ -204,8 +204,10 @@ It must never retain and resubmit an earlier `RegistrationResponseJSON`.
 - A known `400` verification failure is user-retryable only by requesting new
   options and invoking the authenticator again.
 - `401` and `403` are terminal for the current enrollment flow.
-- `429` becomes user-retryable only after `Retry-After` and only if the
-  enrollment authorization remains valid.
+- `429` from a temporary shared endpoint abuse limit becomes user-retryable
+  only after `Retry-After` and only if the enrollment authorization remains
+  valid. Exhausting the per-enrollment options quota returns `401` and requires
+  email verification to issue a new enrollment authorization.
 - `409`, `5xx`, a network timeout, or a lost response must not automatically
   replay the verification mutation.
 
@@ -288,7 +290,8 @@ The raw enrollment token and raw challenge are never persisted.
    - locks and validates the active cookie-bound enrollment by token digest;
    - assigns the candidate user handle only when the record has none;
    - reuses the existing handle otherwise;
-   - enforces the persisted options-request limit;
+   - enforces the persisted options-request quota and treats exhaustion as
+     terminal for that enrollment;
    - invalidates the previous active signup-registration challenge; and
    - inserts the new challenge digest bound to the enrollment ID and purpose.
 4. The repository returns the stable user handle, verified email display data,
@@ -375,9 +378,10 @@ invalidated_at                  timestamptz null
 - Purpose is exactly `signup-passkey-registration` for this slice.
 - Expiry is capped by the enrollment authorization's fixed expiry.
 - Store only the digest of the base64url challenge.
-- Enforce no more than five options requests per enrollment and five failed
-  verification attempts per challenge in PostgreSQL so limits work across
-  replicas.
+- Enforce no more than five options requests over the lifetime of an enrollment
+  and five failed verification attempts per challenge in PostgreSQL so limits
+  work across replicas. Options-quota exhaustion requires a new enrollment
+  authorization; it is not a retryable time-window rate limit.
 
 ### Users
 
@@ -872,8 +876,9 @@ task.
 - The browser is the only enrollment transport implemented in this slice.
 - `rememberDevice` defaults to `true`; the user can explicitly opt out on a
   shared device.
-- Five options requests per enrollment and five failed verification attempts
-  per challenge are the initial persisted limits.
+- Five options requests over the lifetime of an enrollment and five failed
+  verification attempts per challenge are the initial persisted limits.
+  Exhausting the options quota returns the user to email verification.
 - The installed SimpleWebAuthn v13 server/browser dependencies are used; no new
   dependency is required.
 - Initial supported algorithms follow the installed SimpleWebAuthn defaults

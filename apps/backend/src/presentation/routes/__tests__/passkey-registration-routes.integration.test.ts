@@ -4,7 +4,10 @@ import type { ISignupEmailVerificationService } from "@application/services/sign
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { OriginNotAllowedError } from "@application/errors/passkey-registration-errors.js";
+import {
+  EnrollmentAuthorizationRequiredError,
+  OriginNotAllowedError,
+} from "@application/errors/passkey-registration-errors.js";
 import { User } from "@domain/entities/user.js";
 import express from "express";
 
@@ -83,6 +86,26 @@ describe("passkey registration HTTP routes", () => {
       "enrollment-token",
       "http://localhost:3000",
     );
+  });
+
+  it("clears the enrollment cookie and requires email verification when enrollment cannot start another ceremony", async () => {
+    vi.mocked(signupPasskeyRegistrationService.createRegistrationOptions).mockRejectedValueOnce(
+      new EnrollmentAuthorizationRequiredError(),
+    );
+
+    const response = await fetch(`${baseUrl}/api/v1/auth/passkeys/registration/options`, {
+      method: "POST",
+      headers: {
+        Cookie: "passkey-enrollment=enrollment-token",
+        Origin: "http://localhost:3000",
+      },
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("retry-after")).toBeNull();
+    expect(response.headers.get("set-cookie")).toMatch(/passkey-enrollment=;/);
+    expect(await response.json()).toEqual({ error: "ENROLLMENT_AUTHORIZATION_REQUIRED" });
   });
 
   it("sets session cookies and clears enrollment on successful verification", async () => {

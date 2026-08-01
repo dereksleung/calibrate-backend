@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import {
   EnrollmentAuthorizationRequiredError,
-  PasskeyRegistrationRateLimitedError,
+  PasskeyRegistrationUnavailableError,
 } from "@application/errors/passkey-registration-errors.js";
 import { User } from "@domain/entities/user.js";
 
@@ -137,7 +137,7 @@ describe("PostgresSignupPasskeyRegistrationRepository", () => {
       ).rejects.toBeInstanceOf(EnrollmentAuthorizationRequiredError);
     });
 
-    it("enforces the persisted options-request limit", async () => {
+    it("requires a new enrollment authorization after the options-request quota is exhausted", async () => {
       const enrollment = await insertEnrollmentAuthorization(databaseClient);
 
       for (let index = 0; index < 5; index++) {
@@ -164,7 +164,38 @@ describe("PostgresSignupPasskeyRegistrationRepository", () => {
           maxOptionsRequests: 5,
           maxVerificationAttempts: 5,
         }),
-      ).rejects.toBeInstanceOf(PasskeyRegistrationRateLimitedError);
+      ).rejects.toBeInstanceOf(EnrollmentAuthorizationRequiredError);
+    });
+
+    it("reports an unavailable failure when a user handle cannot be assigned", async () => {
+      const enrollment = await insertEnrollmentAuthorization(databaseClient);
+      const rawChallenge = randomBytes(32).toString("base64url");
+
+      await expect(
+        repository.prepareRegistration({
+          enrollmentTokenDigest: enrollment.tokenDigest,
+          candidateUserHandle: "",
+          rawChallenge,
+          challengeDigest: digest(rawChallenge),
+          now: createdAt,
+          maxOptionsRequests: 5,
+          maxVerificationAttempts: 5,
+        }),
+      ).rejects.toBeInstanceOf(PasskeyRegistrationUnavailableError);
+
+      const persistedAuthorization = await databaseClient
+        .selectFrom("signup_enrollment_authorizations")
+        .select("webauthn_user_handle")
+        .where("id", "=", enrollment.id)
+        .executeTakeFirstOrThrow();
+      const storedChallenges = await databaseClient
+        .selectFrom("webauthn_challenges")
+        .select("id")
+        .where("enrollment_authorization_id", "=", enrollment.id)
+        .execute();
+
+      expect(persistedAuthorization.webauthn_user_handle).toBeNull();
+      expect(storedChallenges).toHaveLength(0);
     });
   });
 

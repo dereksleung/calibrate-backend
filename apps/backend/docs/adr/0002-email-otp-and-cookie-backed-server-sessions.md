@@ -400,7 +400,7 @@ The production cookie-authentication shipping gate is part of the verification s
 
 ### Abuse controls and operations
 
-Email requests are limited by normalized email, requesting IP, resend cooldown, and a global delivery ceiling. WebAuthn option and verification endpoints, recovery operations, and refresh failures are also rate limited. Production limits are shared across replicas.
+Email requests are limited by normalized email, requesting IP, resend cooldown, and a global delivery ceiling. WebAuthn option and verification endpoints, recovery operations, and refresh failures are also rate limited. Production limits are shared across replicas. The five-options-per-enrollment cap is separately a lifetime quota: exhausting it makes that enrollment ineligible to start another ceremony and requires email verification to issue a new enrollment authorization. It does not emit a retryable `429`; `429` remains reserved for temporary endpoint abuse limits with a meaningful `Retry-After`.
 
 Responses do not reveal whether an email or passkey belongs to an account. Internal security events may distinguish outcomes, but logs never include OTP codes, raw session or refresh tokens, passkey material, HMAC keys, authorization headers, or cookie values.
 
