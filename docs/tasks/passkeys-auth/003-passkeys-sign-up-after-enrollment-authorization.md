@@ -883,3 +883,12 @@ task.
   remembered-device family with purpose `signup`.
 - Passkey login is the next required authentication slice and is a production
   prerequisite because it resolves ambiguous registration completion.
+
+## Agent handoff
+
+Active implementation notes, Cursor sandbox behavior for Docker integration
+tests, and continuation state live in
+[`003-agent-handoff.md`](./003-agent-handoff.md). Agents continuing this story
+should read that file first — especially the requirement to request
+`full_network` and ask the user to approve when running
+`backend:test:integration`.

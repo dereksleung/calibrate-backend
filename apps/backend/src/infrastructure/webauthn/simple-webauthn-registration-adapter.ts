@@ -1,13 +1,11 @@
-import type { RegistrationResponseJSON } from "@calibrate/api-contracts";
 import type {
   IWebAuthnRegistrationPort,
   RegistrationOptionsInput,
   VerifiedRegistrationCredential,
 } from "@application/ports/webauthn-registration-port.js";
-import {
-  generateRegistrationOptions,
-  verifyRegistrationResponse,
-} from "@simplewebauthn/server";
+import type { RegistrationResponseJSON } from "@calibrate/api-contracts";
+
+import { generateRegistrationOptions, verifyRegistrationResponse } from "@simplewebauthn/server";
 import { cose, decodeCredentialPublicKey } from "@simplewebauthn/server/helpers";
 
 export interface SimpleWebAuthnRegistrationConfig {
@@ -26,7 +24,7 @@ export class SimpleWebAuthnRegistrationAdapter implements IWebAuthnRegistrationP
       userName: input.email,
       userDisplayName: input.email,
       userID: Buffer.from(input.userHandle, "base64url"),
-      challenge: input.rawChallenge,
+      challenge: Buffer.from(input.rawChallenge, "base64url"),
       attestationType: "none",
       authenticatorSelection: {
         residentKey: "required",

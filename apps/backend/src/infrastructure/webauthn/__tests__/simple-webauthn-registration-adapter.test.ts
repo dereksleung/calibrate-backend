@@ -1,8 +1,6 @@
 import type { RegistrationResponseJSON } from "@calibrate/api-contracts";
-import {
-  generateRegistrationOptions,
-  verifyRegistrationResponse,
-} from "@simplewebauthn/server";
+
+import { generateRegistrationOptions, verifyRegistrationResponse } from "@simplewebauthn/server";
 import { randomBytes } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -58,7 +56,7 @@ describe("SimpleWebAuthnRegistrationAdapter", () => {
       userName: "person@example.com",
       userDisplayName: "person@example.com",
       userID: Buffer.from(userHandle, "base64url"),
-      challenge: rawChallenge,
+      challenge: Buffer.from(rawChallenge, "base64url"),
       attestationType: "none",
       authenticatorSelection: {
         residentKey: "required",
