@@ -98,10 +98,18 @@ export function createApiTransport(options: ApiTransportOptions): ApiTransport {
       const responseBody = await readResponseBody(response);
 
       if (!response.ok) {
+        const retryAfterHeader = response.headers.get("Retry-After");
+        const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : undefined;
         throw new ApiError({
           status: response.status,
           statusText: response.statusText,
           body: responseBody,
+          retryAfterSeconds:
+            retryAfterSeconds !== undefined &&
+            Number.isFinite(retryAfterSeconds) &&
+            retryAfterSeconds > 0
+              ? retryAfterSeconds
+              : undefined,
         });
       }
 
