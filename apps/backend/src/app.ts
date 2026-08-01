@@ -24,7 +24,11 @@ app.use(
 app.use(morgan(":method :url :status :res[content-length] - :response-time ms"));
 app.use(express.json());
 
-const authenticateRequest = createAuthenticationMiddleware(container.getAccessTokenService());
+const authenticateRequest = createAuthenticationMiddleware(
+  container.getAccessTokenService(),
+  container.getAccessSessionRepository(),
+  container.getClock(),
+);
 
 // Routes
 app.use("/api/v1", createAuthRoutes(container.getAuthController()));

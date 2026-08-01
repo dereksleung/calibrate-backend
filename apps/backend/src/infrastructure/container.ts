@@ -1,3 +1,4 @@
+import { IAccessSessionRepository } from "@application/ports/access-session-repository.js";
 import { IAccessTokenService } from "@application/ports/access-token-service.js";
 import { IClock, SystemClock } from "@application/ports/clock.js";
 import { IDayLogRepository } from "@application/ports/day-log-repository.js";
@@ -12,6 +13,11 @@ import {
   SignupEmailVerificationServiceImpl,
   UnavailableSignupEmailVerificationService,
 } from "@application/services/signup-email-verification-service.js";
+import {
+  ISignupPasskeyRegistrationService,
+  SignupPasskeyRegistrationServiceImpl,
+  UnavailableSignupPasskeyRegistrationService,
+} from "@application/services/signup-passkey-registration-service.js";
 import { IUserService, UserServiceImpl } from "@application/services/user-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
 import { DayLogController } from "@controllers/day-log-controller.js";
@@ -21,14 +27,17 @@ import { createSecretKey } from "crypto";
 
 import { BrevoEmailSender } from "./email/brevo-email-sender.js";
 import { databaseClient } from "./persistence/database.js";
+import { PostgresAccessSessionRepository } from "./persistence/repositories/postgres-access-session-repository.js";
 import { PostgresDayLogRepository } from "./persistence/repositories/postgres-day-log-repository.js";
 import { PostgresEmailOtpChallengeRepository } from "./persistence/repositories/postgres-email-otp-challenge-repository.js";
 import { PostgresSignupEnrollmentAuthorizationRepository } from "./persistence/repositories/postgres-signup-enrollment-authorization-repository.js";
+import { PostgresSignupPasskeyRegistrationRepository } from "./persistence/repositories/postgres-signup-passkey-registration-repository.js";
 import { PostgresUserRepository } from "./persistence/repositories/postgres-user-repository.js";
 import { Argon2PasswordHasher } from "./security/argon2-password-hasher.js";
 import { JoseAccessTokenService } from "./security/jose-access-token-service.js";
 import { NodeEmailOtpCodeService } from "./security/node-email-otp-code-service.js";
 import { NodeOpaqueTokenService } from "./security/node-session-token-service.js";
+import { SimpleWebAuthnRegistrationAdapter } from "./webauthn/simple-webauthn-registration-adapter.js";
 
 const encodedKey = dotenvx.get("OTP_HMAC_KEY");
 
@@ -71,12 +80,19 @@ if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0) {
 
 const emailServiceCredential = dotenvx.get("EMAIL_SERVICE_CREDENTIAL");
 
+const webAuthnRpId = dotenvx.get("WEBAUTHN_RP_ID") ?? "localhost";
+const webAuthnOrigin = dotenvx.get("WEBAUTHN_ORIGIN") ?? "http://localhost:3000";
+const webAuthnRpName = dotenvx.get("WEBAUTHN_RP_NAME") ?? "Calibrate";
+
 export class Container {
+  private readonly accessSessionRepository: IAccessSessionRepository;
   private readonly accessTokenService: IAccessTokenService;
   private readonly authController: AuthController;
   private readonly authService: IAuthService;
+  private readonly clock: IClock;
   private readonly emailOtpCodeService: IEmailOtpCodeService;
   private readonly signupEmailVerificationService: ISignupEmailVerificationService;
+  private readonly signupPasskeyRegistrationService: ISignupPasskeyRegistrationService;
   private readonly dayLogRepository: IDayLogRepository;
   private readonly dayLogService: IDayLogService;
   private readonly dayLogController: DayLogController;
@@ -91,6 +107,7 @@ export class Container {
     authService,
     emailOtpCodeService,
     signupEmailVerificationService,
+    signupPasskeyRegistrationService,
     emailSender,
     clock,
     dayLogRepository,
@@ -106,6 +123,7 @@ export class Container {
     authService?: IAuthService;
     emailOtpCodeService?: IEmailOtpCodeService;
     signupEmailVerificationService?: ISignupEmailVerificationService;
+    signupPasskeyRegistrationService?: ISignupPasskeyRegistrationService;
     emailSender?: IEmailSender;
     clock?: IClock;
     dayLogRepository?: IDayLogRepository;
@@ -116,6 +134,8 @@ export class Container {
     userController?: UserController;
     passwordHasher?: IPasswordHasher;
   }) {
+    this.clock = clock ?? new SystemClock();
+    this.accessSessionRepository = new PostgresAccessSessionRepository(databaseClient);
     this.userRepository = userRepository ?? new PostgresUserRepository(databaseClient);
     this.dayLogRepository = dayLogRepository ?? new PostgresDayLogRepository(databaseClient);
     this.dayLogService = dayLogService ?? new DayLogServiceImpl(this.dayLogRepository, this.userRepository);
@@ -145,18 +165,46 @@ export class Container {
             configuredEmailSender,
             new PostgresSignupEnrollmentAuthorizationRepository(databaseClient),
             new NodeOpaqueTokenService(),
-            clock ?? new SystemClock(),
+            this.clock,
           )
         : new UnavailableSignupEmailVerificationService());
 
+    this.signupPasskeyRegistrationService =
+      signupPasskeyRegistrationService ??
+      (configuredEmailSender
+        ? new SignupPasskeyRegistrationServiceImpl(
+            new PostgresSignupPasskeyRegistrationRepository(databaseClient),
+            new SimpleWebAuthnRegistrationAdapter({
+              rpId: webAuthnRpId,
+              rpName: webAuthnRpName,
+              origin: webAuthnOrigin,
+            }),
+            new NodeOpaqueTokenService(),
+            configuredEmailSender,
+            this.clock,
+            { expectedOrigin: webAuthnOrigin },
+          )
+        : new UnavailableSignupPasskeyRegistrationService());
+
     this.authController =
-      authController ?? new AuthController(this.authService, this.signupEmailVerificationService);
+      authController ??
+      new AuthController(
+        this.authService,
+        this.signupEmailVerificationService,
+        this.signupPasskeyRegistrationService,
+      );
     this.userService = userService ?? new UserServiceImpl(this.passwordHasher, this.userRepository);
     this.userController = userController ?? new UserController(this.userService);
   }
 
+  getAccessSessionRepository(): IAccessSessionRepository {
+    return this.accessSessionRepository;
+  }
   getAccessTokenService(): IAccessTokenService {
     return this.accessTokenService;
+  }
+  getClock(): IClock {
+    return this.clock;
   }
   getAuthController(): AuthController {
     return this.authController;
@@ -166,6 +214,9 @@ export class Container {
   }
   getSignupEmailVerificationService(): ISignupEmailVerificationService {
     return this.signupEmailVerificationService;
+  }
+  getSignupPasskeyRegistrationService(): ISignupPasskeyRegistrationService {
+    return this.signupPasskeyRegistrationService;
   }
   getTrustProxyHops(): number {
     return trustProxyHops;

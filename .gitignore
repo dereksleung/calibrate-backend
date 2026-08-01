@@ -5,6 +5,8 @@ node_modules
 dist
 *.tsbuildinfo
 .env.keys*
+.env.local
+.local.env
 
 
 .nx/cache

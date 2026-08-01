@@ -1,12 +1,26 @@
 import { InvalidEmailVerificationCodeError } from "@application/errors/invalid-email-verification-code-error.js";
 import { RateLimitError } from "@application/errors/rate-limit-error.js";
+import {
+  EnrollmentAuthorizationRequiredError,
+  OriginNotAllowedError,
+  PasskeyRegistrationFailedError,
+  PasskeyRegistrationRateLimitedError,
+  PasskeyRegistrationStateConflictError,
+  PasskeyRegistrationUnavailableError,
+} from "@application/errors/passkey-registration-errors.js";
 import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
 import { IAuthService } from "@application/services/auth-service.js";
 import { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
 import {
+  ISignupPasskeyRegistrationService,
+} from "@application/services/signup-passkey-registration-service.js";
+import {
   AppPlatformHeaderValueSchema,
+  AuthenticatedSessionResponse,
   LoginRequestBodySchema,
+  PasskeyRegistrationErrorResponse,
   RequestSignupEmailVerificationRequestBodySchema,
+  VerifyPasskeyRegistrationRequestBodySchema,
   VerifySignupEmailVerificationRequestBodySchema,
   type LoginResponse,
   type RequestSignupEmailVerificationResponse,
@@ -16,13 +30,18 @@ import { handleControllerError } from "@common/errors/controller-error-handler.j
 import { validate } from "@validation/validation-helpers.js";
 import { Request, Response } from "express";
 
+import { getAccessCookieConfiguration, getAccessCookieMaxAgeMs } from "../auth/access-cookie.js";
+import { extractCookieValue } from "../auth/cookie-extractor.js";
 import { getEnrollmentCookieConfiguration } from "../auth/enrollment-cookie.js";
+import { getRefreshCookieConfiguration, getRefreshCookieMaxAgeMs } from "../auth/refresh-cookie.js";
+import { getExpectedWebAuthnOrigin, readRequestOrigin } from "../auth/webauthn-origin.js";
 import { UserResponseMapper } from "../mappers/user-response-mapper.js";
 
 export class AuthController {
   constructor(
     private readonly authService: IAuthService,
     private readonly signupEmailVerificationService: ISignupEmailVerificationService,
+    private readonly signupPasskeyRegistrationService: ISignupPasskeyRegistrationService,
   ) {}
 
   async requestSignupEmailVerification(req: Request, res: Response): Promise<void> {
@@ -115,6 +134,95 @@ export class AuthController {
     }
   }
 
+  async createPasskeyRegistrationOptions(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+
+    const origin = readRequestOrigin(req.get("Origin"));
+    if (!origin || origin !== getExpectedWebAuthnOrigin()) {
+      this.respondPasskeyRegistrationError(res, 403, "ORIGIN_NOT_ALLOWED");
+      return;
+    }
+
+    const enrollmentCookie = getEnrollmentCookieConfiguration();
+    const enrollmentToken = extractCookieValue(req.get("Cookie"), enrollmentCookie.name);
+    if (!enrollmentToken) {
+      this.clearEnrollmentCookie(res);
+      this.respondPasskeyRegistrationError(res, 401, "ENROLLMENT_AUTHORIZATION_REQUIRED");
+      return;
+    }
+
+    try {
+      const result = await this.signupPasskeyRegistrationService.createRegistrationOptions(
+        enrollmentToken,
+        origin,
+      );
+      res.status(200).json(result.options);
+    } catch (error) {
+      this.handlePasskeyRegistrationError(res, error);
+    }
+  }
+
+  async verifyPasskeyRegistration(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+
+    const origin = readRequestOrigin(req.get("Origin"));
+    if (!origin || origin !== getExpectedWebAuthnOrigin()) {
+      this.respondPasskeyRegistrationError(res, 403, "ORIGIN_NOT_ALLOWED");
+      return;
+    }
+
+    const enrollmentCookie = getEnrollmentCookieConfiguration();
+    const enrollmentToken = extractCookieValue(req.get("Cookie"), enrollmentCookie.name);
+    if (!enrollmentToken) {
+      this.clearEnrollmentCookie(res);
+      this.respondPasskeyRegistrationError(res, 401, "ENROLLMENT_AUTHORIZATION_REQUIRED");
+      return;
+    }
+
+    const validatedBody = validate(VerifyPasskeyRegistrationRequestBodySchema, req.body);
+    if (!validatedBody.isValid) {
+      res.status(400).json({ error: "Validation failed" });
+      return;
+    }
+
+    try {
+      const now = new Date();
+      const result = await this.signupPasskeyRegistrationService.verifyRegistration({
+        enrollmentToken,
+        origin,
+        credential: validatedBody.data.credential,
+        rememberDevice: validatedBody.data.rememberDevice,
+      });
+
+      this.clearEnrollmentCookie(res);
+
+      const accessCookie = getAccessCookieConfiguration();
+      res.cookie(accessCookie.name, result.accessToken, {
+        ...accessCookie.options,
+        maxAge: getAccessCookieMaxAgeMs(result.accessInactivityExpiresAt, now),
+      });
+
+      const refreshCookie = getRefreshCookieConfiguration();
+      const refreshOptions = { ...refreshCookie.options };
+      if (result.rememberDevice) {
+        refreshOptions.maxAge = getRefreshCookieMaxAgeMs(
+          result.familyInactivityExpiresAt,
+          result.familyAbsoluteExpiresAt,
+          now,
+        );
+      }
+      res.cookie(refreshCookie.name, result.refreshToken, refreshOptions);
+
+      const response: AuthenticatedSessionResponse = {
+        user: UserResponseMapper.toResponse(result.user),
+        sessionTransport: "cookie",
+      };
+      res.status(200).json(response);
+    } catch (error) {
+      this.handlePasskeyRegistrationError(res, error);
+    }
+  }
+
   async login(req: Request, res: Response): Promise<void> {
     try {
       const validatedInput = validate(LoginRequestBodySchema, req.body);
@@ -138,5 +246,51 @@ export class AuthController {
     } catch (error) {
       handleControllerError(error, res);
     }
+  }
+
+  private handlePasskeyRegistrationError(res: Response, error: unknown): void {
+    if (error instanceof OriginNotAllowedError) {
+      this.respondPasskeyRegistrationError(res, 403, "ORIGIN_NOT_ALLOWED");
+      return;
+    }
+    if (error instanceof EnrollmentAuthorizationRequiredError) {
+      this.clearEnrollmentCookie(res);
+      this.respondPasskeyRegistrationError(res, 401, "ENROLLMENT_AUTHORIZATION_REQUIRED");
+      return;
+    }
+    if (error instanceof PasskeyRegistrationFailedError) {
+      this.respondPasskeyRegistrationError(res, 400, "PASSKEY_REGISTRATION_FAILED");
+      return;
+    }
+    if (error instanceof PasskeyRegistrationStateConflictError) {
+      this.respondPasskeyRegistrationError(res, 409, "PASSKEY_REGISTRATION_STATE_CONFLICT");
+      return;
+    }
+    if (error instanceof PasskeyRegistrationRateLimitedError) {
+      res.set("Retry-After", String(error.retryAfterSeconds));
+      this.respondPasskeyRegistrationError(res, 429, "PASSKEY_REGISTRATION_RATE_LIMITED");
+      return;
+    }
+    if (
+      error instanceof PasskeyRegistrationUnavailableError ||
+      error instanceof ServiceUnavailableError
+    ) {
+      this.respondPasskeyRegistrationError(res, 503, "PASSKEY_REGISTRATION_UNAVAILABLE");
+      return;
+    }
+    res.status(500).json({ error: "Internal server error" });
+  }
+
+  private respondPasskeyRegistrationError(
+    res: Response,
+    status: number,
+    error: PasskeyRegistrationErrorResponse["error"],
+  ): void {
+    res.status(status).json({ error } satisfies PasskeyRegistrationErrorResponse);
+  }
+
+  private clearEnrollmentCookie(res: Response): void {
+    const enrollmentCookie = getEnrollmentCookieConfiguration();
+    res.clearCookie(enrollmentCookie.name, enrollmentCookie.options);
   }
 }

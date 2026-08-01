@@ -1,7 +1,12 @@
 import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
-import { IEmailSender, SignupEmailVerificationCodeEmailInfo } from "@application/ports/email-sender.js";
+import {
+  IEmailSender,
+  PasskeyAddedNotificationEmailInfo,
+  SignupEmailVerificationCodeEmailInfo,
+} from "@application/ports/email-sender.js";
 
 import { signupEmailVerificationTemplate } from "./signup-email-verification-template.js";
+import { passkeyAddedNotificationTemplate } from "./passkey-added-notification-template.js";
 
 /**
  * Requirements for timeout and retry logic:
@@ -112,6 +117,73 @@ export class BrevoEmailSender implements IEmailSender {
     }
 
     throw new ServiceUnavailableError("Email verification is temporarily unavailable");
+  }
+
+  async sendPasskeyAddedNotification(message: PasskeyAddedNotificationEmailInfo): Promise<void> {
+    const deadline = Date.now() + TOTAL_BUDGET_MS;
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) break;
+
+      try {
+        const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "api-key": this.apiKey,
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            sender: {
+              name: "Calibrate",
+              email: "noreply.verification.codes@calibrateapp.org",
+            },
+            to: [{ email: message.email }],
+            subject: "A new passkey was added to your Calibrate account",
+            htmlContent: passkeyAddedNotificationTemplate,
+            headers: {
+              idempotencyKey: message.deliveryId,
+            },
+          }),
+          signal: AbortSignal.timeout(Math.min(ATTEMPT_TIMEOUT_MS_BASE, remainingMs)),
+        });
+
+        if (response.status === 201) {
+          await response.json();
+          return;
+        }
+
+        if (response.status === 400) {
+          const brevoError = await readBrevoError(response);
+          console.error("Brevo rejected passkey notification email request", {
+            status: response.status,
+            code: brevoError.code,
+          });
+          if (attempt > 0 && brevoError.code === IDEMPOTENT_REQUEST_REPEATED_CODE) return;
+          throw new ServiceUnavailableError("Email notifications are temporarily unavailable");
+        }
+
+        const canRetry = RETRYABLE_STATUSES.has(response.status) && attempt + 1 < MAX_ATTEMPTS;
+        if (!canRetry) {
+          throw new ServiceUnavailableError("Email notifications are temporarily unavailable");
+        }
+
+        const delayMs = getRetryDelayMs(response, attempt);
+        if (delayMs >= deadline - Date.now()) break;
+        await sleep(delayMs);
+      } catch (error) {
+        if (error instanceof ServiceUnavailableError) {
+          throw error;
+        }
+        if (attempt + 1 >= MAX_ATTEMPTS) break;
+        const delayMs = 250 * 2 ** attempt + Math.random() * 250;
+        if (delayMs >= deadline - Date.now()) break;
+        await sleep(delayMs);
+      }
+    }
+
+    throw new ServiceUnavailableError("Email notifications are temporarily unavailable");
   }
 }
 

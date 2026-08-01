@@ -9,7 +9,10 @@ import type { IAuthService } from "@application/services/auth-service.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { SignupEmailVerificationServiceImpl } from "@application/services/signup-email-verification-service.js";
+import {
+  SignupEmailVerificationServiceImpl,
+} from "@application/services/signup-email-verification-service.js";
+import { UnavailableSignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import {
   RequestSignupEmailVerificationResponseSchema,
   VerifySignupEmailVerificationResponseSchema,
@@ -63,6 +66,7 @@ describe("signup email verification HTTP route", () => {
     async sendSignupEmailVerificationCode(message) {
       deliveredMessages.push(message);
     },
+    async sendPasskeyAddedNotification() {},
   };
   const authService: IAuthService = {
     login: vi.fn(),
@@ -79,9 +83,10 @@ describe("signup email verification HTTP route", () => {
     new NodeOpaqueTokenService(),
     { now: () => new Date("2026-07-26T12:00:00.000Z") },
   );
+  const unavailablePasskeyService = new UnavailableSignupPasskeyRegistrationService();
   const app = express();
   app.use(express.json());
-  app.use("/api/v1", createAuthRoutes(new AuthController(authService, service)));
+  app.use("/api/v1", createAuthRoutes(new AuthController(authService, service, unavailablePasskeyService)));
   let server: Server;
   let baseUrl: string;
 

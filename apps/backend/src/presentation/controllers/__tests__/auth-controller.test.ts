@@ -4,6 +4,7 @@ import { RateLimitError } from "@application/errors/rate-limit-error.js";
 import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
 import { IAuthService } from "@application/services/auth-service.js";
 import { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
+import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
 import { User } from "@domain/entities/user.js";
 import { Request } from "express";
@@ -13,6 +14,7 @@ describe("AuthController", () => {
   let authController: AuthController;
   let mockAuthService: MockedObject<IAuthService>;
   let mockSignupEmailVerificationService: MockedObject<ISignupEmailVerificationService>;
+  let mockSignupPasskeyRegistrationService: MockedObject<ISignupPasskeyRegistrationService>;
 
   const user = User.reconstitute({
     id: "user-1",
@@ -29,7 +31,15 @@ describe("AuthController", () => {
       request: vi.fn(),
       verify: vi.fn(),
     };
-    authController = new AuthController(mockAuthService, mockSignupEmailVerificationService);
+    mockSignupPasskeyRegistrationService = {
+      createRegistrationOptions: vi.fn(),
+      verifyRegistration: vi.fn(),
+    };
+    authController = new AuthController(
+      mockAuthService,
+      mockSignupEmailVerificationService,
+      mockSignupPasskeyRegistrationService,
+    );
   });
 
   it("returns a no-store 202 response for a normalized web request", async () => {
@@ -246,5 +256,50 @@ describe("AuthController", () => {
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ error: "Invalid email or password" });
+  });
+
+  it("rejects passkey registration options without a valid origin", async () => {
+    const req = {
+      get: vi.fn((name: string) => (name === "Origin" ? "https://evil.example" : undefined)),
+    } as unknown as Request;
+    const res = {
+      set: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
+
+    await authController.createPasskeyRegistrationOptions(req, res);
+
+    expect(mockSignupPasskeyRegistrationService.createRegistrationOptions).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: "ORIGIN_NOT_ALLOWED" });
+  });
+
+  it("returns registration options with no-store when enrollment and origin are valid", async () => {
+    mockSignupPasskeyRegistrationService.createRegistrationOptions.mockResolvedValue({
+      options: { challenge: "abc" },
+    });
+    const req = {
+      get: vi.fn((name: string) => {
+        if (name === "Origin") return "http://localhost:3000";
+        if (name === "Cookie") return "passkey-enrollment=enrollment-token";
+        return undefined;
+      }),
+    } as unknown as Request;
+    const res = {
+      set: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
+
+    await authController.createPasskeyRegistrationOptions(req, res);
+
+    expect(mockSignupPasskeyRegistrationService.createRegistrationOptions).toHaveBeenCalledWith(
+      "enrollment-token",
+      "http://localhost:3000",
+    );
+    expect(res.set).toHaveBeenCalledWith("Cache-Control", "no-store");
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ challenge: "abc" });
   });
 });
