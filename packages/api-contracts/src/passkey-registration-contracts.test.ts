@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   PasskeyRegistrationErrorResponseSchema,
+  PasskeyRegistrationOptionsResponseSchema,
   RegistrationResponseJSONSchema,
   VerifyPasskeyRegistrationRequestBodySchema,
 } from "./index.js";
@@ -18,7 +19,45 @@ const validRegistrationResponse = {
   clientExtensionResults: {},
 };
 
+const validRegistrationOptionsResponse = {
+  challenge: "challenge",
+  rp: {
+    id: "localhost",
+    name: "Calibrate",
+  },
+  user: {
+    id: "user-handle",
+    name: "person@example.com",
+    displayName: "person@example.com",
+  },
+  pubKeyCredParams: [{ type: "public-key" as const, alg: -7 }],
+  timeout: 60_000,
+  attestation: "none" as const,
+  excludeCredentials: [],
+  authenticatorSelection: {
+    residentKey: "required" as const,
+    requireResidentKey: true,
+    userVerification: "required" as const,
+  },
+  extensions: {
+    credProps: true,
+  },
+  hints: [],
+};
+
 describe("passkey registration request contracts", () => {
+  it("accepts complete JSON registration options and rejects incomplete options", () => {
+    expect(PasskeyRegistrationOptionsResponseSchema.parse(validRegistrationOptionsResponse)).toEqual(
+      validRegistrationOptionsResponse,
+    );
+
+    expect(() =>
+      PasskeyRegistrationOptionsResponseSchema.parse({
+        challenge: validRegistrationOptionsResponse.challenge,
+      }),
+    ).toThrow();
+  });
+
   it("accepts valid SimpleWebAuthn registration JSON without extra top-level fields", () => {
     expect(RegistrationResponseJSONSchema.parse(validRegistrationResponse)).toEqual(
       validRegistrationResponse,

@@ -277,7 +277,16 @@ describe("AuthController", () => {
 
   it("returns registration options with no-store when enrollment and origin are valid", async () => {
     mockSignupPasskeyRegistrationService.createRegistrationOptions.mockResolvedValue({
-      options: { challenge: "abc" },
+      options: {
+        challenge: "abc",
+        rp: { id: "localhost", name: "Calibrate" },
+        user: {
+          id: "user-handle",
+          name: "person@example.com",
+          displayName: "person@example.com",
+        },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+      },
     });
     const req = {
       get: vi.fn((name: string) => {
@@ -300,6 +309,15 @@ describe("AuthController", () => {
     );
     expect(res.set).toHaveBeenCalledWith("Cache-Control", "no-store");
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ challenge: "abc" });
+    expect(res.json).toHaveBeenCalledWith({
+      challenge: "abc",
+      rp: { id: "localhost", name: "Calibrate" },
+      user: {
+        id: "user-handle",
+        name: "person@example.com",
+        displayName: "person@example.com",
+      },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+    });
   });
 });

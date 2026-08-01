@@ -1,3 +1,7 @@
+import type {
+  IWebAuthnRegistrationPort,
+  WebAuthnRegistrationOptions,
+} from "@application/ports/webauthn-registration-port.js";
 import type { RegistrationResponseJSON } from "@calibrate/api-contracts";
 
 import {
@@ -10,12 +14,11 @@ import {
 } from "@application/errors/passkey-registration-errors.js";
 import { IClock } from "@application/ports/clock.js";
 import { IEmailSender } from "@application/ports/email-sender.js";
+import { IOpaqueTokenService } from "@application/ports/session-token-service.js";
 import {
   ISignupPasskeyRegistrationRepository,
   SIGNUP_PASSKEY_REGISTRATION_PURPOSE,
 } from "@application/ports/signup-passkey-registration-repository.js";
-import { IOpaqueTokenService } from "@application/ports/session-token-service.js";
-import { IWebAuthnRegistrationPort } from "@application/ports/webauthn-registration-port.js";
 import { User } from "@domain/entities/user.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
@@ -31,7 +34,7 @@ export interface SignupPasskeyRegistrationServiceConfig {
 }
 
 export interface CreateRegistrationOptionsResult {
-  options: Record<string, unknown>;
+  options: WebAuthnRegistrationOptions;
 }
 
 export interface VerifyPasskeyRegistrationInput {
@@ -57,9 +60,7 @@ export interface ISignupPasskeyRegistrationService {
     origin: string,
   ): Promise<CreateRegistrationOptionsResult>;
 
-  verifyRegistration(
-    input: VerifyPasskeyRegistrationInput,
-  ): Promise<VerifyPasskeyRegistrationResult>;
+  verifyRegistration(input: VerifyPasskeyRegistrationInput): Promise<VerifyPasskeyRegistrationResult>;
 }
 
 export function digestEnrollmentToken(token: string): string {
@@ -128,14 +129,10 @@ export class SignupPasskeyRegistrationServiceImpl implements ISignupPasskeyRegis
     }
   }
 
-  async verifyRegistration(
-    input: VerifyPasskeyRegistrationInput,
-  ): Promise<VerifyPasskeyRegistrationResult> {
+  async verifyRegistration(input: VerifyPasskeyRegistrationInput): Promise<VerifyPasskeyRegistrationResult> {
     this.assertOrigin(input.origin);
     const now = this.clock.now();
-    const responseChallenge = extractChallengeFromClientDataJSON(
-      input.credential.response.clientDataJSON,
-    );
+    const responseChallenge = extractChallengeFromClientDataJSON(input.credential.response.clientDataJSON);
     const challengeDigest = digestChallenge(responseChallenge);
 
     const activeChallenge = await this.repository.findActiveChallenge({

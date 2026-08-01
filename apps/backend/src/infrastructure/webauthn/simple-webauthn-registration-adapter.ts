@@ -5,7 +5,11 @@ import type {
 } from "@application/ports/webauthn-registration-port.js";
 import type { RegistrationResponseJSON } from "@calibrate/api-contracts";
 
-import { generateRegistrationOptions, verifyRegistrationResponse } from "@simplewebauthn/server";
+import {
+  generateRegistrationOptions,
+  type PublicKeyCredentialCreationOptionsJSON,
+  verifyRegistrationResponse,
+} from "@simplewebauthn/server";
 import { cose, decodeCredentialPublicKey } from "@simplewebauthn/server/helpers";
 
 export interface SimpleWebAuthnRegistrationConfig {
@@ -17,8 +21,10 @@ export interface SimpleWebAuthnRegistrationConfig {
 export class SimpleWebAuthnRegistrationAdapter implements IWebAuthnRegistrationPort {
   constructor(private readonly config: SimpleWebAuthnRegistrationConfig) {}
 
-  async createRegistrationOptions(input: RegistrationOptionsInput): Promise<Record<string, unknown>> {
-    const options = await generateRegistrationOptions({
+  async createRegistrationOptions(
+    input: RegistrationOptionsInput,
+  ): Promise<PublicKeyCredentialCreationOptionsJSON> {
+    return generateRegistrationOptions({
       rpName: this.config.rpName,
       rpID: this.config.rpId,
       userName: input.email,
@@ -31,8 +37,6 @@ export class SimpleWebAuthnRegistrationAdapter implements IWebAuthnRegistrationP
         userVerification: "required",
       },
     });
-
-    return options as unknown as Record<string, unknown>;
   }
 
   async verifyRegistrationResponse(input: {

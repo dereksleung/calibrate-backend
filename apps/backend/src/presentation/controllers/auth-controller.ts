@@ -1,5 +1,4 @@
 import { InvalidEmailVerificationCodeError } from "@application/errors/invalid-email-verification-code-error.js";
-import { RateLimitError } from "@application/errors/rate-limit-error.js";
 import {
   EnrollmentAuthorizationRequiredError,
   OriginNotAllowedError,
@@ -8,12 +7,11 @@ import {
   PasskeyRegistrationStateConflictError,
   PasskeyRegistrationUnavailableError,
 } from "@application/errors/passkey-registration-errors.js";
+import { RateLimitError } from "@application/errors/rate-limit-error.js";
 import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
 import { IAuthService } from "@application/services/auth-service.js";
 import { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
-import {
-  ISignupPasskeyRegistrationService,
-} from "@application/services/signup-passkey-registration-service.js";
+import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import {
   AppPlatformHeaderValueSchema,
   AuthenticatedSessionResponse,
@@ -35,6 +33,7 @@ import { extractCookieValue } from "../auth/cookie-extractor.js";
 import { getEnrollmentCookieConfiguration } from "../auth/enrollment-cookie.js";
 import { getRefreshCookieConfiguration, getRefreshCookieMaxAgeMs } from "../auth/refresh-cookie.js";
 import { getExpectedWebAuthnOrigin, readRequestOrigin } from "../auth/webauthn-origin.js";
+import { PasskeyRegistrationOptionsResponseMapper } from "../mappers/passkey-registration-options-response-mapper.js";
 import { UserResponseMapper } from "../mappers/user-response-mapper.js";
 
 export class AuthController {
@@ -156,7 +155,7 @@ export class AuthController {
         enrollmentToken,
         origin,
       );
-      res.status(200).json(result.options);
+      res.status(200).json(PasskeyRegistrationOptionsResponseMapper.toResponse(result.options));
     } catch (error) {
       this.handlePasskeyRegistrationError(res, error);
     }
@@ -271,10 +270,7 @@ export class AuthController {
       this.respondPasskeyRegistrationError(res, 429, "PASSKEY_REGISTRATION_RATE_LIMITED");
       return;
     }
-    if (
-      error instanceof PasskeyRegistrationUnavailableError ||
-      error instanceof ServiceUnavailableError
-    ) {
+    if (error instanceof PasskeyRegistrationUnavailableError || error instanceof ServiceUnavailableError) {
       this.respondPasskeyRegistrationError(res, 503, "PASSKEY_REGISTRATION_UNAVAILABLE");
       return;
     }

@@ -1,6 +1,6 @@
 import type { IAuthService } from "@application/services/auth-service.js";
-import type { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import type { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
+import type { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -68,7 +68,16 @@ describe("passkey registration HTTP routes", () => {
 
   it("returns registration options with no-store when enrollment and origin are valid", async () => {
     vi.mocked(signupPasskeyRegistrationService.createRegistrationOptions).mockResolvedValue({
-      options: { challenge: "abc" },
+      options: {
+        challenge: "abc",
+        rp: { id: "localhost", name: "Calibrate" },
+        user: {
+          id: "user-handle",
+          name: "person@example.com",
+          displayName: "person@example.com",
+        },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+      },
     });
 
     const response = await fetch(`${baseUrl}/api/v1/auth/passkeys/registration/options`, {
@@ -81,7 +90,16 @@ describe("passkey registration HTTP routes", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(await response.json()).toEqual({ challenge: "abc" });
+    expect(await response.json()).toEqual({
+      challenge: "abc",
+      rp: { id: "localhost", name: "Calibrate" },
+      user: {
+        id: "user-handle",
+        name: "person@example.com",
+        displayName: "person@example.com",
+      },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+    });
     expect(signupPasskeyRegistrationService.createRegistrationOptions).toHaveBeenCalledWith(
       "enrollment-token",
       "http://localhost:3000",

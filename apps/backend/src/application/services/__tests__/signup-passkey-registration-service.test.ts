@@ -1,11 +1,12 @@
+import type { ISignupPasskeyRegistrationRepository } from "@application/ports/signup-passkey-registration-repository.js";
+import type { IWebAuthnRegistrationPort } from "@application/ports/webauthn-registration-port.js";
+
 import {
   EnrollmentAuthorizationRequiredError,
   OriginNotAllowedError,
   PasskeyRegistrationFailedError,
   PasskeyRegistrationStateConflictError,
 } from "@application/errors/passkey-registration-errors.js";
-import type { ISignupPasskeyRegistrationRepository } from "@application/ports/signup-passkey-registration-repository.js";
-import type { IWebAuthnRegistrationPort } from "@application/ports/webauthn-registration-port.js";
 import { User } from "@domain/entities/user.js";
 import { createHash, randomBytes } from "node:crypto";
 
@@ -95,6 +96,13 @@ describe("SignupPasskeyRegistrationServiceImpl", () => {
       webAuthn: {
         createRegistrationOptions: vi.fn().mockImplementation(async (input) => ({
           challenge: input.rawChallenge,
+          rp: { name: "Calibrate", id: "localhost" },
+          user: {
+            id: input.userHandle,
+            name: input.email,
+            displayName: input.email,
+          },
+          pubKeyCredParams: [{ type: "public-key", alg: -7 }],
         })),
       },
     });
@@ -118,7 +126,16 @@ describe("SignupPasskeyRegistrationServiceImpl", () => {
       rawChallenge: prepareInput!.rawChallenge,
     });
     const rawChallenge = prepareInput!.rawChallenge;
-    expect(result.options).toEqual({ challenge: rawChallenge });
+    expect(result.options).toEqual({
+      challenge: rawChallenge,
+      rp: { name: "Calibrate", id: "localhost" },
+      user: {
+        id: "user-handle",
+        name: "person@example.com",
+        displayName: "person@example.com",
+      },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+    });
   });
 
   it("verifies the client challenge against the active challenge binding", async () => {
@@ -245,9 +262,7 @@ describe("SignupPasskeyRegistrationServiceImpl", () => {
           attemptCount: 0,
           maxAttempts: 5,
         }),
-        completeRegistration: vi
-          .fn()
-          .mockRejectedValue(new PasskeyRegistrationStateConflictError()),
+        completeRegistration: vi.fn().mockRejectedValue(new PasskeyRegistrationStateConflictError()),
       },
       webAuthn: {
         verifyRegistrationResponse: vi.fn().mockResolvedValue({
@@ -277,11 +292,7 @@ describe("SignupPasskeyRegistrationServiceImpl", () => {
 describe("digest helpers", () => {
   it("hashes enrollment tokens and challenges as base64url digests", () => {
     const value = "opaque-token";
-    expect(digestEnrollmentToken(value)).toBe(
-      createHash("sha256").update(value).digest("base64url"),
-    );
-    expect(digestChallenge("challenge")).toBe(
-      createHash("sha256").update("challenge").digest("base64url"),
-    );
+    expect(digestEnrollmentToken(value)).toBe(createHash("sha256").update(value).digest("base64url"));
+    expect(digestChallenge("challenge")).toBe(createHash("sha256").update("challenge").digest("base64url"));
   });
 });
