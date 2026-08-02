@@ -90,7 +90,7 @@ export class PostgresPasskeyAuthenticationRepository implements IPasskeyAuthenti
     const row = await this.databaseClient
       .selectFrom("webauthn_challenges as challenge")
       .innerJoin("passkey_credentials as credential", (join) =>
-        join.on("credential.credential_id", "=", sql.lit(input.credentialId)),
+        join.on("credential.credential_id", "=", input.credentialId),
       )
       .innerJoin("users as user", "user.id", "credential.user_id")
       .select([
@@ -148,6 +148,7 @@ export class PostgresPasskeyAuthenticationRepository implements IPasskeyAuthenti
         .where("credential.revoked_at", "is", null)
         .forUpdate()
         .executeTakeFirst();
+
       const challenge = await trx
         .selectFrom("webauthn_challenges")
         .select("id")
@@ -159,15 +160,92 @@ export class PostgresPasskeyAuthenticationRepository implements IPasskeyAuthenti
         .whereRef("attempt_count", "<", "max_attempts")
         .forUpdate()
         .executeTakeFirst();
+
       if (!credential || !challenge) throw new PasskeyAuthenticationStateConflictError();
-      const consumed = await trx.updateTable("webauthn_challenges").set({ consumed_at: input.now }).where("id", "=", challenge.id).where("consumed_at", "is", null).executeTakeFirst();
+
+      const consumed = await trx
+        .updateTable("webauthn_challenges")
+        .set({ consumed_at: input.now })
+        .where("id", "=", challenge.id)
+        .where("consumed_at", "is", null)
+        .executeTakeFirst();
+
       if (Number(consumed.numUpdatedRows) !== 1) throw new PasskeyAuthenticationStateConflictError();
-      await trx.updateTable("passkey_credentials").set({ signature_counter: BigInt(input.newCounter), backup_state: input.backupState, last_used_at: input.now }).where("id", "=", credential.id).execute();
+
+      await trx
+        .updateTable("passkey_credentials")
+        .set({
+          signature_counter: BigInt(input.newCounter),
+          backup_state: input.backupState,
+          last_used_at: input.now,
+        })
+        .where("id", "=", credential.id)
+        .execute();
+
       const familyId = randomUUID();
-      await trx.insertInto("remembered_device_families").values({ id: familyId, user_id: credential.user_id, created_at: input.now, last_used_at: input.now, inactivity_expires_at: input.familyInactivityExpiresAt, absolute_expires_at: input.familyAbsoluteExpiresAt, recent_passkey_authentication_at: input.now, recent_passkey_authentication_purpose: "login", authentication_method: "passkey", current_refresh_generation: 0, revoked_at: null, revocation_reason: null }).execute();
-      await trx.insertInto("refresh_token_generations").values({ id: randomUUID(), family_id: familyId, generation: 0, token_digest: input.refreshTokenDigest, parent_generation_id: null, replacement_generation_id: null, created_at: input.now, expires_at: input.familyAbsoluteExpiresAt, consumed_at: null, revoked_at: null }).execute();
-      await trx.insertInto("sessions").values({ id: randomUUID(), user_id: credential.user_id, token_digest: input.accessTokenDigest, transport: "cookie", mobile_platform: null, remembered_device_family_id: familyId, replaced_by_session_id: null, created_at: input.now, last_seen_at: input.now, inactivity_expires_at: input.accessInactivityExpiresAt, absolute_expires_at: input.accessAbsoluteExpiresAt, revoked_at: null, renewed_at: null }).execute();
-      await trx.insertInto("security_events").values({ id: randomUUID(), user_id: credential.user_id, event_type: "family-created", created_at: input.now }).execute();
+      await trx
+        .insertInto("remembered_device_families")
+        .values({
+          id: familyId,
+          user_id: credential.user_id,
+          created_at: input.now,
+          last_used_at: input.now,
+          inactivity_expires_at: input.familyInactivityExpiresAt,
+          absolute_expires_at: input.familyAbsoluteExpiresAt,
+          recent_passkey_authentication_at: input.now,
+          recent_passkey_authentication_purpose: "login",
+          authentication_method: "passkey",
+          current_refresh_generation: 0,
+          revoked_at: null,
+          revocation_reason: null,
+        })
+        .execute();
+
+      await trx
+        .insertInto("refresh_token_generations")
+        .values({
+          id: randomUUID(),
+          family_id: familyId,
+          generation: 0,
+          token_digest: input.refreshTokenDigest,
+          parent_generation_id: null,
+          replacement_generation_id: null,
+          created_at: input.now,
+          expires_at: input.familyAbsoluteExpiresAt,
+          consumed_at: null,
+          revoked_at: null,
+        })
+        .execute();
+
+      await trx
+        .insertInto("sessions")
+        .values({
+          id: randomUUID(),
+          user_id: credential.user_id,
+          token_digest: input.accessTokenDigest,
+          transport: "cookie",
+          mobile_platform: null,
+          remembered_device_family_id: familyId,
+          replaced_by_session_id: null,
+          created_at: input.now,
+          last_seen_at: input.now,
+          inactivity_expires_at: input.accessInactivityExpiresAt,
+          absolute_expires_at: input.accessAbsoluteExpiresAt,
+          revoked_at: null,
+          renewed_at: null,
+        })
+        .execute();
+
+      await trx
+        .insertInto("security_events")
+        .values({
+          id: randomUUID(),
+          user_id: credential.user_id,
+          event_type: "family-created",
+          created_at: input.now,
+        })
+        .execute();
+
       if (input.counterAnomaly) {
         await trx
           .insertInto("security_events")
@@ -219,12 +297,10 @@ export class PostgresPasskeyAuthenticationRepository implements IPasskeyAuthenti
         .orderBy("created_at", "asc")
         .execute(),
     ]);
-    const limitingEvent =
-      ipEvents.length >= input.maxRequestsPerIp
-        ? ipEvents[0]
-        : globalEvents.length >= input.globalHourlyLimit
-          ? globalEvents[0]
-          : undefined;
+    const ipLimitingEvent = ipEvents.length >= input.maxRequestsPerIp && ipEvents[0];
+    const globalLimitingEvent = globalEvents.length >= input.globalHourlyLimit && globalEvents[0];
+    const limitingEvent = ipLimitingEvent || globalLimitingEvent;
+
     if (limitingEvent) {
       throw new PasskeyAuthenticationRateLimitedError(
         Math.max(

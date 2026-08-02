@@ -7,6 +7,7 @@ import type {
   WebAuthnAuthenticationOptions,
 } from "@application/ports/webauthn-authentication-port.js";
 import type { AuthenticationResponseJSON } from "@calibrate/api-contracts";
+import type { User } from "@domain/entities/user.js";
 
 import {
   PasskeyAuthenticationFailedError,
@@ -14,7 +15,6 @@ import {
   PasskeyAuthenticationUnavailableError,
 } from "@application/errors/passkey-authentication-errors.js";
 import { OriginNotAllowedError } from "@application/errors/passkey-registration-errors.js";
-import type { User } from "@domain/entities/user.js";
 import { createHash, randomBytes } from "node:crypto";
 
 import { calculateSessionLifetimes } from "./session-lifetime-calculator.js";
@@ -134,8 +134,13 @@ export class PasskeyAuthenticationServiceImpl implements IPasskeyAuthenticationS
         expectedOrigin: this.config.expectedOrigin,
         credential: active,
       });
+
+      // !backupEligible means a single-device-only passkey, backupState === true means it was backed up
       if (!verified.backupEligible && verified.backupState) throw new Error();
       counterAnomaly = verified.newCounter <= active.signatureCounter;
+
+      // !backupEligible means a single-device-only passkey.
+      // Only for single-device passkeys should we allow a counter anomaly to signal a replay attack
       if (counterAnomaly && !verified.backupEligible) throw new Error();
     } catch {
       await this.repository.recordFailedVerificationAttempt({ challengeId: active.challengeId, now });
