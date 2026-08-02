@@ -1,10 +1,9 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
-
 import {
   EnrollmentAuthorizationRequiredError,
   PasskeyRegistrationUnavailableError,
 } from "@application/errors/passkey-registration-errors.js";
 import { User } from "@domain/entities/user.js";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import type { DatabaseClient } from "../../database-client.js";
 
@@ -114,7 +113,12 @@ describe("PostgresSignupPasskeyRegistrationRepository", () => {
       expect(storedChallenges).toHaveLength(2);
       expect(storedChallenges[0]?.invalidated_at).not.toBeNull();
       expect(storedChallenges[1]?.invalidated_at).toBeNull();
-      expect(storedChallenges.every((row) => row.challenge_digest === digest(rawChallenge) || row.challenge_digest === digest(secondChallenge))).toBe(true);
+      expect(
+        storedChallenges.every(
+          (row) =>
+            row.challenge_digest === digest(rawChallenge) || row.challenge_digest === digest(secondChallenge),
+        ),
+      ).toBe(true);
       expect(storedChallenges.some((row) => row.challenge_digest === rawChallenge)).toBe(false);
     });
 

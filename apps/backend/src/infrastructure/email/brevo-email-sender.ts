@@ -5,8 +5,8 @@ import {
   SignupEmailVerificationCodeEmailInfo,
 } from "@application/ports/email-sender.js";
 
-import { signupEmailVerificationTemplate } from "./signup-email-verification-template.js";
 import { passkeyAddedNotificationTemplate } from "./passkey-added-notification-template.js";
+import { signupEmailVerificationTemplate } from "./signup-email-verification-template.js";
 
 /**
  * Requirements for timeout and retry logic:

@@ -3,9 +3,9 @@ import { InvalidEmailVerificationCodeError } from "@application/errors/invalid-e
 import { RateLimitError } from "@application/errors/rate-limit-error.js";
 import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
 import { IAuthService } from "@application/services/auth-service.js";
+import { IPasskeyAuthenticationService } from "@application/services/passkey-authentication-service.js";
 import { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
 import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
-import { IPasskeyAuthenticationService } from "@application/services/passkey-authentication-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
 import { User } from "@domain/entities/user.js";
 import { Request } from "express";

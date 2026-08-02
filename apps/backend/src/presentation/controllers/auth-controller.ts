@@ -1,5 +1,11 @@
 import { InvalidEmailVerificationCodeError } from "@application/errors/invalid-email-verification-code-error.js";
 import {
+  PasskeyAuthenticationFailedError,
+  PasskeyAuthenticationRateLimitedError,
+  PasskeyAuthenticationStateConflictError,
+  PasskeyAuthenticationUnavailableError,
+} from "@application/errors/passkey-authentication-errors.js";
+import {
   EnrollmentAuthorizationRequiredError,
   OriginNotAllowedError,
   PasskeyRegistrationFailedError,
@@ -10,18 +16,12 @@ import {
 import { RateLimitError } from "@application/errors/rate-limit-error.js";
 import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
 import { IAuthService } from "@application/services/auth-service.js";
-import { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
-import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import {
   IPasskeyAuthenticationService,
   UnavailablePasskeyAuthenticationService,
 } from "@application/services/passkey-authentication-service.js";
-import {
-  PasskeyAuthenticationFailedError,
-  PasskeyAuthenticationRateLimitedError,
-  PasskeyAuthenticationStateConflictError,
-  PasskeyAuthenticationUnavailableError,
-} from "@application/errors/passkey-authentication-errors.js";
+import { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
+import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import {
   AppPlatformHeaderValueSchema,
   AuthenticatedSessionResponse,

@@ -9,6 +9,10 @@ import { IUserRepository } from "@application/ports/user-repository.js";
 import { IAuthService, AuthServiceImpl } from "@application/services/auth-service.js";
 import { IDayLogService, DayLogServiceImpl } from "@application/services/day-log-service.js";
 import {
+  IPasskeyAuthenticationService,
+  PasskeyAuthenticationServiceImpl,
+} from "@application/services/passkey-authentication-service.js";
+import {
   ISignupEmailVerificationService,
   SignupEmailVerificationServiceImpl,
   UnavailableSignupEmailVerificationService,
@@ -18,10 +22,6 @@ import {
   SignupPasskeyRegistrationServiceImpl,
   UnavailableSignupPasskeyRegistrationService,
 } from "@application/services/signup-passkey-registration-service.js";
-import {
-  IPasskeyAuthenticationService,
-  PasskeyAuthenticationServiceImpl,
-} from "@application/services/passkey-authentication-service.js";
 import { IUserService, UserServiceImpl } from "@application/services/user-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
 import { DayLogController } from "@controllers/day-log-controller.js";
@@ -34,16 +34,16 @@ import { databaseClient } from "./persistence/database.js";
 import { PostgresAccessSessionRepository } from "./persistence/repositories/postgres-access-session-repository.js";
 import { PostgresDayLogRepository } from "./persistence/repositories/postgres-day-log-repository.js";
 import { PostgresEmailOtpChallengeRepository } from "./persistence/repositories/postgres-email-otp-challenge-repository.js";
+import { PostgresPasskeyAuthenticationRepository } from "./persistence/repositories/postgres-passkey-authentication-repository.js";
 import { PostgresSignupEnrollmentAuthorizationRepository } from "./persistence/repositories/postgres-signup-enrollment-authorization-repository.js";
 import { PostgresSignupPasskeyRegistrationRepository } from "./persistence/repositories/postgres-signup-passkey-registration-repository.js";
-import { PostgresPasskeyAuthenticationRepository } from "./persistence/repositories/postgres-passkey-authentication-repository.js";
 import { PostgresUserRepository } from "./persistence/repositories/postgres-user-repository.js";
 import { Argon2PasswordHasher } from "./security/argon2-password-hasher.js";
 import { JoseAccessTokenService } from "./security/jose-access-token-service.js";
 import { NodeEmailOtpCodeService } from "./security/node-email-otp-code-service.js";
 import { NodeOpaqueTokenService } from "./security/node-session-token-service.js";
-import { SimpleWebAuthnRegistrationAdapter } from "./webauthn/simple-webauthn-registration-adapter.js";
 import { SimpleWebAuthnAuthenticationAdapter } from "./webauthn/simple-webauthn-authentication-adapter.js";
+import { SimpleWebAuthnRegistrationAdapter } from "./webauthn/simple-webauthn-registration-adapter.js";
 
 const encodedKey = dotenvx.get("OTP_HMAC_KEY");
 

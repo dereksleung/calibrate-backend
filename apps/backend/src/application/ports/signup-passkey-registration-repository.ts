@@ -77,10 +77,7 @@ export interface ISignupPasskeyRegistrationRepository {
     now: Date;
   }): Promise<ActiveSignupRegistrationChallenge | null>;
 
-  recordFailedVerificationAttempt(input: {
-    challengeId: string;
-    now: Date;
-  }): Promise<void>;
+  recordFailedVerificationAttempt(input: { challengeId: string; now: Date }): Promise<void>;
 
   completeRegistration(
     input: CompleteSignupPasskeyRegistrationInput,

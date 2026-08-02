@@ -2,9 +2,7 @@ import { extractCookieValue } from "../cookie-extractor.js";
 
 describe("extractCookieValue", () => {
   it("returns the value for an exact cookie name match", () => {
-    expect(
-      extractCookieValue("passkey-enrollment=abc123; other=value", "passkey-enrollment"),
-    ).toBe("abc123");
+    expect(extractCookieValue("passkey-enrollment=abc123; other=value", "passkey-enrollment")).toBe("abc123");
   });
 
   it("decodes percent-encoded cookie values", () => {

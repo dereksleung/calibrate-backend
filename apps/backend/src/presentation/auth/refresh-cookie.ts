@@ -24,9 +24,6 @@ export function getRefreshCookieMaxAgeMs(
   familyAbsoluteExpiresAt: Date,
   now: Date,
 ): number {
-  const cappedExpiryMs = Math.min(
-    familyInactivityExpiresAt.getTime(),
-    familyAbsoluteExpiresAt.getTime(),
-  );
+  const cappedExpiryMs = Math.min(familyInactivityExpiresAt.getTime(), familyAbsoluteExpiresAt.getTime());
   return Math.max(0, cappedExpiryMs - now.getTime());
 }

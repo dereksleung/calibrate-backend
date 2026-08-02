@@ -9,9 +9,7 @@ import type { IAuthService } from "@application/services/auth-service.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import {
-  SignupEmailVerificationServiceImpl,
-} from "@application/services/signup-email-verification-service.js";
+import { SignupEmailVerificationServiceImpl } from "@application/services/signup-email-verification-service.js";
 import { UnavailableSignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import {
   RequestSignupEmailVerificationResponseSchema,
