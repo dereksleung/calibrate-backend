@@ -153,8 +153,8 @@ describe("passkey registration HTTP routes", () => {
       },
       body: JSON.stringify({
         credential: {
-          id: "credential-id",
-          rawId: "credential-id",
+          id: "Y3JlZGVudGlhbC1pZA",
+          rawId: "Y3JlZGVudGlhbC1pZA",
           type: "public-key",
           clientExtensionResults: {},
           response: {
