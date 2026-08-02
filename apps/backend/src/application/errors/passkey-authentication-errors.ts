@@ -18,3 +18,10 @@ export class PasskeyAuthenticationFailedError extends Error {
     this.name = "PasskeyAuthenticationFailedError";
   }
 }
+
+export class PasskeyAuthenticationStateConflictError extends Error {
+  constructor() {
+    super("Passkey authentication state conflict");
+    this.name = "PasskeyAuthenticationStateConflictError";
+  }
+}

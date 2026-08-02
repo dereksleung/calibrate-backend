@@ -1,10 +1,14 @@
-import { PasskeyAuthenticationRateLimitedError } from "@application/errors/passkey-authentication-errors.js";
+import {
+  PasskeyAuthenticationRateLimitedError,
+  PasskeyAuthenticationStateConflictError,
+} from "@application/errors/passkey-authentication-errors.js";
 import {
   PASSKEY_AUTHENTICATION_OPTIONS_RATE_LIMIT_SCOPE,
   PASSKEY_AUTHENTICATION_VERIFICATION_RATE_LIMIT_SCOPE,
   PASSKEY_LOGIN_PURPOSE,
   type ConsumePasskeyAuthenticationVerificationRateLimitInput,
   type ActivePasskeyAuthenticationCredential,
+  type CompletePasskeyAuthenticationInput,
   type IPasskeyAuthenticationRepository,
   type PreparedPasskeyAuthentication,
   type PreparePasskeyAuthenticationInput,
@@ -131,6 +135,41 @@ export class PostgresPasskeyAuthenticationRepository implements IPasskeyAuthenti
       .where("expires_at", ">", input.now)
       .whereRef("attempt_count", "<", "max_attempts")
       .execute();
+  }
+
+  async completeAuthentication(input: CompletePasskeyAuthenticationInput): Promise<{ userId: string }> {
+    return this.databaseClient.transaction().execute(async (trx) => {
+      await this.configureTransaction(trx);
+      const credential = await trx
+        .selectFrom("passkey_credentials as credential")
+        .innerJoin("users as user", "user.id", "credential.user_id")
+        .select(["credential.id", "credential.user_id"])
+        .where("credential.credential_id", "=", input.credentialId)
+        .where("credential.revoked_at", "is", null)
+        .forUpdate()
+        .executeTakeFirst();
+      const challenge = await trx
+        .selectFrom("webauthn_challenges")
+        .select("id")
+        .where("challenge_digest", "=", input.challengeDigest)
+        .where("purpose", "=", PASSKEY_LOGIN_PURPOSE)
+        .where("consumed_at", "is", null)
+        .where("invalidated_at", "is", null)
+        .where("expires_at", ">", input.now)
+        .whereRef("attempt_count", "<", "max_attempts")
+        .forUpdate()
+        .executeTakeFirst();
+      if (!credential || !challenge) throw new PasskeyAuthenticationStateConflictError();
+      const consumed = await trx.updateTable("webauthn_challenges").set({ consumed_at: input.now }).where("id", "=", challenge.id).where("consumed_at", "is", null).executeTakeFirst();
+      if (Number(consumed.numUpdatedRows) !== 1) throw new PasskeyAuthenticationStateConflictError();
+      await trx.updateTable("passkey_credentials").set({ signature_counter: BigInt(input.newCounter), backup_state: input.backupState, last_used_at: input.now }).where("id", "=", credential.id).execute();
+      const familyId = randomUUID();
+      await trx.insertInto("remembered_device_families").values({ id: familyId, user_id: credential.user_id, created_at: input.now, last_used_at: input.now, inactivity_expires_at: input.familyInactivityExpiresAt, absolute_expires_at: input.familyAbsoluteExpiresAt, recent_passkey_authentication_at: input.now, recent_passkey_authentication_purpose: "login", authentication_method: "passkey", current_refresh_generation: 0, revoked_at: null, revocation_reason: null }).execute();
+      await trx.insertInto("refresh_token_generations").values({ id: randomUUID(), family_id: familyId, generation: 0, token_digest: input.refreshTokenDigest, parent_generation_id: null, replacement_generation_id: null, created_at: input.now, expires_at: input.familyAbsoluteExpiresAt, consumed_at: null, revoked_at: null }).execute();
+      await trx.insertInto("sessions").values({ id: randomUUID(), user_id: credential.user_id, token_digest: input.accessTokenDigest, transport: "cookie", mobile_platform: null, remembered_device_family_id: familyId, replaced_by_session_id: null, created_at: input.now, last_seen_at: input.now, inactivity_expires_at: input.accessInactivityExpiresAt, absolute_expires_at: input.accessAbsoluteExpiresAt, revoked_at: null, renewed_at: null }).execute();
+      await trx.insertInto("security_events").values({ id: randomUUID(), user_id: credential.user_id, event_type: "family-created", created_at: input.now }).execute();
+      return { userId: credential.user_id };
+    });
   }
 
   private async configureTransaction(trx: Transaction<DatabaseSchema>): Promise<void> {

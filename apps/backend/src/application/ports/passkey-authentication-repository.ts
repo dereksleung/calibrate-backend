@@ -37,6 +37,20 @@ export interface ActivePasskeyAuthenticationCredential {
   backupState: boolean;
 }
 
+export interface CompletePasskeyAuthenticationInput {
+  challengeDigest: string;
+  credentialId: string;
+  now: Date;
+  newCounter: number;
+  backupState: boolean;
+  accessTokenDigest: string;
+  refreshTokenDigest: string;
+  accessInactivityExpiresAt: Date;
+  accessAbsoluteExpiresAt: Date;
+  familyInactivityExpiresAt: Date;
+  familyAbsoluteExpiresAt: Date;
+}
+
 export interface IPasskeyAuthenticationRepository {
   prepareAuthentication(input: PreparePasskeyAuthenticationInput): Promise<PreparedPasskeyAuthentication>;
 
@@ -49,4 +63,6 @@ export interface IPasskeyAuthenticationRepository {
   }): Promise<ActivePasskeyAuthenticationCredential | null>;
 
   recordFailedVerificationAttempt(input: { challengeId: string; now: Date }): Promise<void>;
+
+  completeAuthentication(input: CompletePasskeyAuthenticationInput): Promise<{ userId: string }>;
 }

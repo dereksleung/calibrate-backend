@@ -19,6 +19,7 @@ function createService(
     consumeVerificationRateLimit: vi.fn(),
     findActiveCredential: vi.fn(),
     recordFailedVerificationAttempt: vi.fn(),
+    completeAuthentication: vi.fn(),
     ...overrides.repository,
   };
   const webAuthn: IWebAuthnAuthenticationPort = {
