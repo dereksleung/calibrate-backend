@@ -10,16 +10,29 @@ import {
   FieldLabel,
 } from "#/shared/components/base/Field";
 import { WarningBanner } from "#/shared/components/base/WarningBanner";
+import { setAuthenticatedSession } from "#/verticals/auth/authenticated-session";
+import {
+  createBrowserPasskeyAuthenticationAdapter,
+  isBrowserPasskeyAuthenticationSupported,
+  isConditionalPasskeyAuthenticationSupported,
+  isPasskeyAuthenticationCancellation,
+} from "#/verticals/auth/browser-passkey-authentication-adapter";
 import { createSignupEmailVerificationHandoff } from "#/verticals/auth/signup-email-verification-handoff";
-import { useRequestSignupEmailVerification } from "@calibrate/api-client";
+import {
+  parsePasskeyAuthenticationError,
+  requestPasskeyAuthenticationOptions,
+  useRequestSignupEmailVerification,
+  verifyPasskeyAuthentication,
+} from "@calibrate/api-client";
 import {
   RequestSignupEmailVerificationRequestBodySchema,
   type RequestSignupEmailVerificationRequestBody,
 } from "@calibrate/api-contracts";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Mail } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type SignUpLoginFormValues = RequestSignupEmailVerificationRequestBody;
 
@@ -39,7 +52,7 @@ function fieldErrors(errors: unknown[]): Array<{ message?: string }> {
   }));
 }
 
-function SignUpLoginForm() {
+function SignUpLoginForm({ onSubmitStart = () => undefined }: { onSubmitStart?: () => void }) {
   const [requestError, setRequestError] = useState<string>();
   const navigate = useNavigate();
   const { mutateAsync: requestSignupEmailVerification } = useRequestSignupEmailVerification(apiTransport);
@@ -49,6 +62,7 @@ function SignUpLoginForm() {
       email: "",
     } satisfies SignUpLoginFormValues,
     onSubmit: async ({ value }) => {
+      onSubmitStart();
       setRequestError(undefined);
 
       try {
@@ -99,7 +113,7 @@ function SignUpLoginForm() {
                     onBlur={field.handleBlur}
                     onChange={(event) => field.handleChange(event.target.value)}
                     aria-invalid={isInvalid}
-                    autoComplete="email"
+                    autoComplete="email webauthn"
                     placeholder="example@calibrate.com"
                     type="email"
                   />
@@ -130,7 +144,120 @@ function SignUpLoginForm() {
   );
 }
 
+function PasskeyLogin() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const browserAuthentication = useRef(createBrowserPasskeyAuthenticationAdapter()).current;
+  const startedConditional = useRef(false);
+  const cachedOptions = useRef<Awaited<ReturnType<typeof requestPasskeyAuthenticationOptions>> | undefined>(
+    undefined,
+  );
+  const [rememberDevice, setRememberDevice] = useState(true);
+  const rememberDeviceRef = useRef(rememberDevice);
+  const [state, setState] = useState<"ready" | "pending" | "unavailable" | "failed">("ready");
+  const [error, setError] = useState<string>();
+
+  const complete = async (
+    options: Awaited<ReturnType<typeof requestPasskeyAuthenticationOptions>>,
+    mode: "conditional" | "explicit",
+  ) => {
+    setState("pending");
+    setError(undefined);
+    try {
+      const credential = await browserAuthentication.authenticate(options.options, mode);
+      const session = await verifyPasskeyAuthentication(apiTransport, {
+        credential,
+        rememberDevice: rememberDeviceRef.current,
+      });
+      setAuthenticatedSession(queryClient, session);
+      await navigate({ to: "/" });
+    } catch (caught) {
+      if (isPasskeyAuthenticationCancellation(caught)) {
+        setState("ready");
+        return;
+      }
+      cachedOptions.current = undefined;
+      const code = parsePasskeyAuthenticationError(caught);
+      setError(
+        code === "PASSKEY_AUTHENTICATION_RATE_LIMITED"
+          ? "Too many passkey attempts. Please wait before trying again."
+          : code === "ORIGIN_NOT_ALLOWED"
+            ? "Passkey sign-in is unavailable from this site."
+            : code === "PASSKEY_AUTHENTICATION_UNAVAILABLE"
+              ? "Passkey sign-in is temporarily unavailable."
+              : "We couldn't verify that passkey. Request a fresh sign-in prompt and try again.",
+      );
+      setState(code === "PASSKEY_AUTHENTICATION_UNAVAILABLE" ? "unavailable" : "failed");
+    }
+  };
+
+  useEffect(() => {
+    if (startedConditional.current || !isBrowserPasskeyAuthenticationSupported()) return;
+    startedConditional.current = true;
+    let active = true;
+    void (async () => {
+      if (!(await isConditionalPasskeyAuthenticationSupported()) || !active) return;
+      try {
+        const options = await requestPasskeyAuthenticationOptions(apiTransport);
+        if (!active) return;
+        cachedOptions.current = options;
+        await complete(options, "conditional");
+      } catch {
+        if (active) setState("ready");
+      }
+    })();
+    return () => {
+      active = false;
+      browserAuthentication.cancel();
+    };
+  }, [browserAuthentication]);
+
+  async function startExplicitLogin() {
+    try {
+      browserAuthentication.cancel();
+      const options =
+        cachedOptions.current && new Date(cachedOptions.current.expiresAt).getTime() > Date.now()
+          ? cachedOptions.current
+          : await requestPasskeyAuthenticationOptions(apiTransport);
+      cachedOptions.current = options;
+      await complete(options, "explicit");
+    } catch {
+      cachedOptions.current = undefined;
+      setError("We couldn't start a passkey request. Please try again.");
+      setState("failed");
+    }
+  }
+
+  return (
+    <div className="mt-lg border-t border-border pt-lg">
+      {error && <WarningBanner className="mb-md">{error}</WarningBanner>}
+      <label className="mb-md flex items-start gap-sm text-left text-sm text-on-surface-variant">
+        <input
+          checked={rememberDevice}
+          className="mt-0.5 size-4 rounded border-border"
+          disabled={state === "pending"}
+          type="checkbox"
+          onChange={(event) => {
+            rememberDeviceRef.current = event.target.checked;
+            setRememberDevice(event.target.checked);
+          }}
+        />
+        <span>Keep me signed in on this device</span>
+      </label>
+      <Button
+        className="h-12 w-full"
+        disabled={state === "pending" || state === "unavailable" || !isBrowserPasskeyAuthenticationSupported()}
+        type="button"
+        onClick={() => void startExplicitLogin()}
+      >
+        {state === "pending" ? "Waiting for your passkey…" : "Sign in with a passkey"}
+      </Button>
+    </div>
+  );
+}
+
 function SignupLoginPage() {
+  const browserAuthentication = useRef(createBrowserPasskeyAuthenticationAdapter()).current;
   return (
     <main className="auth-page-background relative min-h-dvh overflow-hidden px-gutter py-xl text-on-background md:px-xl md:py-xxl">
       <div
@@ -183,7 +310,8 @@ function SignupLoginPage() {
               Start with a recovery email. We&apos;ll send a six-digit verification code.
             </p>
           </div>
-          <SignUpLoginForm />
+          <SignUpLoginForm onSubmitStart={() => browserAuthentication.cancel()} />
+          <PasskeyLogin />
         </section>
 
         <p className="mx-auto mt-lg max-w-[24rem] text-center text-[10px] leading-4 text-outline">

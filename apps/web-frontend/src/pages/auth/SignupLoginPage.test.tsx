@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SignupLoginPage, SignUpLoginForm } from "./SignupLoginPage";
+import { createQueryClient } from "#/shared/api/query-client";
 
 afterEach(() => {
   cleanup();
@@ -36,7 +38,11 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 describe("SignupLoginPage", () => {
   it("presents the first signup step", () => {
     expect(typeof SignupLoginPage).toBe("function");
-    render(<SignupLoginPage />);
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <SignupLoginPage />
+      </QueryClientProvider>,
+    );
 
     expect(screen.getByRole("heading", { name: "Create your account" })).toBeTruthy();
     expect(screen.getByText(/start with a recovery email/i)).toBeTruthy();
