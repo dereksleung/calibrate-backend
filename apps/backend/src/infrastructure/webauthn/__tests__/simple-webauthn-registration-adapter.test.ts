@@ -1,4 +1,4 @@
-import type { RegistrationResponseJSON } from "@calibrate/api-contracts";
+import type { WebAuthnRegistrationAttestation } from "@application/ports/webauthn-registration-port.js";
 
 import { generateRegistrationOptions, verifyRegistrationResponse } from "@simplewebauthn/server";
 import { randomBytes } from "node:crypto";
@@ -91,19 +91,15 @@ describe("SimpleWebAuthnRegistrationAdapter", () => {
       set: vi.fn(),
     } as never);
 
-    const response = {
-      id: "credential-id",
-      rawId: "credential-id",
-      type: "public-key",
-      clientExtensionResults: {},
-      response: {
-        clientDataJSON: "client-data",
-        attestationObject: "attestation",
-      },
-    } satisfies RegistrationResponseJSON;
+    const attestation = {
+      credentialId: "credential-id",
+      rawCredentialId: "credential-id",
+      clientDataJSON: "client-data",
+      attestationObject: "attestation",
+    } satisfies WebAuthnRegistrationAttestation;
 
     const verified = await adapter.verifyRegistrationResponse({
-      response,
+      attestation,
       expectedChallenge: "challenge",
       expectedOrigin: "http://localhost:3000",
     });
@@ -119,7 +115,16 @@ describe("SimpleWebAuthnRegistrationAdapter", () => {
       backupState: true,
     });
     expect(verifyRegistrationResponse).toHaveBeenCalledWith({
-      response,
+      response: {
+        id: "credential-id",
+        rawId: "credential-id",
+        type: "public-key",
+        clientExtensionResults: {},
+        response: {
+          clientDataJSON: "client-data",
+          attestationObject: "attestation",
+        },
+      },
       expectedChallenge: "challenge",
       expectedOrigin: "http://localhost:3000",
       expectedRPID: "localhost",
@@ -134,15 +139,11 @@ describe("SimpleWebAuthnRegistrationAdapter", () => {
 
     await expect(
       adapter.verifyRegistrationResponse({
-        response: {
-          id: "credential-id",
-          rawId: "credential-id",
-          type: "public-key",
-          clientExtensionResults: {},
-          response: {
-            clientDataJSON: "client-data",
-            attestationObject: "attestation",
-          },
+        attestation: {
+          credentialId: "credential-id",
+          rawCredentialId: "credential-id",
+          clientDataJSON: "client-data",
+          attestationObject: "attestation",
         },
         expectedChallenge: "challenge",
         expectedOrigin: "http://localhost:3000",

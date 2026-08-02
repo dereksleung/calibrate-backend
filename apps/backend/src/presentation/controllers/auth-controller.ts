@@ -274,7 +274,13 @@ export class AuthController {
       const result = await this.signupPasskeyRegistrationService.verifyRegistration({
         enrollmentToken,
         origin,
-        credential: validatedBody.data.credential,
+        attestation: {
+          credentialId: validatedBody.data.credential.id,
+          rawCredentialId: validatedBody.data.credential.rawId,
+          clientDataJSON: validatedBody.data.credential.response.clientDataJSON,
+          attestationObject: validatedBody.data.credential.response.attestationObject,
+          transports: validatedBody.data.credential.response.transports,
+        },
         rememberDevice: validatedBody.data.rememberDevice,
       });
 

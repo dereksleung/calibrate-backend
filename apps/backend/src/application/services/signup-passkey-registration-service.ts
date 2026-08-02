@@ -1,8 +1,8 @@
 import type {
   IWebAuthnRegistrationPort,
+  WebAuthnRegistrationAttestation,
   WebAuthnRegistrationOptions,
 } from "@application/ports/webauthn-registration-port.js";
-import type { RegistrationResponseJSON } from "@calibrate/api-contracts";
 
 import {
   EnrollmentAuthorizationRequiredError,
@@ -38,7 +38,7 @@ export interface CreateRegistrationOptionsResult {
 export interface VerifyPasskeyRegistrationInput {
   enrollmentToken: string;
   origin: string;
-  credential: RegistrationResponseJSON;
+  attestation: WebAuthnRegistrationAttestation;
   rememberDevice: boolean;
 }
 
@@ -130,7 +130,7 @@ export class SignupPasskeyRegistrationServiceImpl implements ISignupPasskeyRegis
   async verifyRegistration(input: VerifyPasskeyRegistrationInput): Promise<VerifyPasskeyRegistrationResult> {
     this.assertOrigin(input.origin);
     const now = this.clock.now();
-    const responseChallenge = extractChallengeFromClientDataJSON(input.credential.response.clientDataJSON);
+    const responseChallenge = extractChallengeFromClientDataJSON(input.attestation.clientDataJSON);
     const challengeDigest = digestChallenge(responseChallenge);
 
     const activeChallenge = await this.repository.findActiveChallenge({
@@ -146,7 +146,7 @@ export class SignupPasskeyRegistrationServiceImpl implements ISignupPasskeyRegis
     let verifiedCredential;
     try {
       verifiedCredential = await this.webAuthnRegistration.verifyRegistrationResponse({
-        response: input.credential,
+        attestation: input.attestation,
         expectedChallenge: responseChallenge,
         expectedOrigin: this.config.expectedOrigin,
       });

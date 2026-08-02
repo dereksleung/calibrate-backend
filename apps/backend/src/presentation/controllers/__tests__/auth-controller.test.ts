@@ -163,6 +163,61 @@ describe("AuthController", () => {
     expect(JSON.stringify(res.json.mock.calls)).not.toContain("raw-refresh-token");
   });
 
+  it("narrows a verified passkey registration credential to a WebAuthn attestation", async () => {
+    mockSignupPasskeyRegistrationService.verifyRegistration.mockResolvedValue({
+      user,
+      accessToken: "raw-access-token",
+      refreshToken: "raw-refresh-token",
+      rememberDevice: true,
+      accessInactivityExpiresAt: new Date(Date.now() + 30 * 60_000),
+      familyInactivityExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000),
+      familyAbsoluteExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60_000),
+    });
+    const req = {
+      body: {
+        credential: {
+          id: "Y3JlZGVudGlhbC1pZA",
+          rawId: "cmF3LWNyZWRlbnRpYWwtaWQ",
+          type: "public-key",
+          clientExtensionResults: { ignored: true },
+          authenticatorAttachment: "platform",
+          response: {
+            clientDataJSON: "Y2xpZW50LWRhdGE",
+            attestationObject: "YXR0ZXN0YXRpb24",
+            transports: ["internal"],
+          },
+        },
+        rememberDevice: true,
+      },
+      get: vi.fn((name: string) => {
+        if (name === "Origin") return "http://localhost:3000";
+        if (name === "Cookie") return "passkey-enrollment=enrollment-token";
+        return undefined;
+      }),
+    } as unknown as Request;
+    const res = {
+      set: vi.fn(),
+      cookie: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
+
+    await authController.verifyPasskeyRegistration(req, res);
+
+    expect(mockSignupPasskeyRegistrationService.verifyRegistration).toHaveBeenCalledWith({
+      enrollmentToken: "enrollment-token",
+      origin: "http://localhost:3000",
+      attestation: {
+        credentialId: "Y3JlZGVudGlhbC1pZA",
+        rawCredentialId: "cmF3LWNyZWRlbnRpYWwtaWQ",
+        clientDataJSON: "Y2xpZW50LWRhdGE",
+        attestationObject: "YXR0ZXN0YXRpb24",
+        transports: ["internal"],
+      },
+      rememberDevice: true,
+    });
+  });
+
   it("binds a recognized native platform to the request", async () => {
     mockSignupEmailVerificationService.request.mockResolvedValue({
       challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31",

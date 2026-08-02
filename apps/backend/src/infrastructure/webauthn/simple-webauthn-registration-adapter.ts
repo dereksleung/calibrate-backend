@@ -3,7 +3,6 @@ import type {
   RegistrationOptionsInput,
   VerifiedRegistrationCredential,
 } from "@application/ports/webauthn-registration-port.js";
-import type { RegistrationResponseJSON } from "@calibrate/api-contracts";
 
 import {
   generateRegistrationOptions,
@@ -40,12 +39,22 @@ export class SimpleWebAuthnRegistrationAdapter implements IWebAuthnRegistrationP
   }
 
   async verifyRegistrationResponse(input: {
-    response: RegistrationResponseJSON;
+    attestation: Parameters<IWebAuthnRegistrationPort["verifyRegistrationResponse"]>[0]["attestation"];
     expectedChallenge: string;
     expectedOrigin: string;
   }): Promise<VerifiedRegistrationCredential> {
     const verification = await verifyRegistrationResponse({
-      response: input.response,
+      response: {
+        id: input.attestation.credentialId,
+        rawId: input.attestation.rawCredentialId,
+        type: "public-key",
+        clientExtensionResults: {},
+        response: {
+          clientDataJSON: input.attestation.clientDataJSON,
+          attestationObject: input.attestation.attestationObject,
+          transports: input.attestation.transports,
+        },
+      },
       expectedChallenge: input.expectedChallenge,
       expectedOrigin: input.expectedOrigin,
       expectedRPID: this.config.rpId,

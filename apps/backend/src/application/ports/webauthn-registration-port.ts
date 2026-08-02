@@ -1,9 +1,16 @@
-import type { RegistrationResponseJSON } from "@calibrate/api-contracts";
-
 export interface RegistrationOptionsInput {
   userHandle: string;
   email: string;
   rawChallenge: string;
+}
+
+/** Protocol fields required to verify a WebAuthn registration attestation. */
+export interface WebAuthnRegistrationAttestation {
+  credentialId: string;
+  rawCredentialId: string;
+  clientDataJSON: string;
+  attestationObject: string;
+  transports?: Array<"usb" | "nfc" | "ble" | "internal" | "hybrid" | "smart-card">;
 }
 
 /** JSON-serializable options for a WebAuthn registration ceremony. */
@@ -59,7 +66,7 @@ export interface IWebAuthnRegistrationPort {
   createRegistrationOptions(input: RegistrationOptionsInput): Promise<WebAuthnRegistrationOptions>;
 
   verifyRegistrationResponse(input: {
-    response: RegistrationResponseJSON;
+    attestation: WebAuthnRegistrationAttestation;
     expectedChallenge: string;
     expectedOrigin: string;
   }): Promise<VerifiedRegistrationCredential>;

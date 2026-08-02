@@ -53,20 +53,16 @@ function createService(overrides: {
   };
 }
 
-function registrationCredential(challenge: string) {
+function registrationAttestation(challenge: string) {
   const clientDataJSON = Buffer.from(
     JSON.stringify({ type: "webauthn.create", challenge, origin: expectedOrigin }),
   ).toString("base64url");
 
   return {
-    id: "credential-id",
-    rawId: "credential-id",
-    type: "public-key" as const,
-    clientExtensionResults: {},
-    response: {
-      clientDataJSON,
-      attestationObject: "attestation",
-    },
+    credentialId: "credential-id",
+    rawCredentialId: "credential-id",
+    clientDataJSON,
+    attestationObject: "attestation",
   };
 }
 
@@ -140,7 +136,7 @@ describe("SignupPasskeyRegistrationServiceImpl", () => {
 
   it("verifies the client challenge against the active challenge binding", async () => {
     const rawChallenge = randomBytes(32).toString("base64url");
-    const credential = registrationCredential(rawChallenge);
+    const attestation = registrationAttestation(rawChallenge);
     const { service, repository, webAuthn } = createService({
       repository: {
         findActiveChallenge: vi.fn().mockResolvedValue({
@@ -184,12 +180,12 @@ describe("SignupPasskeyRegistrationServiceImpl", () => {
     const result = await service.verifyRegistration({
       enrollmentToken: "enrollment-token",
       origin: expectedOrigin,
-      credential,
+      attestation,
       rememberDevice: true,
     });
 
     expect(webAuthn.verifyRegistrationResponse).toHaveBeenCalledWith({
-      response: credential,
+      attestation,
       expectedChallenge: rawChallenge,
       expectedOrigin,
     });
@@ -221,7 +217,7 @@ describe("SignupPasskeyRegistrationServiceImpl", () => {
       service.verifyRegistration({
         enrollmentToken: "enrollment-token",
         origin: expectedOrigin,
-        credential: registrationCredential(rawChallenge),
+        attestation: registrationAttestation(rawChallenge),
         rememberDevice: false,
       }),
     ).rejects.toBeInstanceOf(PasskeyRegistrationFailedError);
@@ -243,7 +239,7 @@ describe("SignupPasskeyRegistrationServiceImpl", () => {
       service.verifyRegistration({
         enrollmentToken: "enrollment-token",
         origin: expectedOrigin,
-        credential: registrationCredential(randomBytes(32).toString("base64url")),
+        attestation: registrationAttestation(randomBytes(32).toString("base64url")),
         rememberDevice: true,
       }),
     ).rejects.toBeInstanceOf(EnrollmentAuthorizationRequiredError);
@@ -282,7 +278,7 @@ describe("SignupPasskeyRegistrationServiceImpl", () => {
       service.verifyRegistration({
         enrollmentToken: "enrollment-token",
         origin: expectedOrigin,
-        credential: registrationCredential(rawChallenge),
+        attestation: registrationAttestation(rawChallenge),
         rememberDevice: true,
       }),
     ).rejects.toBeInstanceOf(PasskeyRegistrationStateConflictError);
