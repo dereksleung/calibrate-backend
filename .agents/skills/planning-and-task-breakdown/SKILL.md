@@ -89,6 +89,11 @@ Each task follows this structure:
 - [ ] [Specific, testable condition]
 - [ ] [Specific, testable condition]
 
+**Test plan:**
+- [ ] Unit: [behavior and edge case to cover]
+- [ ] Integration or end-to-end: [cross-boundary behavior to cover, if applicable]
+- [ ] Test files / fixtures: [files or doubles to add or update]
+
 **Verification:**
 - [ ] Tests pass: `npm test -- --grep "feature-name"`
 - [ ] Build succeeds: `npm run build`
@@ -102,6 +107,13 @@ Each task follows this structure:
 
 **Estimated scope:** [Small: 1-2 files | Medium: 3-5 files | Large: 5+ files]
 ```
+
+The test plan belongs inside each task, immediately after its acceptance
+criteria. State the behavior and edge cases to test, the appropriate test
+level, and the likely test files or fixtures. This co-location lets a human or
+agent reason about implementation and its proof of correctness without
+retaining details from separate sections. `Verification` records the commands
+and final checks; it does not replace the task-specific test plan.
 
 ### Step 5: Order and Checkpoint
 
@@ -206,6 +218,7 @@ When multiple agents or sessions are available:
 
 - Starting implementation without a written task list
 - Tasks that say "implement the feature" without acceptance criteria
+- Tasks whose test plan is separated from the task or replaced only by a generic verification command
 - No verification steps in the plan
 - All tasks are XL-sized
 - No checkpoints between tasks
@@ -216,6 +229,7 @@ When multiple agents or sessions are available:
 Before starting implementation, confirm:
 
 - [ ] Every task has acceptance criteria
+- [ ] Every task has a co-located test plan covering behavior, edge cases, and test level
 - [ ] Every task has a verification step
 - [ ] Task dependencies are identified and ordered correctly
 - [ ] No task touches more than ~5 files

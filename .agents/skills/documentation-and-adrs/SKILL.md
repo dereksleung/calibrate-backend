@@ -250,6 +250,24 @@ Special consideration for AI agent context:
 - **ADRs** — Help agents understand why past decisions were made (prevents re-deciding)
 - **Inline gotchas** — Prevent agents from falling into known traps
 
+### Task Documentation and Test Plans
+
+When documenting an implementation plan, keep each task's test plan in that
+task rather than collecting test coverage in a separate, plan-level section.
+This keeps the implementation details, acceptance criteria, and proof of
+correctness together, reducing the context a human or agent needs to hold.
+
+For every implementation task, document:
+
+- The behavior and edge cases the task's tests must cover
+- The appropriate test level (unit, integration, or end-to-end) and why
+- Test files or test doubles likely to be added or changed
+- Any manual check that automated tests cannot cover
+
+Use a concise `**Test plan:**` subsection directly after the task's
+acceptance criteria. Keep broader release or phase checks in checkpoints, but
+do not use them as a substitute for task-specific test plans.
+
 ## Common Rationalizations
 
 | Rationalization | Reality |
@@ -269,6 +287,7 @@ Special consideration for AI agent context:
 - TODO comments that have been there for weeks
 - No ADRs in a project with significant architectural choices
 - Documentation that restates the code instead of explaining intent
+- Implementation tasks whose test coverage is documented only elsewhere in the plan
 
 ## Verification
 
@@ -280,3 +299,4 @@ After documenting:
 - [ ] Known gotchas are documented inline where they matter
 - [ ] No commented-out code remains
 - [ ] Rules files (CLAUDE.md etc.) are current and accurate
+- [ ] Each documented implementation task co-locates its test plan with its acceptance criteria
