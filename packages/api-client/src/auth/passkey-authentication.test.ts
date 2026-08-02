@@ -21,13 +21,13 @@ const authenticationOptions = {
 };
 
 const authenticationCredential = {
-  id: "credential-id",
-  rawId: "credential-id",
+  id: "Y3JlZGVudGlhbC1pZA",
+  rawId: "Y3JlZGVudGlhbC1pZA",
   type: "public-key" as const,
   response: {
     authenticatorData: "authenticator-data",
     clientDataJSON: "client-data",
-    signature: "signature",
+    signature: "c2lnbmF0dXJl",
     userHandle: "user-handle",
   },
   clientExtensionResults: {},

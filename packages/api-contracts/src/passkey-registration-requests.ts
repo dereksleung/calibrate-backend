@@ -1,10 +1,5 @@
 import { z } from "zod";
 
-const Base64UrlStringSchema = z
-  .string()
-  .min(1)
-  .regex(/^[A-Za-z0-9_-]+$/, "Expected base64url-encoded value");
-
 const AuthenticatorTransportSchema = z.enum([
   "usb",
   "nfc",
@@ -16,19 +11,19 @@ const AuthenticatorTransportSchema = z.enum([
 
 export const AuthenticatorAttestationResponseJSONSchema = z
   .object({
-    clientDataJSON: Base64UrlStringSchema,
-    attestationObject: Base64UrlStringSchema,
-    authenticatorData: Base64UrlStringSchema.optional(),
+    clientDataJSON: z.base64url(),
+    attestationObject: z.base64url(),
+    authenticatorData: z.base64url().optional(),
     transports: z.array(AuthenticatorTransportSchema).optional(),
     publicKeyAlgorithm: z.number().int().optional(),
-    publicKey: Base64UrlStringSchema.optional(),
+    publicKey: z.base64url().optional(),
   })
   .strict();
 
 export const RegistrationResponseJSONSchema = z
   .object({
-    id: Base64UrlStringSchema,
-    rawId: Base64UrlStringSchema,
+    id: z.base64url(),
+    rawId: z.base64url(),
     response: AuthenticatorAttestationResponseJSONSchema,
     authenticatorAttachment: z.enum(["platform", "cross-platform"]).optional(),
     clientExtensionResults: z.record(z.string(), z.unknown()),

@@ -9,8 +9,8 @@ import {
 } from "./index.js";
 
 const validAuthenticationResponse = {
-  id: "credential-id",
-  rawId: "credential-id",
+  id: "Y3JlZGVudGlhbC1pZA",
+  rawId: "Y3JlZGVudGlhbC1pZA",
   type: "public-key" as const,
   response: {
     authenticatorData: "YXV0aGVudGljYXRvci1kYXRh",

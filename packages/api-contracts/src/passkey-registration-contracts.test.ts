@@ -8,8 +8,8 @@ import {
 } from "./index.js";
 
 const validRegistrationResponse = {
-  id: "credential-id",
-  rawId: "credential-id",
+  id: "Y3JlZGVudGlhbC1pZA",
+  rawId: "Y3JlZGVudGlhbC1pZA",
   type: "public-key" as const,
   response: {
     clientDataJSON: "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIn0",

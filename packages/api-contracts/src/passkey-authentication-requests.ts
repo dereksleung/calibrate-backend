@@ -1,23 +1,18 @@
 import { z } from "zod";
 
-const Base64UrlStringSchema = z
-  .string()
-  .min(1)
-  .regex(/^[A-Za-z0-9_-]+$/, "Expected base64url-encoded value");
-
 export const AuthenticatorAssertionResponseJSONSchema = z
   .object({
-    authenticatorData: Base64UrlStringSchema,
-    clientDataJSON: Base64UrlStringSchema,
-    signature: Base64UrlStringSchema,
-    userHandle: Base64UrlStringSchema.optional(),
+    authenticatorData: z.base64url(),
+    clientDataJSON: z.base64url(),
+    signature: z.base64url(),
+    userHandle: z.base64url().optional(),
   })
   .strict();
 
 export const AuthenticationResponseJSONSchema = z
   .object({
-    id: Base64UrlStringSchema,
-    rawId: Base64UrlStringSchema,
+    id: z.base64url(),
+    rawId: z.base64url(),
     response: AuthenticatorAssertionResponseJSONSchema,
     authenticatorAttachment: z.enum(["platform", "cross-platform"]).optional(),
     clientExtensionResults: z.record(z.string(), z.unknown()),

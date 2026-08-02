@@ -105,14 +105,14 @@ describe("AuthController", () => {
     const req = {
       body: {
         credential: {
-          id: "credential-id",
-          rawId: "credential-id",
+          id: "Y3JlZGVudGlhbC1pZA",
+          rawId: "Y3JlZGVudGlhbC1pZA",
           type: "public-key",
           clientExtensionResults: {},
           response: {
             authenticatorData: "authenticator-data",
             clientDataJSON: "client-data",
-            signature: "signature",
+            signature: "c2lnbmF0dXJl",
             userHandle: "user-handle",
           },
         },
