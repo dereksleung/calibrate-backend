@@ -1,7 +1,15 @@
-import type { AuthenticationResponseJSON } from "@calibrate/api-contracts";
-
 export interface AuthenticationOptionsInput {
   rawChallenge: string;
+}
+
+/** Protocol fields the authentication use case needs from a WebAuthn assertion. */
+export interface WebAuthnAuthenticationAssertion {
+  credentialId: string;
+  rawCredentialId: string;
+  authenticatorData: string;
+  clientDataJSON: string;
+  signature: string;
+  userHandle?: string;
 }
 
 export interface WebAuthnAuthenticationOptions {
@@ -28,7 +36,7 @@ export interface IWebAuthnAuthenticationPort {
   createAuthenticationOptions(input: AuthenticationOptionsInput): Promise<WebAuthnAuthenticationOptions>;
 
   verifyAuthenticationResponse(input: {
-    response: AuthenticationResponseJSON;
+    assertion: WebAuthnAuthenticationAssertion;
     expectedChallenge: string;
     expectedOrigin: string;
     credential: PersistedAuthenticationCredential;

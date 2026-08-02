@@ -1,4 +1,4 @@
-import type { AuthenticationResponseJSON } from "@calibrate/api-contracts";
+import type { WebAuthnAuthenticationAssertion } from "@application/ports/webauthn-authentication-port.js";
 
 import { generateAuthenticationOptions, verifyAuthenticationResponse } from "@simplewebauthn/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,18 +10,14 @@ vi.mock("@simplewebauthn/server", () => ({
   verifyAuthenticationResponse: vi.fn(),
 }));
 
-const credential = {
-  id: "credential-id",
-  rawId: "credential-id",
-  type: "public-key",
-  clientExtensionResults: {},
-  response: {
-    authenticatorData: "authenticator-data",
-    clientDataJSON: "client-data",
-    signature: "signature",
-    userHandle: "user-handle",
-  },
-} satisfies AuthenticationResponseJSON;
+const assertion = {
+  credentialId: "credential-id",
+  rawCredentialId: "raw-credential-id",
+  authenticatorData: "authenticator-data",
+  clientDataJSON: "client-data",
+  signature: "signature",
+  userHandle: "user-handle",
+} satisfies WebAuthnAuthenticationAssertion;
 
 describe("SimpleWebAuthnAuthenticationAdapter", () => {
   const adapter = new SimpleWebAuthnAuthenticationAdapter({ rpId: "localhost" });
@@ -65,7 +61,7 @@ describe("SimpleWebAuthnAuthenticationAdapter", () => {
     });
 
     const verified = await adapter.verifyAuthenticationResponse({
-      response: credential,
+      assertion,
       expectedChallenge: "challenge",
       expectedOrigin: "http://localhost:3000",
       credential: {
@@ -82,7 +78,18 @@ describe("SimpleWebAuthnAuthenticationAdapter", () => {
       backupState: false,
     });
     expect(verifyAuthenticationResponse).toHaveBeenCalledWith({
-      response: credential,
+      response: {
+        id: "credential-id",
+        rawId: "raw-credential-id",
+        type: "public-key",
+        clientExtensionResults: {},
+        response: {
+          authenticatorData: "authenticator-data",
+          clientDataJSON: "client-data",
+          signature: "signature",
+          userHandle: "user-handle",
+        },
+      },
       expectedChallenge: "challenge",
       expectedOrigin: "http://localhost:3000",
       expectedRPID: "localhost",

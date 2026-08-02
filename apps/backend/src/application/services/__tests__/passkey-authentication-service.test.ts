@@ -76,23 +76,19 @@ describe("PasskeyAuthenticationServiceImpl", () => {
         }),
       },
     });
-    const credential = {
-      id: "credential-id",
-      rawId: "credential-id",
-      type: "public-key" as const,
-      clientExtensionResults: {},
-      response: {
-        authenticatorData: "data",
-        clientDataJSON: Buffer.from(JSON.stringify({ challenge })).toString("base64url"),
-        signature: "signature",
-      },
+    const assertion = {
+      credentialId: "credential-id",
+      rawCredentialId: "credential-id",
+      authenticatorData: "data",
+      clientDataJSON: Buffer.from(JSON.stringify({ challenge })).toString("base64url"),
+      signature: "signature",
     };
 
     await expect(
       service.verifyAuthentication({
         origin: expectedOrigin,
         requestingIp: "203.0.113.4",
-        credential,
+        assertion,
         rememberDevice: true,
       }),
     ).rejects.toMatchObject({ name: "PasskeyAuthenticationFailedError" });
@@ -199,24 +195,20 @@ describe("PasskeyAuthenticationServiceImpl", () => {
       },
       userRepository: { findById: vi.fn().mockResolvedValue(user) },
     });
-    const credential = {
-      id: "credential-id",
-      rawId: "credential-id",
-      type: "public-key" as const,
-      clientExtensionResults: {},
-      response: {
-        authenticatorData: "data",
-        clientDataJSON: Buffer.from(JSON.stringify({ challenge })).toString("base64url"),
-        signature: "signature",
-        userHandle: "user-handle",
-      },
+    const assertion = {
+      credentialId: "credential-id",
+      rawCredentialId: "credential-id",
+      authenticatorData: "data",
+      clientDataJSON: Buffer.from(JSON.stringify({ challenge })).toString("base64url"),
+      signature: "signature",
+      userHandle: "user-handle",
     };
 
     await expect(
       service.verifyAuthentication({
         origin: expectedOrigin,
         requestingIp: "203.0.113.4",
-        credential,
+        assertion,
         rememberDevice: true,
       }),
     ).resolves.toMatchObject({

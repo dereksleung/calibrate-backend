@@ -32,13 +32,24 @@ export class SimpleWebAuthnAuthenticationAdapter implements IWebAuthnAuthenticat
   }
 
   async verifyAuthenticationResponse(input: {
-    response: Parameters<IWebAuthnAuthenticationPort["verifyAuthenticationResponse"]>[0]["response"];
+    assertion: Parameters<IWebAuthnAuthenticationPort["verifyAuthenticationResponse"]>[0]["assertion"];
     expectedChallenge: string;
     expectedOrigin: string;
     credential: Parameters<IWebAuthnAuthenticationPort["verifyAuthenticationResponse"]>[0]["credential"];
   }): Promise<VerifiedAuthenticationCredential> {
     const verification = await verifyAuthenticationResponse({
-      response: input.response,
+      response: {
+        id: input.assertion.credentialId,
+        rawId: input.assertion.rawCredentialId,
+        type: "public-key",
+        clientExtensionResults: {},
+        response: {
+          authenticatorData: input.assertion.authenticatorData,
+          clientDataJSON: input.assertion.clientDataJSON,
+          signature: input.assertion.signature,
+          userHandle: input.assertion.userHandle,
+        },
+      },
       expectedChallenge: input.expectedChallenge,
       expectedOrigin: input.expectedOrigin,
       expectedRPID: this.config.rpId,

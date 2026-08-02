@@ -106,7 +106,7 @@ describe("AuthController", () => {
       body: {
         credential: {
           id: "Y3JlZGVudGlhbC1pZA",
-          rawId: "Y3JlZGVudGlhbC1pZA",
+          rawId: "cmF3LWNyZWRlbnRpYWwtaWQ",
           type: "public-key",
           clientExtensionResults: {},
           response: {
@@ -133,7 +133,14 @@ describe("AuthController", () => {
     expect(mockPasskeyAuthenticationService.verifyAuthentication).toHaveBeenCalledWith({
       origin: "http://localhost:3000",
       requestingIp: "203.0.113.4",
-      credential: req.body.credential,
+      assertion: {
+        credentialId: "Y3JlZGVudGlhbC1pZA",
+        rawCredentialId: "cmF3LWNyZWRlbnRpYWwtaWQ",
+        authenticatorData: "authenticator-data",
+        clientDataJSON: "client-data",
+        signature: "c2lnbmF0dXJl",
+        userHandle: "user-handle",
+      },
       rememberDevice: false,
     });
     expect(res.set).toHaveBeenCalledWith("Cache-Control", "no-store");

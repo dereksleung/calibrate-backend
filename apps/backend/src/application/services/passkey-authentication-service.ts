@@ -4,9 +4,9 @@ import type { IOpaqueTokenService } from "@application/ports/session-token-servi
 import type { IUserRepository } from "@application/ports/user-repository.js";
 import type {
   IWebAuthnAuthenticationPort,
+  WebAuthnAuthenticationAssertion,
   WebAuthnAuthenticationOptions,
 } from "@application/ports/webauthn-authentication-port.js";
-import type { AuthenticationResponseJSON } from "@calibrate/api-contracts";
 import type { User } from "@domain/entities/user.js";
 
 import {
@@ -40,7 +40,7 @@ export interface IPasskeyAuthenticationService {
   verifyAuthentication(input: {
     origin: string;
     requestingIp: string;
-    credential: AuthenticationResponseJSON;
+    assertion: WebAuthnAuthenticationAssertion;
     rememberDevice: boolean;
   }): Promise<VerifyPasskeyAuthenticationResult>;
 }
@@ -94,7 +94,7 @@ export class PasskeyAuthenticationServiceImpl implements IPasskeyAuthenticationS
   async verifyAuthentication(input: {
     origin: string;
     requestingIp: string;
-    credential: AuthenticationResponseJSON;
+    assertion: WebAuthnAuthenticationAssertion;
     rememberDevice: boolean;
   }): Promise<VerifyPasskeyAuthenticationResult> {
     if (input.origin !== this.config.expectedOrigin) throw new OriginNotAllowedError();
@@ -108,7 +108,7 @@ export class PasskeyAuthenticationServiceImpl implements IPasskeyAuthenticationS
     let challenge: string;
     try {
       const parsed = JSON.parse(
-        Buffer.from(input.credential.response.clientDataJSON, "base64url").toString("utf8"),
+        Buffer.from(input.assertion.clientDataJSON, "base64url").toString("utf8"),
       );
       if (typeof parsed.challenge !== "string") throw new Error();
       challenge = parsed.challenge;
@@ -116,11 +116,11 @@ export class PasskeyAuthenticationServiceImpl implements IPasskeyAuthenticationS
       throw new PasskeyAuthenticationFailedError();
     }
     const active = await this.repository.findActiveCredential({
-      credentialId: input.credential.id,
+      credentialId: input.assertion.credentialId,
       challengeDigest: createHash("sha256").update(challenge).digest("base64url"),
       now,
     });
-    if (!active || input.credential.response.userHandle !== active.userHandle) {
+    if (!active || input.assertion.userHandle !== active.userHandle) {
       if (active)
         await this.repository.recordFailedVerificationAttempt({ challengeId: active.challengeId, now });
       throw new PasskeyAuthenticationFailedError();
@@ -129,7 +129,7 @@ export class PasskeyAuthenticationServiceImpl implements IPasskeyAuthenticationS
     let counterAnomaly: boolean;
     try {
       verified = await this.webAuthnAuthentication.verifyAuthenticationResponse({
-        response: input.credential,
+        assertion: input.assertion,
         expectedChallenge: challenge,
         expectedOrigin: this.config.expectedOrigin,
         credential: active,

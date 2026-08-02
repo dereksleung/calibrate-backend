@@ -107,7 +107,14 @@ export class AuthController {
       const result = await this.passkeyAuthenticationService.verifyAuthentication({
         origin,
         requestingIp: req.ip,
-        credential: validatedBody.data.credential,
+        assertion: {
+          credentialId: validatedBody.data.credential.id,
+          rawCredentialId: validatedBody.data.credential.rawId,
+          authenticatorData: validatedBody.data.credential.response.authenticatorData,
+          clientDataJSON: validatedBody.data.credential.response.clientDataJSON,
+          signature: validatedBody.data.credential.response.signature,
+          userHandle: validatedBody.data.credential.response.userHandle,
+        },
         rememberDevice: validatedBody.data.rememberDevice,
       });
       this.setSessionCookies(res, result, now);
