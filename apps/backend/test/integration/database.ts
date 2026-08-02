@@ -21,6 +21,7 @@ export async function clearIntegrationDatabase(databaseClient: DatabaseClient): 
   await sql`
     truncate table
       "security_events",
+      "passkey_authentication_rate_limit_events",
       "sessions",
       "refresh_token_generations",
       "remembered_device_families",

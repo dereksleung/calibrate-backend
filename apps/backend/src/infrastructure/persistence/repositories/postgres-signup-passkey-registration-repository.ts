@@ -141,7 +141,7 @@ export class PostgresSignupPasskeyRegistrationRepository implements ISignupPassk
       .where("authorization.expires_at", ">", input.now)
       .executeTakeFirst();
 
-    if (!row?.webauthn_user_handle) {
+    if (!row?.webauthn_user_handle || !row.enrollment_authorization_id) {
       return null;
     }
 

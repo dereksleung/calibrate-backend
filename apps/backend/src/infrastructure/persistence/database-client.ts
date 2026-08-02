@@ -4,6 +4,7 @@ import { Pool } from "pg";
 import { DayLogsTable } from "./schemas/day-logs-table.js";
 import { EmailOtpChallengesTable } from "./schemas/email-otp-challenges-table.js";
 import { FoodEntriesTable } from "./schemas/food-entries-table.js";
+import { PasskeyAuthenticationRateLimitEventsTable } from "./schemas/passkey-authentication-rate-limit-events-table.js";
 import { PasskeyCredentialsTable } from "./schemas/passkey-credentials-table.js";
 import { RefreshTokenGenerationsTable } from "./schemas/refresh-token-generations-table.js";
 import { RememberedDeviceFamiliesTable } from "./schemas/remembered-device-families-table.js";
@@ -15,6 +16,7 @@ import { WebauthnChallengesTable } from "./schemas/webauthn-challenges-table.js"
 
 export interface DatabaseSchema {
   email_otp_challenges: EmailOtpChallengesTable;
+  passkey_authentication_rate_limit_events: PasskeyAuthenticationRateLimitEventsTable;
   passkey_credentials: PasskeyCredentialsTable;
   refresh_token_generations: RefreshTokenGenerationsTable;
   remembered_device_families: RememberedDeviceFamiliesTable;

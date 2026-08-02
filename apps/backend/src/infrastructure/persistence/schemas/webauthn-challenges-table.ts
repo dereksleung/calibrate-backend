@@ -2,7 +2,7 @@ import type { ColumnType } from "kysely";
 
 export interface WebauthnChallengesTable {
   id: string;
-  enrollment_authorization_id: string;
+  enrollment_authorization_id: string | null;
   purpose: string;
   challenge_digest: string;
   attempt_count: number;

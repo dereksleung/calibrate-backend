@@ -11,6 +11,8 @@ dist
 
 .nx/cache
 .nx/workspace-data
+.nx/cache-*
+.nx/workspace-data-*
 vitest.config.*.timestamp*
 .nx/polygraph
 .claude/worktrees
