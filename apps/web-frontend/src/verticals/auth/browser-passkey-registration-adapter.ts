@@ -27,6 +27,24 @@ export function createBrowserPasskeyRegistrationAdapter(): BrowserPasskeyRegistr
   };
 }
 
+export async function signalUnknownPasskeyCredential({
+  credentialId,
+  rpId,
+}: {
+  credentialId: string;
+  rpId: string;
+}): Promise<void> {
+  if (typeof window === "undefined" || typeof window.PublicKeyCredential?.signalUnknownCredential !== "function") {
+    return;
+  }
+
+  try {
+    await window.PublicKeyCredential.signalUnknownCredential({ credentialId, rpId });
+  } catch {
+    // Signaling is advisory. Preserve the registration failure as the actionable outcome.
+  }
+}
+
 export function isPasskeyRegistrationCancellation(error: unknown): boolean {
   if (!error || typeof error !== "object") {
     return false;

@@ -60,6 +60,7 @@ afterEach(() => {
 beforeEach(() => {
   vi.stubGlobal("PublicKeyCredential", {
     isUserVerifyingPlatformAuthenticatorAvailable: async () => true,
+    signalUnknownCredential: vi.fn(),
   });
 });
 
@@ -157,5 +158,38 @@ describe("PasskeyEnrollmentPage", () => {
       await screen.findByText(/enrollment authorization expired or can no longer be used/i),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: /start again/i })).toBeTruthy();
+  });
+
+  it("signals a credential that could not be saved after device verification", async () => {
+    mockRequestOptions.mockResolvedValue({
+      challenge: "abc",
+      rp: { id: "example.com", name: "Calibrate" },
+    });
+    vi.mocked(browserAdapter.createPasskey).mockResolvedValue({
+      id: "credential-id",
+      rawId: "credential-id",
+      type: "public-key",
+      clientExtensionResults: {},
+      response: {
+        clientDataJSON: "eyJ0eXBlIjoid2ViYXV0aG4uY3JlYXRlIn0",
+        attestationObject: "o2NmbXRkbm9uZWdhdHRTdG10",
+      },
+    });
+    mockVerifyRegistration.mockRejectedValue(
+      new ApiError({
+        status: 400,
+        statusText: "Bad Request",
+        body: { error: "PASSKEY_REGISTRATION_FAILED" },
+      }),
+    );
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /create passkey/i }));
+
+    expect(await screen.findByText(/passkey verification failed/i)).toBeTruthy();
+    expect(PublicKeyCredential.signalUnknownCredential).toHaveBeenCalledWith({
+      credentialId: "credential-id",
+      rpId: "example.com",
+    });
   });
 });

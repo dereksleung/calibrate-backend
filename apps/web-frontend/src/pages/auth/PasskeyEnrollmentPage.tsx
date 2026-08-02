@@ -6,6 +6,7 @@ import {
   createBrowserPasskeyRegistrationAdapter,
   isBrowserPasskeyRegistrationSupported,
   isPasskeyRegistrationCancellation,
+  signalUnknownPasskeyCredential,
   type BrowserPasskeyRegistrationAdapter,
 } from "#/verticals/auth/browser-passkey-registration-adapter";
 import type { PasskeyEnrollmentHandoff } from "#/verticals/auth/signup-email-verification-handoff";
@@ -25,7 +26,6 @@ type EnrollmentUiState =
   | { kind: "expired" }
   | { kind: "pending" }
   | { kind: "cancelled" }
-  | { kind: "verification_failed" }
   | { kind: "auth_required" }
   | { kind: "origin_forbidden" }
   | { kind: "conflict" }
@@ -47,12 +47,17 @@ export function PasskeyEnrollmentPage({
     new Date(handoff.expiresAt).getTime() <= Date.now() ? { kind: "expired" } : { kind: "ready" },
   );
 
-  const verifyMutation = useMutation({
+  const {
+    error: verifyError,
+    isPending: isVerificationPending,
+    mutateAsync: verifyRegistration,
+  } = useMutation({
     mutationKey: ["verifyPasskeyRegistration"],
     mutationFn: (input: Parameters<typeof verifyPasskeyRegistration>[1]) =>
       verifyPasskeyRegistration(apiTransport, input),
     retry: false,
   });
+  const isVerificationFailed = parsePasskeyRegistrationError(verifyError) === "PASSKEY_REGISTRATION_FAILED";
 
   useEffect(() => {
     if (uiState.kind !== "ready") {
@@ -71,10 +76,16 @@ export function PasskeyEnrollmentPage({
 
     setUiState({ kind: "pending" });
 
+    let createdCredential: { credentialId: string; rpId: string } | undefined;
+
     try {
       const options = await requestPasskeyRegistrationOptions(apiTransport);
       const credential = await browserRegistration.createPasskey(options);
-      const session = await verifyMutation.mutateAsync({
+      createdCredential = {
+        credentialId: credential.id,
+        rpId: options.rp?.id ?? window.location.hostname,
+      };
+      const session = await verifyRegistration({
         credential,
         rememberDevice,
       });
@@ -89,7 +100,10 @@ export function PasskeyEnrollmentPage({
       const code = parsePasskeyRegistrationError(error);
       switch (code) {
         case "PASSKEY_REGISTRATION_FAILED":
-          setUiState({ kind: "verification_failed" });
+          if (createdCredential) {
+            await signalUnknownPasskeyCredential(createdCredential);
+          }
+          setUiState({ kind: "ready" });
           return;
         case "ENROLLMENT_AUTHORIZATION_REQUIRED":
           setUiState({ kind: "auth_required" });
@@ -118,7 +132,7 @@ export function PasskeyEnrollmentPage({
     }
   }
 
-  const isPending = uiState.kind === "pending" || verifyMutation.isPending;
+  const isPending = uiState.kind === "pending" || isVerificationPending;
 
   return (
     <main className="auth-page-background flex min-h-dvh items-center justify-center px-gutter py-xl text-on-background">
@@ -174,7 +188,7 @@ export function PasskeyEnrollmentPage({
           </div>
         )}
 
-        {uiState.kind === "verification_failed" && (
+        {isVerificationFailed && (
           <div className="mt-lg space-y-md">
             <WarningBanner>Passkey verification failed. Start a fresh ceremony to try again.</WarningBanner>
             <Button className="w-full" disabled={isPending} onClick={() => void runCeremony()}>
@@ -210,7 +224,7 @@ export function PasskeyEnrollmentPage({
           </div>
         )}
 
-        {(uiState.kind === "ready" || uiState.kind === "pending") && (
+        {(uiState.kind === "ready" || uiState.kind === "pending") && !isVerificationFailed && (
           <div className="mt-xl space-y-lg">
             <label className="flex items-start gap-sm text-left text-sm text-on-surface-variant">
               <input
