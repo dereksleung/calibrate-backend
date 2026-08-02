@@ -43,6 +43,7 @@ export interface CompletePasskeyAuthenticationInput {
   now: Date;
   newCounter: number;
   backupState: boolean;
+  counterAnomaly: boolean;
   accessTokenDigest: string;
   refreshTokenDigest: string;
   accessInactivityExpiresAt: Date;

@@ -16,13 +16,19 @@ import {
   IPasskeyAuthenticationService,
   UnavailablePasskeyAuthenticationService,
 } from "@application/services/passkey-authentication-service.js";
-import { PasskeyAuthenticationRateLimitedError, PasskeyAuthenticationUnavailableError } from "@application/errors/passkey-authentication-errors.js";
+import {
+  PasskeyAuthenticationFailedError,
+  PasskeyAuthenticationRateLimitedError,
+  PasskeyAuthenticationStateConflictError,
+  PasskeyAuthenticationUnavailableError,
+} from "@application/errors/passkey-authentication-errors.js";
 import {
   AppPlatformHeaderValueSchema,
   AuthenticatedSessionResponse,
   LoginRequestBodySchema,
   PasskeyRegistrationErrorResponse,
   RequestSignupEmailVerificationRequestBodySchema,
+  VerifyPasskeyAuthenticationRequestBodySchema,
   VerifyPasskeyRegistrationRequestBodySchema,
   VerifySignupEmailVerificationRequestBodySchema,
   type LoginResponse,
@@ -77,6 +83,41 @@ export class AuthController {
         return;
       }
       res.status(500).json({ error: "PASSKEY_AUTHENTICATION_UNAVAILABLE" });
+    }
+  }
+
+  async verifyPasskeyAuthentication(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const origin = readRequestOrigin(req.get("Origin"));
+    if (!origin || origin !== getExpectedWebAuthnOrigin()) {
+      res.status(403).json({ error: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    if (!req.ip) {
+      res.status(503).json({ error: "PASSKEY_AUTHENTICATION_UNAVAILABLE" });
+      return;
+    }
+    const validatedBody = validate(VerifyPasskeyAuthenticationRequestBodySchema, req.body);
+    if (!validatedBody.isValid) {
+      res.status(400).json({ error: "PASSKEY_AUTHENTICATION_FAILED" });
+      return;
+    }
+    try {
+      const now = new Date();
+      const result = await this.passkeyAuthenticationService.verifyAuthentication({
+        origin,
+        requestingIp: req.ip,
+        credential: validatedBody.data.credential,
+        rememberDevice: validatedBody.data.rememberDevice,
+      });
+      this.setSessionCookies(res, result, now);
+      const response: AuthenticatedSessionResponse = {
+        user: UserResponseMapper.toResponse(result.user),
+        sessionTransport: "cookie",
+      };
+      res.status(200).json(response);
+    } catch (error) {
+      this.handlePasskeyAuthenticationError(res, error);
     }
   }
 
@@ -325,5 +366,51 @@ export class AuthController {
   private clearEnrollmentCookie(res: Response): void {
     const enrollmentCookie = getEnrollmentCookieConfiguration();
     res.clearCookie(enrollmentCookie.name, enrollmentCookie.options);
+  }
+
+  private setSessionCookies(
+    res: Response,
+    result: {
+      accessToken: string;
+      refreshToken: string;
+      rememberDevice: boolean;
+      accessInactivityExpiresAt: Date;
+      familyInactivityExpiresAt: Date;
+      familyAbsoluteExpiresAt: Date;
+    },
+    now: Date,
+  ): void {
+    const accessCookie = getAccessCookieConfiguration();
+    res.cookie(accessCookie.name, result.accessToken, {
+      ...accessCookie.options,
+      maxAge: getAccessCookieMaxAgeMs(result.accessInactivityExpiresAt, now),
+    });
+    const refreshCookie = getRefreshCookieConfiguration();
+    const refreshOptions = { ...refreshCookie.options };
+    if (result.rememberDevice) {
+      refreshOptions.maxAge = getRefreshCookieMaxAgeMs(
+        result.familyInactivityExpiresAt,
+        result.familyAbsoluteExpiresAt,
+        now,
+      );
+    }
+    res.cookie(refreshCookie.name, result.refreshToken, refreshOptions);
+  }
+
+  private handlePasskeyAuthenticationError(res: Response, error: unknown): void {
+    if (error instanceof PasskeyAuthenticationRateLimitedError) {
+      res.set("Retry-After", String(error.retryAfterSeconds));
+      res.status(429).json({ error: "PASSKEY_AUTHENTICATION_RATE_LIMITED" });
+      return;
+    }
+    if (error instanceof PasskeyAuthenticationStateConflictError) {
+      res.status(409).json({ error: "PASSKEY_AUTHENTICATION_STATE_CONFLICT" });
+      return;
+    }
+    if (error instanceof PasskeyAuthenticationFailedError) {
+      res.status(400).json({ error: "PASSKEY_AUTHENTICATION_FAILED" });
+      return;
+    }
+    res.status(503).json({ error: "PASSKEY_AUTHENTICATION_UNAVAILABLE" });
   }
 }

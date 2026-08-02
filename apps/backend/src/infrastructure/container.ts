@@ -200,6 +200,8 @@ export class Container {
       new PasskeyAuthenticationServiceImpl(
         new PostgresPasskeyAuthenticationRepository({ ipDigestKey: ipDigestKeyBytes }, databaseClient),
         new SimpleWebAuthnAuthenticationAdapter({ rpId: webAuthnRpId }),
+        new NodeOpaqueTokenService(),
+        this.userRepository,
         this.clock,
         { expectedOrigin: webAuthnOrigin },
       );

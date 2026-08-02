@@ -168,6 +168,17 @@ export class PostgresPasskeyAuthenticationRepository implements IPasskeyAuthenti
       await trx.insertInto("refresh_token_generations").values({ id: randomUUID(), family_id: familyId, generation: 0, token_digest: input.refreshTokenDigest, parent_generation_id: null, replacement_generation_id: null, created_at: input.now, expires_at: input.familyAbsoluteExpiresAt, consumed_at: null, revoked_at: null }).execute();
       await trx.insertInto("sessions").values({ id: randomUUID(), user_id: credential.user_id, token_digest: input.accessTokenDigest, transport: "cookie", mobile_platform: null, remembered_device_family_id: familyId, replaced_by_session_id: null, created_at: input.now, last_seen_at: input.now, inactivity_expires_at: input.accessInactivityExpiresAt, absolute_expires_at: input.accessAbsoluteExpiresAt, revoked_at: null, renewed_at: null }).execute();
       await trx.insertInto("security_events").values({ id: randomUUID(), user_id: credential.user_id, event_type: "family-created", created_at: input.now }).execute();
+      if (input.counterAnomaly) {
+        await trx
+          .insertInto("security_events")
+          .values({
+            id: randomUUID(),
+            user_id: credential.user_id,
+            event_type: "passkey-counter-anomaly",
+            created_at: input.now,
+          })
+          .execute();
+      }
       return { userId: credential.user_id };
     });
   }

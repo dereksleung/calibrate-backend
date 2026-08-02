@@ -241,6 +241,7 @@ describe("PostgresPasskeyAuthenticationRepository", () => {
         now,
         newCounter: 2,
         backupState: false,
+        counterAnomaly: false,
         accessTokenDigest: "access-digest",
         refreshTokenDigest: "refresh-digest",
         accessInactivityExpiresAt: new Date(now.getTime() + 30 * 60_000),

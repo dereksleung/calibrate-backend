@@ -5,6 +5,7 @@ import { ServiceUnavailableError } from "@application/errors/service-unavailable
 import { IAuthService } from "@application/services/auth-service.js";
 import { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
 import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
+import { IPasskeyAuthenticationService } from "@application/services/passkey-authentication-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
 import { User } from "@domain/entities/user.js";
 import { Request } from "express";
@@ -15,6 +16,7 @@ describe("AuthController", () => {
   let mockAuthService: MockedObject<IAuthService>;
   let mockSignupEmailVerificationService: MockedObject<ISignupEmailVerificationService>;
   let mockSignupPasskeyRegistrationService: MockedObject<ISignupPasskeyRegistrationService>;
+  let mockPasskeyAuthenticationService: MockedObject<IPasskeyAuthenticationService>;
 
   const user = User.reconstitute({
     id: "user-1",
@@ -35,10 +37,15 @@ describe("AuthController", () => {
       createRegistrationOptions: vi.fn(),
       verifyRegistration: vi.fn(),
     };
+    mockPasskeyAuthenticationService = {
+      createAuthenticationOptions: vi.fn(),
+      verifyAuthentication: vi.fn(),
+    };
     authController = new AuthController(
       mockAuthService,
       mockSignupEmailVerificationService,
       mockSignupPasskeyRegistrationService,
+      mockPasskeyAuthenticationService,
     );
   });
 
@@ -73,6 +80,80 @@ describe("AuthController", () => {
       expiresInSeconds: 600,
       resendAfterSeconds: 60,
     });
+  });
+
+  it("issues cookie-only credentials after a verified passkey assertion", async () => {
+    const passkeyUser = User.reconstitute({
+      id: "user-1",
+      email: "existing@example.com",
+      passwordHash: null,
+      emailVerifiedAt: new Date("2026-03-01T00:00:00.000Z"),
+      webauthnUserHandle: "user-handle",
+      tier: "FREE",
+      createdAt: new Date("2026-03-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-01T00:00:00.000Z"),
+    });
+    mockPasskeyAuthenticationService.verifyAuthentication.mockResolvedValue({
+      user: passkeyUser,
+      accessToken: "raw-access-token",
+      refreshToken: "raw-refresh-token",
+      rememberDevice: false,
+      accessInactivityExpiresAt: new Date(Date.now() + 30 * 60_000),
+      familyInactivityExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000),
+      familyAbsoluteExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60_000),
+    });
+    const req = {
+      body: {
+        credential: {
+          id: "credential-id",
+          rawId: "credential-id",
+          type: "public-key",
+          clientExtensionResults: {},
+          response: {
+            authenticatorData: "authenticator-data",
+            clientDataJSON: "client-data",
+            signature: "signature",
+            userHandle: "user-handle",
+          },
+        },
+        rememberDevice: false,
+      },
+      get: vi.fn((name: string) => (name === "Origin" ? "http://localhost:3000" : undefined)),
+      ip: "203.0.113.4",
+    } as unknown as Request;
+    const res = {
+      set: vi.fn(),
+      cookie: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
+
+    await authController.verifyPasskeyAuthentication(req, res);
+
+    expect(mockPasskeyAuthenticationService.verifyAuthentication).toHaveBeenCalledWith({
+      origin: "http://localhost:3000",
+      requestingIp: "203.0.113.4",
+      credential: req.body.credential,
+      rememberDevice: false,
+    });
+    expect(res.set).toHaveBeenCalledWith("Cache-Control", "no-store");
+    expect(res.cookie).toHaveBeenCalledWith(
+      "calibrate-access",
+      "raw-access-token",
+      expect.objectContaining({ httpOnly: true, sameSite: "lax", path: "/", maxAge: expect.any(Number) }),
+    );
+    expect(res.cookie).toHaveBeenCalledWith(
+      "calibrate-refresh",
+      "raw-refresh-token",
+      expect.objectContaining({ httpOnly: true, sameSite: "strict", path: "/api/v1/auth/session" }),
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      user: expect.objectContaining({ email: "existing@example.com" }),
+      sessionTransport: "cookie",
+    });
+    expect(JSON.stringify(res.json.mock.calls)).not.toContain("raw-access-token");
+    expect(JSON.stringify(res.json.mock.calls)).not.toContain("raw-refresh-token");
   });
 
   it("binds a recognized native platform to the request", async () => {
