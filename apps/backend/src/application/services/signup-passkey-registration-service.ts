@@ -22,12 +22,10 @@ import {
 import { User } from "@domain/entities/user.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
+import { calculateSessionLifetimes } from "./session-lifetime-calculator.js";
+
 const MAX_OPTIONS_REQUESTS = 5;
 const MAX_VERIFICATION_ATTEMPTS = 5;
-const ACCESS_INACTIVITY_MS = 30 * 60 * 1000;
-const ACCESS_ABSOLUTE_MS = 8 * 60 * 60 * 1000;
-const FAMILY_INACTIVITY_MS = 7 * 24 * 60 * 60 * 1000;
-const FAMILY_ABSOLUTE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface SignupPasskeyRegistrationServiceConfig {
   expectedOrigin: string;
@@ -170,12 +168,12 @@ export class SignupPasskeyRegistrationServiceImpl implements ISignupPasskeyRegis
 
     const accessToken = this.opaqueTokenService.create();
     const refreshToken = this.opaqueTokenService.create();
-    const familyInactivityExpiresAt = new Date(now.getTime() + FAMILY_INACTIVITY_MS);
-    const familyAbsoluteExpiresAt = new Date(now.getTime() + FAMILY_ABSOLUTE_MS);
-    const accessInactivityExpiresAt = new Date(now.getTime() + ACCESS_INACTIVITY_MS);
-    const accessAbsoluteExpiresAt = new Date(
-      Math.min(now.getTime() + ACCESS_ABSOLUTE_MS, familyAbsoluteExpiresAt.getTime()),
-    );
+    const {
+      accessInactivityExpiresAt,
+      accessAbsoluteExpiresAt,
+      familyInactivityExpiresAt,
+      familyAbsoluteExpiresAt,
+    } = calculateSessionLifetimes(now);
     const securityEventId = randomUUID();
 
     const user = User.createForPasskeySignup({
