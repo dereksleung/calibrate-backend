@@ -4,3 +4,10 @@ export class PasskeyAuthenticationRateLimitedError extends Error {
     this.name = "PasskeyAuthenticationRateLimitedError";
   }
 }
+
+export class PasskeyAuthenticationUnavailableError extends Error {
+  constructor() {
+    super("Passkey authentication unavailable");
+    this.name = "PasskeyAuthenticationUnavailableError";
+  }
+}

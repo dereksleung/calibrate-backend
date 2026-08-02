@@ -13,6 +13,11 @@ import { IAuthService } from "@application/services/auth-service.js";
 import { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
 import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import {
+  IPasskeyAuthenticationService,
+  UnavailablePasskeyAuthenticationService,
+} from "@application/services/passkey-authentication-service.js";
+import { PasskeyAuthenticationRateLimitedError, PasskeyAuthenticationUnavailableError } from "@application/errors/passkey-authentication-errors.js";
+import {
   AppPlatformHeaderValueSchema,
   AuthenticatedSessionResponse,
   LoginRequestBodySchema,
@@ -41,7 +46,39 @@ export class AuthController {
     private readonly authService: IAuthService,
     private readonly signupEmailVerificationService: ISignupEmailVerificationService,
     private readonly signupPasskeyRegistrationService: ISignupPasskeyRegistrationService,
+    private readonly passkeyAuthenticationService: IPasskeyAuthenticationService = new UnavailablePasskeyAuthenticationService(),
   ) {}
+
+  async createPasskeyAuthenticationOptions(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const origin = readRequestOrigin(req.get("Origin"));
+    if (!origin || origin !== getExpectedWebAuthnOrigin()) {
+      res.status(403).json({ error: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    if (!req.ip) {
+      res.status(503).json({ error: "PASSKEY_AUTHENTICATION_UNAVAILABLE" });
+      return;
+    }
+    try {
+      const result = await this.passkeyAuthenticationService.createAuthenticationOptions({
+        origin,
+        requestingIp: req.ip,
+      });
+      res.status(200).json({ options: result.options, expiresAt: result.expiresAt.toISOString() });
+    } catch (error) {
+      if (error instanceof PasskeyAuthenticationRateLimitedError) {
+        res.set("Retry-After", String(error.retryAfterSeconds));
+        res.status(429).json({ error: "PASSKEY_AUTHENTICATION_RATE_LIMITED" });
+        return;
+      }
+      if (error instanceof PasskeyAuthenticationUnavailableError) {
+        res.status(503).json({ error: "PASSKEY_AUTHENTICATION_UNAVAILABLE" });
+        return;
+      }
+      res.status(500).json({ error: "PASSKEY_AUTHENTICATION_UNAVAILABLE" });
+    }
+  }
 
   async requestSignupEmailVerification(req: Request, res: Response): Promise<void> {
     res.set("Cache-Control", "no-store");

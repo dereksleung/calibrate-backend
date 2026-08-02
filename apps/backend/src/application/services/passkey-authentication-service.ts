@@ -6,6 +6,7 @@ import type {
 } from "@application/ports/webauthn-authentication-port.js";
 
 import { OriginNotAllowedError } from "@application/errors/passkey-registration-errors.js";
+import { PasskeyAuthenticationUnavailableError } from "@application/errors/passkey-authentication-errors.js";
 import { createHash, randomBytes } from "node:crypto";
 
 const MAX_OPTIONS_REQUESTS_PER_IP = 40;
@@ -24,7 +25,7 @@ export interface CreatePasskeyAuthenticationOptionsInput {
 export interface IPasskeyAuthenticationService {
   createAuthenticationOptions(
     input: CreatePasskeyAuthenticationOptionsInput,
-  ): Promise<{ options: WebAuthnAuthenticationOptions }>;
+  ): Promise<{ options: WebAuthnAuthenticationOptions; expiresAt: Date }>;
 }
 
 export class PasskeyAuthenticationServiceImpl implements IPasskeyAuthenticationService {
@@ -37,7 +38,7 @@ export class PasskeyAuthenticationServiceImpl implements IPasskeyAuthenticationS
 
   async createAuthenticationOptions(
     input: CreatePasskeyAuthenticationOptionsInput,
-  ): Promise<{ options: WebAuthnAuthenticationOptions }> {
+  ): Promise<{ options: WebAuthnAuthenticationOptions; expiresAt: Date }> {
     if (input.origin !== this.config.expectedOrigin) {
       throw new OriginNotAllowedError();
     }
@@ -57,6 +58,13 @@ export class PasskeyAuthenticationServiceImpl implements IPasskeyAuthenticationS
       options: await this.webAuthnAuthentication.createAuthenticationOptions({
         rawChallenge: prepared.rawChallenge,
       }),
+      expiresAt: prepared.challengeExpiresAt,
     };
+  }
+}
+
+export class UnavailablePasskeyAuthenticationService implements IPasskeyAuthenticationService {
+  createAuthenticationOptions(): Promise<{ options: WebAuthnAuthenticationOptions; expiresAt: Date }> {
+    throw new PasskeyAuthenticationUnavailableError();
   }
 }

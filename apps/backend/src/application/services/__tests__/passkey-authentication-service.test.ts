@@ -82,6 +82,14 @@ describe("PasskeyAuthenticationServiceImpl", () => {
     expect(input?.rawChallenge).toHaveLength(43);
     expect(input?.challengeDigest).not.toBe(input?.rawChallenge);
     expect(webAuthn.createAuthenticationOptions).toHaveBeenCalledWith({ rawChallenge: input?.rawChallenge });
-    expect(result.options.timeout).toBe(300_000);
+    expect(result).toEqual({
+      options: {
+        challenge: input?.rawChallenge,
+        rpId: "localhost",
+        timeout: 300_000,
+        userVerification: "required",
+      },
+      expiresAt: new Date("2026-08-01T12:05:00.000Z"),
+    });
   });
 });

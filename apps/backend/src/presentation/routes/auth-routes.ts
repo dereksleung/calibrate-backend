@@ -16,6 +16,9 @@ export function createAuthRoutes(authController: AuthController): Router {
   router.post("/auth/passkeys/registration/verify", (req, res) =>
     authController.verifyPasskeyRegistration(req, res),
   );
+  router.post("/auth/passkeys/authentication/options", (req, res) =>
+    authController.createPasskeyAuthenticationOptions(req, res),
+  );
   router.post("/auth/login", (req, res) => authController.login(req, res));
   return router;
 }
