@@ -85,11 +85,13 @@ Use the repo commit message convention in `docs/agents/commit-messages.md`.
 - For every implementation subtask, create a dedicated subtask branch.
   - Default branch name: `codex/<story-slug>/<subtask-slug>`.
   - Branch from the story integration branch unless the subtask depends on another unmerged subtask; in that case, branch from the dependency subtask branch.
-- Treat each subtask as a hard workflow gate:
+- Treat each subtask as a quality and version-control checkpoint, not a conversational pause:
   - Implement only that subtask's logical change.
   - Run the smallest relevant verification for that subtask.
   - Commit before starting the next subtask.
   - Do not let unrelated or future-subtask changes accumulate in the same commit.
+  - Unless blocked or the user asks to stop, continue immediately with the next planned subtask after
+    the checkpoint; do not wait for additional confirmation.
 - Open pull requests back to the story integration feature branch at these gates:
   - Immediately after any `api-contracts` subtask finishes.
   - After all backend subtasks for the story finish.
