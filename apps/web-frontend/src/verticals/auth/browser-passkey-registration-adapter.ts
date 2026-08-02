@@ -27,7 +27,7 @@ export function createBrowserPasskeyRegistrationAdapter(): BrowserPasskeyRegistr
   };
 }
 
-export async function signalUnknownPasskeyCredential({
+export async function showPlatformUiForClientPasskeyFailedToRegisterOnServer({
   credentialId,
   rpId,
 }: {
