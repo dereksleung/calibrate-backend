@@ -11,3 +11,10 @@ export class PasskeyAuthenticationUnavailableError extends Error {
     this.name = "PasskeyAuthenticationUnavailableError";
   }
 }
+
+export class PasskeyAuthenticationFailedError extends Error {
+  constructor() {
+    super("Passkey authentication failed");
+    this.name = "PasskeyAuthenticationFailedError";
+  }
+}

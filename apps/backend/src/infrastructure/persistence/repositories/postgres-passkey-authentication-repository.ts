@@ -4,6 +4,7 @@ import {
   PASSKEY_AUTHENTICATION_VERIFICATION_RATE_LIMIT_SCOPE,
   PASSKEY_LOGIN_PURPOSE,
   type ConsumePasskeyAuthenticationVerificationRateLimitInput,
+  type ActivePasskeyAuthenticationCredential,
   type IPasskeyAuthenticationRepository,
   type PreparedPasskeyAuthentication,
   type PreparePasskeyAuthenticationInput,
@@ -75,6 +76,61 @@ export class PostgresPasskeyAuthenticationRepository implements IPasskeyAuthenti
         globalHourlyLimit: input.globalHourlyLimit,
       });
     });
+  }
+
+  async findActiveCredential(input: {
+    credentialId: string;
+    challengeDigest: string;
+    now: Date;
+  }): Promise<ActivePasskeyAuthenticationCredential | null> {
+    const row = await this.databaseClient
+      .selectFrom("webauthn_challenges as challenge")
+      .innerJoin("passkey_credentials as credential", (join) =>
+        join.on("credential.credential_id", "=", sql.lit(input.credentialId)),
+      )
+      .innerJoin("users as user", "user.id", "credential.user_id")
+      .select([
+        "challenge.id as challenge_id",
+        "user.webauthn_user_handle",
+        "credential.credential_id",
+        "credential.public_key",
+        "credential.signature_counter",
+        "credential.transports",
+        "credential.backup_eligible",
+        "credential.backup_state",
+      ])
+      .where("challenge.challenge_digest", "=", input.challengeDigest)
+      .where("challenge.purpose", "=", PASSKEY_LOGIN_PURPOSE)
+      .where("challenge.consumed_at", "is", null)
+      .where("challenge.invalidated_at", "is", null)
+      .where("challenge.expires_at", ">", input.now)
+      .whereRef("challenge.attempt_count", "<", "challenge.max_attempts")
+      .where("credential.revoked_at", "is", null)
+      .executeTakeFirst();
+    if (!row?.webauthn_user_handle) return null;
+    return {
+      challengeId: row.challenge_id,
+      userHandle: row.webauthn_user_handle,
+      credentialId: row.credential_id,
+      publicKey: new Uint8Array(row.public_key),
+      signatureCounter: Number(row.signature_counter),
+      transports: row.transports,
+      backupEligible: row.backup_eligible,
+      backupState: row.backup_state,
+    };
+  }
+
+  async recordFailedVerificationAttempt(input: { challengeId: string; now: Date }): Promise<void> {
+    await this.databaseClient
+      .updateTable("webauthn_challenges")
+      .set((eb) => ({ attempt_count: eb("attempt_count", "+", 1) }))
+      .where("id", "=", input.challengeId)
+      .where("purpose", "=", PASSKEY_LOGIN_PURPOSE)
+      .where("consumed_at", "is", null)
+      .where("invalidated_at", "is", null)
+      .where("expires_at", ">", input.now)
+      .whereRef("attempt_count", "<", "max_attempts")
+      .execute();
   }
 
   private async configureTransaction(trx: Transaction<DatabaseSchema>): Promise<void> {

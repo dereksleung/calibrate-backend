@@ -26,8 +26,27 @@ export interface ConsumePasskeyAuthenticationVerificationRateLimitInput {
   globalHourlyLimit: number;
 }
 
+export interface ActivePasskeyAuthenticationCredential {
+  challengeId: string;
+  userHandle: string;
+  credentialId: string;
+  publicKey: Uint8Array;
+  signatureCounter: number;
+  transports: string[];
+  backupEligible: boolean;
+  backupState: boolean;
+}
+
 export interface IPasskeyAuthenticationRepository {
   prepareAuthentication(input: PreparePasskeyAuthenticationInput): Promise<PreparedPasskeyAuthentication>;
 
   consumeVerificationRateLimit(input: ConsumePasskeyAuthenticationVerificationRateLimitInput): Promise<void>;
+
+  findActiveCredential(input: {
+    credentialId: string;
+    challengeDigest: string;
+    now: Date;
+  }): Promise<ActivePasskeyAuthenticationCredential | null>;
+
+  recordFailedVerificationAttempt(input: { challengeId: string; now: Date }): Promise<void>;
 }

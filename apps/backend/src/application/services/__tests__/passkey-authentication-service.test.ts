@@ -17,6 +17,8 @@ function createService(
   const repository: IPasskeyAuthenticationRepository = {
     prepareAuthentication: vi.fn(),
     consumeVerificationRateLimit: vi.fn(),
+    findActiveCredential: vi.fn(),
+    recordFailedVerificationAttempt: vi.fn(),
     ...overrides.repository,
   };
   const webAuthn: IWebAuthnAuthenticationPort = {
@@ -38,6 +40,44 @@ function createService(
 }
 
 describe("PasskeyAuthenticationServiceImpl", () => {
+  it("rejects a missing user handle without calling the WebAuthn verifier", async () => {
+    const challenge = "challenge";
+    const { service, repository, webAuthn } = createService({
+      repository: {
+        findActiveCredential: vi.fn().mockResolvedValue({
+          challengeId: "challenge-id",
+          userHandle: "user-handle",
+          credentialId: "credential-id",
+          publicKey: new Uint8Array([1]),
+          signatureCounter: 0,
+          transports: [],
+          backupEligible: false,
+          backupState: false,
+        }),
+      },
+    });
+    const credential = {
+      id: "credential-id",
+      rawId: "credential-id",
+      type: "public-key" as const,
+      clientExtensionResults: {},
+      response: {
+        authenticatorData: "data",
+        clientDataJSON: Buffer.from(JSON.stringify({ challenge })).toString("base64url"),
+        signature: "signature",
+      },
+    };
+
+    await expect(
+      service.verifyAuthentication({ origin: expectedOrigin, requestingIp: "203.0.113.4", credential }),
+    ).rejects.toMatchObject({ name: "PasskeyAuthenticationFailedError" });
+    expect(repository.recordFailedVerificationAttempt).toHaveBeenCalledWith({
+      challengeId: "challenge-id",
+      now,
+    });
+    expect(webAuthn.verifyAuthenticationResponse).not.toHaveBeenCalled();
+  });
+
   it("rejects an unexpected origin before creating ceremony state", async () => {
     const { service, repository } = createService();
 
