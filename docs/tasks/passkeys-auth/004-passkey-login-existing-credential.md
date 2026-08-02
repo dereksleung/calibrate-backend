@@ -165,16 +165,20 @@ Create story integration branch:
 codex/passkey-login-existing-passkey
 ```
 
-Each task uses a dedicated sequential subtask branch and focused commit. Inspect the diff before
-every commit, branch switch, or PR.
+### Continuous vertical-slice execution
+
+Implement Tasks 1–7 continuously on the story branch (or its current working branch) in the
+listed order. The task headings are verification and rollback checkpoints, not handoff or pause
+points: after a focused test and commit, immediately begin the next unfinished task without
+waiting for user confirmation. Keep commits focused and inspect their diffs, but do not create or
+switch branches between these tasks unless an external merge or conflict makes that necessary.
+
+Open PRs only at the API-contracts and combined-backend/frontend gates identified below. A commit
+or PR is not permission to pause the implementation run.
 
 ### Task 1: Shared passkey-authentication contracts
 
-Branch:
-
-```text
-codex/passkey-login-existing-passkey/api-contracts
-```
+Checkpoint: API contracts.
 
 Implement:
 
@@ -213,11 +217,7 @@ Commit and immediately open the API-contracts PR to the story branch.
 
 ### Task 2: Challenge and shared-rate-limit persistence
 
-Branch from the merged contract story branch:
-
-```text
-codex/passkey-login-existing-passkey/backend-persistence
-```
+Checkpoint: backend persistence.
 
 Implement:
 
@@ -262,11 +262,7 @@ npx nx run backend:typecheck
 
 ### Task 3: Authentication service and SimpleWebAuthn adapter
 
-Branch from Task 2:
-
-```text
-codex/passkey-login-existing-passkey/backend-webauthn
-```
+Checkpoint: WebAuthn service and adapter.
 
 Implement:
 
@@ -312,11 +308,7 @@ npx nx run backend:typecheck
 
 ### Task 4: Atomic login completion and HTTP endpoints
 
-Branch from Task 3:
-
-```text
-codex/passkey-login-existing-passkey/backend-http
-```
+Checkpoint: backend HTTP surface.
 
 Implement:
 
@@ -377,11 +369,7 @@ Open the combined backend PR to the story branch after these checks pass.
 
 ### Task 5: API-client authentication mutations
 
-Branch from the story branch after backend merge:
-
-```text
-codex/passkey-login-existing-passkey/api-client
-```
+Checkpoint: API client.
 
 Implement:
 
@@ -418,11 +406,7 @@ npx nx run @calibrate/api-client:test
 
 ### Task 6: Conditional and explicit browser login
 
-Branch from Task 5:
-
-```text
-codex/passkey-login-existing-passkey/web-passkey-login
-```
+Checkpoint: web login.
 
 Implement:
 
@@ -481,11 +465,7 @@ npx nx run web:typecheck
 
 ### Task 7: Full vertical verification and documentation
 
-Branch from Task 6:
-
-```text
-codex/passkey-login-existing-passkey/vertical-integration
-```
+Checkpoint: vertical integration and documentation.
 
 Implement:
 
