@@ -149,12 +149,16 @@ export class AuthController {
     }
 
     try {
-      const response: RequestSignupEmailVerificationResponse =
-        await this.signupEmailVerificationService.request({
-          email: validatedBody.data.email,
-          platform: validatedPlatform.data,
-          requestingIp: req.ip,
-        });
+      const result = await this.signupEmailVerificationService.request({
+        email: validatedBody.data.email,
+        platform: validatedPlatform.data,
+        requestingIp: req.ip,
+      });
+      const response: RequestSignupEmailVerificationResponse = {
+        challengeId: result.challengeId,
+        expiresInSeconds: result.expiresInSeconds,
+        resendAfterSeconds: result.resendAfterSeconds,
+      };
       res.status(202).json(response);
     } catch (error) {
       if (error instanceof RateLimitError) {

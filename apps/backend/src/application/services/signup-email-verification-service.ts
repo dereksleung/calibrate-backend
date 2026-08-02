@@ -1,9 +1,4 @@
-import type {
-  AppPlatformHeaderValue,
-  RequestSignupEmailVerificationResponse,
-  SessionTransport,
-} from "@calibrate/api-contracts";
-
+import type { MobilePlatform, SessionTransport } from "@application/auth/session-client.js";
 import { InvalidEmailVerificationCodeError } from "@application/errors/invalid-email-verification-code-error.js";
 import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
 import { IClock } from "@application/ports/clock.js";
@@ -21,14 +16,21 @@ const ENROLLMENT_LIFETIME_SECONDS = 5 * 60;
 
 export interface RequestSignupEmailVerificationProps {
   email: string;
-  platform: AppPlatformHeaderValue | null;
+  platform: MobilePlatform | null;
   requestingIp: string;
 }
 
 export interface VerifySignupEmailVerificationProps {
   challengeId: string;
   code: string;
-  platform: AppPlatformHeaderValue | null;
+  platform: MobilePlatform | null;
+}
+
+/** Public metadata for a newly created signup email-verification challenge. */
+export interface SignupEmailVerificationChallenge {
+  challengeId: string;
+  expiresInSeconds: number;
+  resendAfterSeconds: number;
 }
 
 export interface VerifySignupEmailVerificationResult {
@@ -37,12 +39,12 @@ export interface VerifySignupEmailVerificationResult {
 }
 
 export interface ISignupEmailVerificationService {
-  request(props: RequestSignupEmailVerificationProps): Promise<RequestSignupEmailVerificationResponse>;
+  request(props: RequestSignupEmailVerificationProps): Promise<SignupEmailVerificationChallenge>;
   verify(props: VerifySignupEmailVerificationProps): Promise<VerifySignupEmailVerificationResult>;
 }
 
 export class UnavailableSignupEmailVerificationService implements ISignupEmailVerificationService {
-  request(): Promise<RequestSignupEmailVerificationResponse> {
+  request(): Promise<SignupEmailVerificationChallenge> {
     throw new ServiceUnavailableError("Email verification is temporarily unavailable");
   }
 
@@ -61,7 +63,7 @@ export class SignupEmailVerificationServiceImpl implements ISignupEmailVerificat
     private readonly clock: IClock,
   ) {}
 
-  async request(props: RequestSignupEmailVerificationProps): Promise<RequestSignupEmailVerificationResponse> {
+  async request(props: RequestSignupEmailVerificationProps): Promise<SignupEmailVerificationChallenge> {
     const email = props.email.trim().toLowerCase();
     const createdAt = this.clock.now();
     const expiresAt = new Date(createdAt.getTime() + CHALLENGE_LIFETIME_SECONDS * 1000);
