@@ -182,4 +182,78 @@ describe("PostgresPasskeyAuthenticationRepository", () => {
         .executeTakeFirst(),
     ).resolves.toBeUndefined();
   });
+
+  it("atomically consumes a login challenge and creates a new cookie session family", async () => {
+    const userId = randomUUID();
+    const credentialId = "credential-id";
+    const challenge = randomBytes(32).toString("base64url");
+    await databaseClient
+      .insertInto("users")
+      .values({
+        id: userId,
+        email: "person@example.com",
+        password_hash: null,
+        email_verified_at: now,
+        webauthn_user_handle: "user-handle",
+        tier: "FREE",
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      })
+      .execute();
+    await databaseClient
+      .insertInto("passkey_credentials")
+      .values({
+        id: randomUUID(),
+        user_id: userId,
+        credential_id: credentialId,
+        public_key: Buffer.from([1]),
+        algorithm: -7,
+        transports: ["internal"],
+        signature_counter: BigInt(1),
+        aaguid: "00000000-0000-0000-0000-000000000000",
+        backup_eligible: false,
+        backup_state: false,
+        created_at: now,
+        last_used_at: null,
+        revoked_at: null,
+      })
+      .execute();
+    await databaseClient
+      .insertInto("webauthn_challenges")
+      .values({
+        id: randomUUID(),
+        enrollment_authorization_id: null,
+        purpose: "passkey-login",
+        challenge_digest: digest(challenge),
+        attempt_count: 0,
+        max_attempts: 5,
+        created_at: now,
+        expires_at: new Date(now.getTime() + 60_000),
+        consumed_at: null,
+        invalidated_at: null,
+      })
+      .execute();
+
+    await expect(
+      repository.completeAuthentication({
+        challengeDigest: digest(challenge),
+        credentialId,
+        now,
+        newCounter: 2,
+        backupState: false,
+        accessTokenDigest: "access-digest",
+        refreshTokenDigest: "refresh-digest",
+        accessInactivityExpiresAt: new Date(now.getTime() + 30 * 60_000),
+        accessAbsoluteExpiresAt: new Date(now.getTime() + 8 * 60 * 60_000),
+        familyInactivityExpiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60_000),
+        familyAbsoluteExpiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60_000),
+      }),
+    ).resolves.toEqual({ userId });
+    await expect(
+      databaseClient.selectFrom("security_events").select("event_type").execute(),
+    ).resolves.toEqual([{ event_type: "family-created" }]);
+    await expect(
+      databaseClient.selectFrom("sessions").select("token_digest").executeTakeFirstOrThrow(),
+    ).resolves.toMatchObject({ token_digest: "access-digest" });
+  });
 });
