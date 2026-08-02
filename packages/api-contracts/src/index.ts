@@ -2,6 +2,8 @@ export * from "./auth-requests.js";
 export * from "./auth-responses.js";
 export * from "./passkey-registration-requests.js";
 export * from "./passkey-registration-responses.js";
+export * from "./passkey-authentication-requests.js";
+export * from "./passkey-authentication-responses.js";
 export * from "./common/food-entry-base.js";
 export * from "./day-log-requests.js";
 export * from "./day-log-responses.js";
