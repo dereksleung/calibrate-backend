@@ -84,7 +84,7 @@ export function PasskeyEnrollmentPage({
   useEffect(() => {
     if (uiState.kind !== "PASSKEY_REGISTRATION_RATE_LIMITED") return;
 
-    const timer = window.setTimeout(() => {
+    const interval = window.setInterval(() => {
       setUiState((current) => {
         if (current.kind !== "PASSKEY_REGISTRATION_RATE_LIMITED") return current;
         return current.retryAfterSeconds > 1
@@ -93,8 +93,8 @@ export function PasskeyEnrollmentPage({
       });
     }, 1_000);
 
-    return () => window.clearTimeout(timer);
-  }, [uiState]);
+    return () => window.clearInterval(interval);
+  }, [uiState.kind]);
 
   async function runCeremony() {
     // Process restarted, so error state is no longer relevant.

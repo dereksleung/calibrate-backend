@@ -162,7 +162,7 @@ function PasskeyLogin() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const startedConditional = useRef(false);
-  
+
   // Keep the requests for passkey authentication options obviously outside the react-query lifecycle
   // as each request issues a fresh challenge, and the backend rate-limits these requests.
   const activeOptionsResponse = useRef<
@@ -173,14 +173,15 @@ function PasskeyLogin() {
   const [state, setState] = useState<"ready" | "pending" | "unavailable" | "failed">("ready");
   const [error, setError] = useState<string>();
   const [retryAfterSeconds, setRetryAfterSeconds] = useState(0);
+  const isRateLimited = retryAfterSeconds > 0;
 
   useEffect(() => {
-    if (retryAfterSeconds <= 0) return;
-    const timer = window.setTimeout(() => {
+    if (!isRateLimited) return;
+    const interval = window.setInterval(() => {
       setRetryAfterSeconds((seconds) => Math.max(0, seconds - 1));
     }, 1_000);
-    return () => window.clearTimeout(timer);
-  }, [retryAfterSeconds]);
+    return () => window.clearInterval(interval);
+  }, [isRateLimited]);
 
   function showRateLimitError(caught: unknown) {
     const seconds =
@@ -291,7 +292,7 @@ function PasskeyLogin() {
         disabled={
           state === "pending" ||
           state === "unavailable" ||
-          retryAfterSeconds > 0 ||
+          isRateLimited ||
           !isBrowserPasskeyAuthenticationSupported()
         }
         type="button"
@@ -299,7 +300,7 @@ function PasskeyLogin() {
       >
         {state === "pending"
           ? "Waiting for your passkey…"
-          : retryAfterSeconds > 0
+          : isRateLimited
             ? `Try again in ${retryAfterSeconds} ${retryAfterSeconds === 1 ? "second" : "seconds"}`
             : "Log in with passkey"}
       </Button>
