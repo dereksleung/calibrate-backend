@@ -203,6 +203,7 @@ function PasskeyLogin() {
     void (async () => {
       if (!(await isConditionalPasskeyAuthenticationSupported()) || !active) return;
       try {
+        setState("pending");
         const options = await requestPasskeyAuthenticationOptions(apiTransport);
         if (!active) return;
         cachedOptions.current = options;
