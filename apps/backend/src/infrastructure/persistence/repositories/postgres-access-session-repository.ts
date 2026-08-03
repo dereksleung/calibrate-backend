@@ -60,6 +60,7 @@ export class PostgresAccessSessionRepository implements IRefreshSessionRepositor
         .where("family.revoked_at", "is", null)
         .where("family.inactivity_expires_at", ">", input.now)
         .where("family.absolute_expires_at", ">", input.now)
+        .whereRef("generation.generation", "=", "family.current_refresh_generation")
         .forUpdate()
         .executeTakeFirst();
       if (!generation) return null;
