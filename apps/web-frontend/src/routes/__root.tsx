@@ -8,6 +8,7 @@ import Footer from '#/shared/components/Footer.tsx';
 import { TooltipProvider } from '#/shared/components/base/tooltip/Tooltip.tsx';
 import { Toaster } from '#/shared/components/base/Toast.tsx';
 import { useIsMobile } from '#/shared/hooks/use-media-query.ts';
+import { SessionRestorationGate } from '#/verticals/auth/session-restoration-gate.tsx';
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -35,7 +36,7 @@ function RootComponent() {
       state.location.pathname === '/auth/passkey-enrollment',
   });
 
-  return (
+  const content = (
     <TooltipProvider>
       <div className={isAuthRoute ? 'min-h-dvh' : 'h-dvh'}>
         {/* pb-18 clears the mobile bottom nav bar */}
@@ -58,5 +59,7 @@ function RootComponent() {
         ]}
       />
     </TooltipProvider>
-  )
+  );
+
+  return isAuthRoute ? content : <SessionRestorationGate>{content}</SessionRestorationGate>;
 }

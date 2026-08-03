@@ -16,6 +16,7 @@ import {
 import { RateLimitError } from "@application/errors/rate-limit-error.js";
 import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
 import { IAuthService } from "@application/services/auth-service.js";
+import { ISessionRestorationService } from "@application/services/session-restoration-service.js";
 import {
   IPasskeyAuthenticationService,
   UnavailablePasskeyAuthenticationService,
@@ -53,7 +54,50 @@ export class AuthController {
     private readonly signupEmailVerificationService: ISignupEmailVerificationService,
     private readonly signupPasskeyRegistrationService: ISignupPasskeyRegistrationService,
     private readonly passkeyAuthenticationService: IPasskeyAuthenticationService = new UnavailablePasskeyAuthenticationService(),
+    private readonly sessionRestorationService?: ISessionRestorationService,
   ) {}
+
+  async getCurrentSession(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const accessCookie = getAccessCookieConfiguration();
+    const token = extractCookieValue(req.get("Cookie"), accessCookie.name);
+    if (!token || !this.sessionRestorationService) {
+      res.status(401).json({ error: "ACCESS_SESSION_REQUIRED" });
+      return;
+    }
+    const user = await this.sessionRestorationService.getCurrentSession(token);
+    if (!user) {
+      res.status(401).json({ error: "ACCESS_SESSION_REQUIRED" });
+      return;
+    }
+    res.status(200).json({ user: UserResponseMapper.toResponse(user), sessionTransport: "cookie" });
+  }
+
+  async refreshSession(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const origin = readRequestOrigin(req.get("Origin"));
+    if (!origin || origin !== getExpectedWebAuthnOrigin()) {
+      res.status(403).json({ error: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    const refreshCookie = getRefreshCookieConfiguration();
+    const token = extractCookieValue(req.get("Cookie"), refreshCookie.name);
+    if (!token || !this.sessionRestorationService) {
+      res.status(401).json({ error: "REFRESH_SESSION_REQUIRED" });
+      return;
+    }
+    try {
+      const result = await this.sessionRestorationService.refresh(token);
+      if (!result) {
+        res.status(401).json({ error: "REFRESH_SESSION_REQUIRED" });
+        return;
+      }
+      this.setSessionCookies(res, { ...result, rememberDevice: true }, new Date());
+      res.status(200).json({ user: UserResponseMapper.toResponse(result.user), sessionTransport: "cookie" });
+    } catch {
+      res.status(503).json({ error: "SESSION_UNAVAILABLE" });
+    }
+  }
 
   async createPasskeyAuthenticationOptions(req: Request, res: Response): Promise<void> {
     res.set("Cache-Control", "no-store");

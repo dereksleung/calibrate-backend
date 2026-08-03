@@ -1,4 +1,4 @@
-import { IAccessSessionRepository } from "@application/ports/access-session-repository.js";
+import { IAccessSessionRepository, IRefreshSessionRepository } from "@application/ports/access-session-repository.js";
 import { IAccessTokenService } from "@application/ports/access-token-service.js";
 import { IClock, SystemClock } from "@application/ports/clock.js";
 import { IDayLogRepository } from "@application/ports/day-log-repository.js";
@@ -7,6 +7,7 @@ import { IEmailSender } from "@application/ports/email-sender.js";
 import { IPasswordHasher } from "@application/ports/password-hasher.js";
 import { IUserRepository } from "@application/ports/user-repository.js";
 import { IAuthService, AuthServiceImpl } from "@application/services/auth-service.js";
+import { ISessionRestorationService, SessionRestorationServiceImpl } from "@application/services/session-restoration-service.js";
 import { IDayLogService, DayLogServiceImpl } from "@application/services/day-log-service.js";
 import {
   IPasskeyAuthenticationService,
@@ -91,7 +92,7 @@ const webAuthnOrigin = dotenvx.get("WEBAUTHN_ORIGIN") ?? "http://localhost:3000"
 const webAuthnRpName = dotenvx.get("WEBAUTHN_RP_NAME") ?? "Calibrate";
 
 export class Container {
-  private readonly accessSessionRepository: IAccessSessionRepository;
+  private readonly accessSessionRepository: IRefreshSessionRepository;
   private readonly accessTokenService: IAccessTokenService;
   private readonly authController: AuthController;
   private readonly authService: IAuthService;
@@ -100,6 +101,7 @@ export class Container {
   private readonly signupEmailVerificationService: ISignupEmailVerificationService;
   private readonly signupPasskeyRegistrationService: ISignupPasskeyRegistrationService;
   private readonly passkeyAuthenticationService: IPasskeyAuthenticationService;
+  private readonly sessionRestorationService: ISessionRestorationService;
   private readonly dayLogRepository: IDayLogRepository;
   private readonly dayLogService: IDayLogService;
   private readonly dayLogController: DayLogController;
@@ -206,6 +208,13 @@ export class Container {
         { expectedOrigin: webAuthnOrigin },
       );
 
+    this.sessionRestorationService = new SessionRestorationServiceImpl(
+      this.accessSessionRepository,
+      new NodeOpaqueTokenService(),
+      this.userRepository,
+      this.clock,
+    );
+
     this.authController =
       authController ??
       new AuthController(
@@ -213,6 +222,7 @@ export class Container {
         this.signupEmailVerificationService,
         this.signupPasskeyRegistrationService,
         this.passkeyAuthenticationService,
+        this.sessionRestorationService,
       );
     this.userService = userService ?? new UserServiceImpl(this.passwordHasher, this.userRepository);
     this.userController = userController ?? new UserController(this.userService);
