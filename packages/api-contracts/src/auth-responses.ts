@@ -28,6 +28,14 @@ export const AuthenticatedSessionResponseSchema = z
   })
   .strict();
 
+export const AccessSessionRequiredErrorResponseSchema = z
+  .object({ error: z.literal("ACCESS_SESSION_REQUIRED") })
+  .strict();
+
+export const RefreshSessionRequiredErrorResponseSchema = z
+  .object({ error: z.literal("REFRESH_SESSION_REQUIRED") })
+  .strict();
+
 export type SessionTransport = z.infer<typeof SessionTransportSchema>;
 export type RequestSignupEmailVerificationResponse = z.infer<
   typeof RequestSignupEmailVerificationResponseSchema
@@ -36,6 +44,8 @@ export type VerifySignupEmailVerificationResponse = z.infer<
   typeof VerifySignupEmailVerificationResponseSchema
 >;
 export type AuthenticatedSessionResponse = z.infer<typeof AuthenticatedSessionResponseSchema>;
+export type AccessSessionRequiredErrorResponse = z.infer<typeof AccessSessionRequiredErrorResponseSchema>;
+export type RefreshSessionRequiredErrorResponse = z.infer<typeof RefreshSessionRequiredErrorResponseSchema>;
 
 /** @deprecated Use AuthenticatedSessionResponse or the forthcoming passkey contracts. */
 export interface LoginResponse {

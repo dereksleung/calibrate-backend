@@ -4,3 +4,4 @@ export * from "./transport.js";
 export * from "./auth/signup-email-verification.js";
 export * from "./auth/signup-passkey-registration.js";
 export * from "./auth/passkey-authentication.js";
+export * from "./auth/session.js";

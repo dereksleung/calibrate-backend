@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   AppPlatformHeaderValueSchema,
+  AccessSessionRequiredErrorResponseSchema,
   AuthenticatedSessionResponseSchema,
+  RefreshSessionRequiredErrorResponseSchema,
   RequestSignupEmailVerificationRequestBodySchema,
   RequestSignupEmailVerificationResponseSchema,
   VerifySignupEmailVerificationRequestBodySchema,
@@ -126,5 +128,18 @@ describe("authenticated session response contract", () => {
     expect(bearerSession.sessionTransport).toBe("bearer");
     expect(cookieSession).not.toHaveProperty("sessionToken");
     expect(bearerSession).not.toHaveProperty("sessionToken");
+  });
+});
+
+describe("session restoration errors", () => {
+  it("exposes only stable unauthenticated states", () => {
+    expect(AccessSessionRequiredErrorResponseSchema.parse({ error: "ACCESS_SESSION_REQUIRED" })).toEqual({
+      error: "ACCESS_SESSION_REQUIRED",
+    });
+    expect(RefreshSessionRequiredErrorResponseSchema.parse({ error: "REFRESH_SESSION_REQUIRED" })).toEqual({
+      error: "REFRESH_SESSION_REQUIRED",
+    });
+    expect(() => AccessSessionRequiredErrorResponseSchema.parse({ error: "expired" })).toThrow();
+    expect(() => RefreshSessionRequiredErrorResponseSchema.parse({ error: "REFRESH_SESSION_REQUIRED", token: "x" })).toThrow();
   });
 });
