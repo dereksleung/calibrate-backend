@@ -1,42 +1,40 @@
 import type {
-  AuthenticationResponseJSON,
   PasskeyAuthenticationOptionsResponse,
 } from "@calibrate/api-contracts";
 import {
   startAuthentication,
   WebAuthnAbortService,
   type PublicKeyCredentialRequestOptionsJSON,
+  type AuthenticationResponseJSON,
+  browserSupportsWebAuthn,
+  browserSupportsWebAuthnAutofill,
 } from "@simplewebauthn/browser";
 
-export interface BrowserPasskeyAuthenticationAdapter {
-  authenticate(
-    options: PasskeyAuthenticationOptionsResponse["options"],
-    mode: "conditional" | "explicit",
-  ): Promise<AuthenticationResponseJSON>;
-  cancel(): void;
+export {
+  type PublicKeyCredentialRequestOptionsJSON,
+  type AuthenticationResponseJSON,
 }
 
 export function isBrowserPasskeyAuthenticationSupported(): boolean {
-  return typeof window !== "undefined" && typeof window.PublicKeyCredential !== "undefined";
+  return browserSupportsWebAuthn();
 }
 
 export async function isConditionalPasskeyAuthenticationSupported(): Promise<boolean> {
-  if (!isBrowserPasskeyAuthenticationSupported()) return false;
-  return window.PublicKeyCredential.isConditionalMediationAvailable?.() ?? false;
+  return await browserSupportsWebAuthnAutofill();
 }
 
-export function createBrowserPasskeyAuthenticationAdapter(): BrowserPasskeyAuthenticationAdapter {
-  return {
-    async authenticate(options, mode) {
-      return startAuthentication({
-        optionsJSON: options as PublicKeyCredentialRequestOptionsJSON,
-        useBrowserAutofill: mode === "conditional",
-      }) as Promise<AuthenticationResponseJSON>;
-    },
-    cancel() {
-      WebAuthnAbortService.cancelCeremony();
-    },
-  };
+export function startPasskeyAuthentication(
+  options: PasskeyAuthenticationOptionsResponse["options"],
+  mode: "conditional" | "explicit",
+): Promise<AuthenticationResponseJSON> {
+  return startAuthentication({
+    optionsJSON: options as PublicKeyCredentialRequestOptionsJSON,
+    useBrowserAutofill: mode === "conditional",
+  }) as Promise<AuthenticationResponseJSON>;
+}
+
+export function cancelPasskeyAuthentication(): void {
+  WebAuthnAbortService.cancelCeremony();
 }
 
 export function isPasskeyAuthenticationCancellation(error: unknown): boolean {

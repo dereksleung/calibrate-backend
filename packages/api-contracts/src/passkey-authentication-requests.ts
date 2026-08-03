@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+const CredentialPropertiesOutputSchema = z
+  .object({
+    rk: z.boolean().optional(),
+  })
+  .strict();
+
+export const AuthenticationExtensionsClientOutputsSchema = z
+  .object({
+    appid: z.boolean().optional(),
+    credProps: CredentialPropertiesOutputSchema.optional(),
+    hmacCreateSecret: z.boolean().optional(),
+  })
+  .strict();
+
 export const AuthenticatorAssertionResponseJSONSchema = z
   .object({
     authenticatorData: z.base64url(),
@@ -15,7 +29,7 @@ export const AuthenticationResponseJSONSchema = z
     rawId: z.base64url(),
     response: AuthenticatorAssertionResponseJSONSchema,
     authenticatorAttachment: z.enum(["platform", "cross-platform"]).optional(),
-    clientExtensionResults: z.record(z.string(), z.unknown()),
+    clientExtensionResults: AuthenticationExtensionsClientOutputsSchema,
     type: z.literal("public-key"),
   })
   .strict();

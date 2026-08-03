@@ -12,10 +12,11 @@ import {
 import { WarningBanner } from "#/shared/components/base/WarningBanner";
 import { setAuthenticatedSession } from "#/verticals/auth/authenticated-session";
 import {
-  createBrowserPasskeyAuthenticationAdapter,
+  cancelPasskeyAuthentication,
   isBrowserPasskeyAuthenticationSupported,
   isConditionalPasskeyAuthenticationSupported,
   isPasskeyAuthenticationCancellation,
+  startPasskeyAuthentication,
 } from "#/verticals/auth/browser-passkey-authentication-adapter";
 import { createSignupEmailVerificationHandoff } from "#/verticals/auth/signup-email-verification-handoff";
 import {
@@ -26,6 +27,7 @@ import {
 } from "@calibrate/api-client";
 import {
   RequestSignupEmailVerificationRequestBodySchema,
+  type PasskeyAuthenticationErrorCode,
   type RequestSignupEmailVerificationRequestBody,
 } from "@calibrate/api-contracts";
 import { useForm } from "@tanstack/react-form";
@@ -35,6 +37,16 @@ import { ArrowRight, Mail } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type SignUpLoginFormValues = RequestSignupEmailVerificationRequestBody;
+
+const PASSKEY_AUTHENTICATION_ERROR_MESSAGES: Partial<Record<PasskeyAuthenticationErrorCode, string>> = {
+  PASSKEY_AUTHENTICATION_RATE_LIMITED:
+    "Too many passkey attempts. Please wait 60 seconds before trying again.",
+  ORIGIN_NOT_ALLOWED: "Passkey sign-in is unavailable from this site.",
+  PASSKEY_AUTHENTICATION_UNAVAILABLE: "Passkey sign-in is temporarily unavailable.",
+};
+
+const DEFAULT_PASSKEY_AUTHENTICATION_ERROR_MESSAGE =
+  "We couldn't verify that passkey. Try the Log in with Passkey button again, or use the email field to verify and recover your account.";
 
 function firstContractError(field: "email", value: string): string | undefined {
   const result = RequestSignupEmailVerificationRequestBodySchema.shape[field].safeParse(value);
@@ -147,7 +159,6 @@ function SignUpLoginForm({ onSubmitStart = () => undefined }: { onSubmitStart?: 
 function PasskeyLogin() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const browserAuthentication = useRef(createBrowserPasskeyAuthenticationAdapter()).current;
   const startedConditional = useRef(false);
   const cachedOptions = useRef<Awaited<ReturnType<typeof requestPasskeyAuthenticationOptions>> | undefined>(
     undefined,
@@ -164,7 +175,7 @@ function PasskeyLogin() {
     setState("pending");
     setError(undefined);
     try {
-      const credential = await browserAuthentication.authenticate(options.options, mode);
+      const credential = await startPasskeyAuthentication(options.options, mode);
       const session = await verifyPasskeyAuthentication(apiTransport, {
         credential,
         rememberDevice: rememberDeviceRef.current,
@@ -179,13 +190,7 @@ function PasskeyLogin() {
       cachedOptions.current = undefined;
       const code = parsePasskeyAuthenticationError(caught);
       setError(
-        code === "PASSKEY_AUTHENTICATION_RATE_LIMITED"
-          ? "Too many passkey attempts. Please wait before trying again."
-          : code === "ORIGIN_NOT_ALLOWED"
-            ? "Passkey sign-in is unavailable from this site."
-            : code === "PASSKEY_AUTHENTICATION_UNAVAILABLE"
-              ? "Passkey sign-in is temporarily unavailable."
-              : "We couldn't verify that passkey. Request a fresh sign-in prompt and try again.",
+        (code && PASSKEY_AUTHENTICATION_ERROR_MESSAGES[code]) ?? DEFAULT_PASSKEY_AUTHENTICATION_ERROR_MESSAGE,
       );
       setState(code === "PASSKEY_AUTHENTICATION_UNAVAILABLE" ? "unavailable" : "failed");
     }
@@ -208,13 +213,13 @@ function PasskeyLogin() {
     })();
     return () => {
       active = false;
-      browserAuthentication.cancel();
+      cancelPasskeyAuthentication();
     };
-  }, [browserAuthentication]);
+  }, []);
 
   async function startExplicitLogin() {
     try {
-      browserAuthentication.cancel();
+      cancelPasskeyAuthentication();
       const options =
         cachedOptions.current && new Date(cachedOptions.current.expiresAt).getTime() > Date.now()
           ? cachedOptions.current
@@ -257,7 +262,6 @@ function PasskeyLogin() {
 }
 
 function SignupLoginPage() {
-  const browserAuthentication = useRef(createBrowserPasskeyAuthenticationAdapter()).current;
   return (
     <main className="auth-page-background relative min-h-dvh overflow-hidden px-gutter py-xl text-on-background md:px-xl md:py-xxl">
       <div
@@ -313,7 +317,7 @@ function SignupLoginPage() {
               Log in by clicking the email field, or the button below to show passkeys you already registered.
             </p>
           </div>
-          <SignUpLoginForm onSubmitStart={() => browserAuthentication.cancel()} />
+          <SignUpLoginForm onSubmitStart={cancelPasskeyAuthentication} />
           <PasskeyLogin />
         </section>
 
