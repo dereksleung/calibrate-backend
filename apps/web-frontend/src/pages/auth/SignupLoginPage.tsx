@@ -20,6 +20,7 @@ import {
 } from "#/verticals/auth/browser-passkey-authentication-adapter";
 import { createSignupEmailVerificationHandoff } from "#/verticals/auth/signup-email-verification-handoff";
 import {
+  ApiError,
   parsePasskeyAuthenticationError,
   requestPasskeyAuthenticationOptions,
   useRequestSignupEmailVerification,
@@ -38,9 +39,9 @@ import { useEffect, useRef, useState } from "react";
 
 type SignUpLoginFormValues = RequestSignupEmailVerificationRequestBody;
 
-const PASSKEY_AUTHENTICATION_ERROR_MESSAGES: Partial<Record<PasskeyAuthenticationErrorCode, string>> = {
-  PASSKEY_AUTHENTICATION_RATE_LIMITED:
-    "Too many passkey attempts. Please wait 60 seconds before trying again.",
+const PASSKEY_AUTHENTICATION_ERROR_MESSAGES: Partial<
+  Record<PasskeyAuthenticationErrorCode, string>
+> = {
   ORIGIN_NOT_ALLOWED: "Passkey sign-in is unavailable from this site.",
   PASSKEY_AUTHENTICATION_UNAVAILABLE: "Passkey sign-in is temporarily unavailable.",
 };
@@ -67,7 +68,8 @@ function fieldErrors(errors: unknown[]): Array<{ message?: string }> {
 function SignUpLoginForm({ onSubmitStart = () => undefined }: { onSubmitStart?: () => void }) {
   const [requestError, setRequestError] = useState<string>();
   const navigate = useNavigate();
-  const { mutateAsync: requestSignupEmailVerification } = useRequestSignupEmailVerification(apiTransport);
+  const { mutateAsync: requestSignupEmailVerification } =
+    useRequestSignupEmailVerification(apiTransport);
 
   const form = useForm({
     defaultValues: {
@@ -160,13 +162,29 @@ function PasskeyLogin() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const startedConditional = useRef(false);
-  const cachedOptions = useRef<Awaited<ReturnType<typeof requestPasskeyAuthenticationOptions>> | undefined>(
-    undefined,
-  );
+  const cachedOptions = useRef<
+    Awaited<ReturnType<typeof requestPasskeyAuthenticationOptions>> | undefined
+  >(undefined);
   const [rememberDevice, setRememberDevice] = useState(true);
   const rememberDeviceRef = useRef(rememberDevice);
   const [state, setState] = useState<"ready" | "pending" | "unavailable" | "failed">("ready");
   const [error, setError] = useState<string>();
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState(0);
+
+  useEffect(() => {
+    if (retryAfterSeconds <= 0) return;
+    const timer = window.setTimeout(() => {
+      setRetryAfterSeconds((seconds) => Math.max(0, seconds - 1));
+    }, 1_000);
+    return () => window.clearTimeout(timer);
+  }, [retryAfterSeconds]);
+
+  function showRateLimitError(caught: unknown) {
+    const seconds =
+      caught instanceof ApiError && caught.retryAfterSeconds ? caught.retryAfterSeconds : 60;
+    setRetryAfterSeconds(seconds);
+    setError("Too many passkey attempts. Please wait before trying again.");
+  }
 
   const complete = async (
     options: Awaited<ReturnType<typeof requestPasskeyAuthenticationOptions>>,
@@ -189,9 +207,14 @@ function PasskeyLogin() {
       }
       cachedOptions.current = undefined;
       const code = parsePasskeyAuthenticationError(caught);
-      setError(
-        (code && PASSKEY_AUTHENTICATION_ERROR_MESSAGES[code]) ?? DEFAULT_PASSKEY_AUTHENTICATION_ERROR_MESSAGE,
-      );
+      if (code === "PASSKEY_AUTHENTICATION_RATE_LIMITED") {
+        showRateLimitError(caught);
+      } else {
+        setError(
+          (code && PASSKEY_AUTHENTICATION_ERROR_MESSAGES[code]) ??
+            DEFAULT_PASSKEY_AUTHENTICATION_ERROR_MESSAGE,
+        );
+      }
       setState(code === "PASSKEY_AUTHENTICATION_UNAVAILABLE" ? "unavailable" : "failed");
     }
   };
@@ -208,8 +231,14 @@ function PasskeyLogin() {
         if (!active) return;
         cachedOptions.current = options;
         await complete(options, "conditional");
-      } catch {
-        if (active) setState("ready");
+      } catch (caught) {
+        if (!active) return;
+        if (parsePasskeyAuthenticationError(caught) === "PASSKEY_AUTHENTICATION_RATE_LIMITED") {
+          showRateLimitError(caught);
+          setState("failed");
+          return;
+        }
+        setState("ready");
       }
     })();
     return () => {
@@ -227,9 +256,13 @@ function PasskeyLogin() {
           : await requestPasskeyAuthenticationOptions(apiTransport);
       cachedOptions.current = options;
       await complete(options, "explicit");
-    } catch {
+    } catch (caught) {
       cachedOptions.current = undefined;
-      setError("We couldn't start a passkey request. Please try again.");
+      if (parsePasskeyAuthenticationError(caught) === "PASSKEY_AUTHENTICATION_RATE_LIMITED") {
+        showRateLimitError(caught);
+      } else {
+        setError("We couldn't start a passkey request. Please try again.");
+      }
       setState("failed");
     }
   }
@@ -252,11 +285,20 @@ function PasskeyLogin() {
       </label>
       <Button
         className="h-12 w-full"
-        disabled={state === "pending" || state === "unavailable" || !isBrowserPasskeyAuthenticationSupported()}
+        disabled={
+          state === "pending" ||
+          state === "unavailable" ||
+          retryAfterSeconds > 0 ||
+          !isBrowserPasskeyAuthenticationSupported()
+        }
         type="button"
         onClick={() => void startExplicitLogin()}
       >
-        {state === "pending" ? "Waiting for your passkey…" : "Log in with passkey"}
+        {state === "pending"
+          ? "Waiting for your passkey…"
+          : retryAfterSeconds > 0
+            ? `Try again in ${retryAfterSeconds} ${retryAfterSeconds === 1 ? "second" : "seconds"}`
+            : "Log in with passkey"}
       </Button>
     </div>
   );
@@ -297,7 +339,9 @@ function SignupLoginPage() {
               />
             </svg>
           </div>
-          <h1 className="font-heading text-4xl font-light tracking-[-0.02em] text-primary">Calibrate</h1>
+          <h1 className="font-heading text-4xl font-light tracking-[-0.02em] text-primary">
+            Calibrate
+          </h1>
           <p className="mt-xs max-w-[24rem] text-sm font-light text-on-surface-variant/80">
             Mindful nourishment for a balanced life.
           </p>
@@ -315,7 +359,8 @@ function SignupLoginPage() {
               To sign up, enter your email and click the Sign Up button.
             </p>
             <p className="mt-sm text-sm font-light text-on-surface-variant/80">
-              Log in by clicking the email field, or the button below to show passkeys you already registered.
+              Log in by clicking the email field, or the button below to show passkeys you already
+              registered.
             </p>
           </div>
           <SignUpLoginForm onSubmitStart={cancelPasskeyAuthentication} />

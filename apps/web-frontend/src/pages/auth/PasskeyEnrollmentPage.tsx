@@ -11,7 +11,7 @@ import {
 } from "#/verticals/auth/browser-passkey-registration-adapter";
 import type { PasskeyEnrollmentHandoff } from "#/verticals/auth/signup-email-verification-handoff";
 import {
-    ApiError,
+  ApiError,
   parsePasskeyRegistrationError,
   requestPasskeyRegistrationOptions,
   verifyPasskeyRegistration,
@@ -47,25 +47,22 @@ export function PasskeyEnrollmentPage({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [rememberDevice, setRememberDevice] = useState(true);
-  const [isClientPasskeyFailedToRegisterOnServer, setIsClientPasskeyFailedToRegisterOnServer] = useState(false);
+  const [isClientPasskeyFailedToRegisterOnServer, setIsClientPasskeyFailedToRegisterOnServer] =
+    useState(false);
   const [uiState, setUiState] = useState<EnrollmentUiState>(() => {
     if (initialUiState) return initialUiState;
-    return new Date(handoff.expiresAt).getTime() <= Date.now() ? { kind: "expired" } : { kind: "ready" }
+    return new Date(handoff.expiresAt).getTime() <= Date.now()
+      ? { kind: "expired" }
+      : { kind: "ready" };
   });
 
-  const { 
-    isPending: isRequestOptionsPending, 
-    mutateAsync: requestOptions, 
-  } = useMutation({
+  const { isPending: isRequestOptionsPending, mutateAsync: requestOptions } = useMutation({
     mutationKey: ["requestPasskeyRegistrationOptions"],
     mutationFn: () => requestPasskeyRegistrationOptions(apiTransport),
     retry: false,
   });
 
-  const {
-    isPending: isVerificationPending,
-    mutateAsync: verifyRegistration,
-  } = useMutation({
+  const { isPending: isVerificationPending, mutateAsync: verifyRegistration } = useMutation({
     mutationKey: ["verifyPasskeyRegistration"],
     mutationFn: (input: Parameters<typeof verifyPasskeyRegistration>[1]) =>
       verifyPasskeyRegistration(apiTransport, input),
@@ -73,7 +70,7 @@ export function PasskeyEnrollmentPage({
   });
 
   useEffect(() => {
-    // If initialUiState is defined, this is a Storybook story for testing 
+    // If initialUiState is defined, this is a Storybook story for testing
     if (initialUiState) return;
 
     if (uiState.kind !== "ready") {
@@ -84,8 +81,23 @@ export function PasskeyEnrollmentPage({
     }
   }, [uiState.kind]);
 
+  useEffect(() => {
+    if (uiState.kind !== "PASSKEY_REGISTRATION_RATE_LIMITED") return;
+
+    const timer = window.setTimeout(() => {
+      setUiState((current) => {
+        if (current.kind !== "PASSKEY_REGISTRATION_RATE_LIMITED") return current;
+        return current.retryAfterSeconds > 1
+          ? { ...current, retryAfterSeconds: current.retryAfterSeconds - 1 }
+          : { kind: "ready" };
+      });
+    }, 1_000);
+
+    return () => window.clearTimeout(timer);
+  }, [uiState]);
+
   async function runCeremony() {
-    // Process restarted, so error state is no longer relevant. 
+    // Process restarted, so error state is no longer relevant.
     if (isClientPasskeyFailedToRegisterOnServer) setIsClientPasskeyFailedToRegisterOnServer(false);
     if (new Date(handoff.expiresAt).getTime() <= Date.now()) {
       setUiState({ kind: "expired" });
@@ -119,7 +131,7 @@ export function PasskeyEnrollmentPage({
 
       // On the surface, the UI state can look like it duplicates error state found in the mutation errors.
       // However, not every error comes from the mutations, some come from the WebAuthn API or browser.
-      // So using error uiStates throughout this catch block 
+      // So using error uiStates throughout this catch block
       // centralizes where we trigger new UI based on any error from the entire ceremony.
       // Allowing uiState to be the single source of truth for the UI models all possible states
       // and optimizes for easy understanding.
@@ -145,9 +157,7 @@ export function PasskeyEnrollmentPage({
           setUiState({
             kind: code,
             retryAfterSeconds:
-              error instanceof ApiError && error.retryAfterSeconds
-                ? error.retryAfterSeconds
-                : 60,
+              error instanceof ApiError && error.retryAfterSeconds ? error.retryAfterSeconds : 60,
           });
           return;
         default:
@@ -166,14 +176,15 @@ export function PasskeyEnrollmentPage({
       >
         <h1 className="font-heading text-3xl font-light text-primary">Set up your passkey</h1>
         <p className="mt-md text-sm text-on-surface-variant">
-          Create a passkey for <span className="font-semibold text-on-background">{handoff.email}</span> to
-          finish signing up.
+          Create a passkey for{" "}
+          <span className="font-semibold text-on-background">{handoff.email}</span> to finish
+          signing up.
         </p>
 
         {isClientPasskeyFailedToRegisterOnServer && (
           <div className="mt-lg space-y-md">
             <WarningBanner className="mt-lg">
-              Your passkey was created on this device, but it was not registered with our server. 
+              Your passkey was created on this device, but it was not registered with our server.
               Please delete the existing one and try again.
             </WarningBanner>
             <Button className="w-full" disabled={isPending} onClick={() => void runCeremony()}>
@@ -185,17 +196,20 @@ export function PasskeyEnrollmentPage({
         {uiState.kind === "PASSKEY_REGISTRATION_RATE_LIMITED" && (
           <div className="mt-lg space-y-md">
             <WarningBanner>
-              Too many passkey attempts. Wait {uiState.retryAfterSeconds} seconds, then try again.
+              Too many passkey attempts. Wait {uiState.retryAfterSeconds}{" "}
+              {uiState.retryAfterSeconds === 1 ? "second" : "seconds"}, then try again.
             </WarningBanner>
-            <Button className="w-full" disabled={isPending} onClick={() => void runCeremony()}>
-              Try again
+            <Button className="w-full" disabled onClick={() => void runCeremony()}>
+              Try again in {uiState.retryAfterSeconds}{" "}
+              {uiState.retryAfterSeconds === 1 ? "second" : "seconds"}
             </Button>
           </div>
         )}
 
         {uiState.kind === "unsupported" && (
           <WarningBanner className="mt-lg">
-            This browser does not support passkey creation. Try a current version of Chrome, Safari, or Edge.
+            This browser does not support passkey creation. Try a current version of Chrome, Safari,
+            or Edge.
           </WarningBanner>
         )}
 
@@ -222,13 +236,16 @@ export function PasskeyEnrollmentPage({
 
         {uiState.kind === "ORIGIN_NOT_ALLOWED" && (
           <WarningBanner className="mt-lg">
-            Passkey setup cannot continue from this site. Open Calibrate from your usual web address.
+            Passkey setup cannot continue from this site. Open Calibrate from your usual web
+            address.
           </WarningBanner>
         )}
 
         {uiState.kind === "cancelled" && (
           <div className="mt-lg space-y-md">
-            <p className="text-sm text-on-surface-variant">Passkey creation was cancelled or timed out.</p>
+            <p className="text-sm text-on-surface-variant">
+              Passkey creation was cancelled or timed out.
+            </p>
             <Button className="w-full" disabled={isPending} onClick={() => void runCeremony()}>
               Try again
             </Button>
@@ -244,7 +261,9 @@ export function PasskeyEnrollmentPage({
           </div>
         )}
 
-        {(uiState.kind === "PASSKEY_REGISTRATION_STATE_CONFLICT" || uiState.kind === "ambiguous" || uiState.kind === "PASSKEY_REGISTRATION_UNAVAILABLE") && (
+        {(uiState.kind === "PASSKEY_REGISTRATION_STATE_CONFLICT" ||
+          uiState.kind === "ambiguous" ||
+          uiState.kind === "PASSKEY_REGISTRATION_UNAVAILABLE") && (
           <div className="mt-lg space-y-md">
             <WarningBanner>
               {uiState.kind === "PASSKEY_REGISTRATION_UNAVAILABLE"
@@ -271,7 +290,9 @@ export function PasskeyEnrollmentPage({
                 onChange={(event) => setRememberDevice(event.target.checked)}
               />
               <span>
-                <span className="font-semibold text-on-background">Keep me signed in on this device</span>
+                <span className="font-semibold text-on-background">
+                  Keep me signed in on this device
+                </span>
                 <span className="mt-xs block text-xs text-on-surface-variant/80">
                   On a shared device, leave this unchecked.
                 </span>

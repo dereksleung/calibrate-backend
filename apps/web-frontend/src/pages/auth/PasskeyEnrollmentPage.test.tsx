@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ApiError } from "@calibrate/api-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -52,6 +52,7 @@ function renderPage() {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   vi.clearAllMocks();
   vi.unstubAllGlobals();
@@ -158,6 +159,43 @@ describe("PasskeyEnrollmentPage", () => {
       await screen.findByText(/enrollment authorization expired or can no longer be used/i),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: /start again/i })).toBeTruthy();
+  });
+
+  it("counts down before allowing another ceremony after rate limiting", async () => {
+    vi.useFakeTimers();
+    mockRequestOptions.mockRejectedValue(
+      new ApiError({
+        status: 429,
+        statusText: "Too Many Requests",
+        body: { error: "PASSKEY_REGISTRATION_RATE_LIMITED" },
+        retryAfterSeconds: 2,
+      }),
+    );
+
+    renderPage();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /create passkey/i }));
+    });
+
+    expect(screen.getByText(/wait 2 seconds/i)).toBeTruthy();
+    expect((screen.getByRole("button", { name: /try again/i }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(screen.getByText(/wait 1 second/i)).toBeTruthy();
+    expect((screen.getByRole("button", { name: /try again/i }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(
+      (screen.getByRole("button", { name: /create passkey/i }) as HTMLButtonElement).disabled,
+    ).toBe(false);
   });
 
   it("signals a credential that could not be saved after device verification", async () => {
