@@ -162,7 +162,10 @@ function PasskeyLogin() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const startedConditional = useRef(false);
-  const cachedOptions = useRef<
+  
+  // Keep the requests for passkey authentication options obviously outside the react-query lifecycle
+  // as each request issues a fresh challenge, and the backend rate-limits these requests.
+  const activeOptionsResponse = useRef<
     Awaited<ReturnType<typeof requestPasskeyAuthenticationOptions>> | undefined
   >(undefined);
   const [rememberDevice, setRememberDevice] = useState(true);
@@ -205,7 +208,7 @@ function PasskeyLogin() {
         setState("ready");
         return;
       }
-      cachedOptions.current = undefined;
+      activeOptionsResponse.current = undefined;
       const code = parsePasskeyAuthenticationError(caught);
       if (code === "PASSKEY_AUTHENTICATION_RATE_LIMITED") {
         showRateLimitError(caught);
@@ -229,7 +232,7 @@ function PasskeyLogin() {
         setState("pending");
         const options = await requestPasskeyAuthenticationOptions(apiTransport);
         if (!active) return;
-        cachedOptions.current = options;
+        activeOptionsResponse.current = options;
         await complete(options, "conditional");
       } catch (caught) {
         if (!active) return;
@@ -251,13 +254,13 @@ function PasskeyLogin() {
     try {
       cancelPasskeyAuthentication();
       const options =
-        cachedOptions.current && new Date(cachedOptions.current.expiresAt).getTime() > Date.now()
-          ? cachedOptions.current
+        activeOptionsResponse.current && new Date(activeOptionsResponse.current.expiresAt).getTime() > Date.now()
+          ? activeOptionsResponse.current
           : await requestPasskeyAuthenticationOptions(apiTransport);
-      cachedOptions.current = options;
+      activeOptionsResponse.current = options;
       await complete(options, "explicit");
     } catch (caught) {
-      cachedOptions.current = undefined;
+      activeOptionsResponse.current = undefined;
       if (parsePasskeyAuthenticationError(caught) === "PASSKEY_AUTHENTICATION_RATE_LIMITED") {
         showRateLimitError(caught);
       } else {
