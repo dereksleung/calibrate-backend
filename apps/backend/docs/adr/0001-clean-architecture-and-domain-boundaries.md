@@ -8,6 +8,10 @@ Accepted
 
 2026-05-18
 
+## Last Updated
+
+2026-08-03
+
 ## Context
 
 The backend needs clear dependency direction, stable domain boundaries, and a shared vocabulary for where business rules live. This ADR preserves the existing backend architecture decisions in the project-local ADR folder.
@@ -61,6 +65,22 @@ The distinction in this codebase:
 - **Repository**: domain-oriented, speaks in domain terms (methods return aggregate or entity), exposed as a port in the application layer
 - **DAO**: table-oriented, talks to one or more tables, implementation detail hidden inside a repository
 
+### Contracts and DTOs belong to their boundary owner
+
+The location of a contract type is determined by the boundary that gives it meaning, not by the fact that it is a data-only TypeScript interface. A DTO is a data carrier across a boundary; it is not a separate architectural layer and does not imply a global `dtos/` folder.
+
+- **Domain** owns entities, value objects, domain events, and invariants. It must not import HTTP, persistence, application-service, or adapter DTOs. A value with domain rules should be modeled as a value object rather than repeatedly represented as an unconstrained primitive.
+- **Application use cases** own their input and result contracts. Keep a use-case-specific `Input`, `Command`, `Query`, or `Result` beside the service or use case that consumes it.
+- **Application ports** own their input, output, and retrieved-data contracts. Keep a port-specific type beside the port interface by default; an infrastructure adapter imports that contract to implement it. For example, `CompletePasskeyAuthenticationInput` belongs with `IPasskeyAuthenticationRepository` because that port defines its meaning and atomicity guarantees.
+- **Presentation and `@calibrate/api-contracts`** own HTTP request/response, cookie, header, and other wire-format shapes. Presentation validates and maps those shapes to application inputs and maps application results to responses.
+- **Infrastructure** owns database rows, ORM/Kysely types, third-party SDK payloads, and storage-specific records. It maps them to and from the application port and domain contracts. These implementation types must not leak into application ports.
+
+Use a dedicated adjacent types module only when a contract is genuinely shared, needs substantial independent documentation, or makes its owner unwieldy. Do not extract every parameter object preemptively, and do not make a catch-all DTO module that mixes unrelated use-case, port, HTTP, and persistence contracts.
+
+Types with identical fields are not automatically the same contract: an HTTP request, an application use-case input, and a persistence record may evolve for different reasons. Map at semantic or volatility boundaries to preserve that independence. Conversely, do not duplicate a type merely to create the appearance of a boundary; in TypeScript, structurally identical interfaces remain assignable. Prefer a domain value object or branded type when the compiler must distinguish concepts.
+
+Name contracts for their role (`CreateUserInput`, `PreparedPasskeyAuthentication`, `DayLogResponse`) rather than relying on a generic `Dto` suffix. DTOs should carry data, not entity identity or business behavior; domain invariants remain in domain objects, while wire-format validation remains at presentation boundaries.
+
 ### Naming conventions
 
 - `FoodEntryController` is acceptable even though the operation goes through `DayLogService`. Controllers are an HTTP routing concern, not a domain modeling concern. The service dependency determines domain ownership, not the controller name.
@@ -77,6 +97,7 @@ See `PostgresDayLogRepository.addFoodEntry()` in `apps/backend/src/infrastructur
 - Mutations to aggregate children should go through their aggregate root repository from the application layer.
 - Cross-aggregate business rules belong in application services unless a later ADR establishes a different pattern.
 - Repository abstractions should speak in domain terms; table-oriented DAOs remain infrastructure implementation details.
+- Contract types are owned by their use case, port, presentation/API, or infrastructure boundary rather than by a global DTO category.
 
 ## Explicitly Deferred
 
