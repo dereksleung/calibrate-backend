@@ -11,6 +11,7 @@ import {
 } from "#/verticals/auth/browser-passkey-registration-adapter";
 import type { PasskeyEnrollmentHandoff } from "#/verticals/auth/signup-email-verification-handoff";
 import {
+    ApiError,
   parsePasskeyRegistrationError,
   requestPasskeyRegistrationOptions,
   verifyPasskeyRegistration,
@@ -25,11 +26,12 @@ type EnrollmentUiState =
   | { kind: "expired" }
   | { kind: "pending" }
   | { kind: "cancelled" }
-  | { kind: "auth_required" }
-  | { kind: "origin_forbidden" }
-  | { kind: "verification_failed" }
-  | { kind: "conflict" }
-  | { kind: "unavailable" }
+  | { kind: "ENROLLMENT_AUTHORIZATION_REQUIRED" }
+  | { kind: "ORIGIN_NOT_ALLOWED" }
+  | { kind: "PASSKEY_REGISTRATION_FAILED" }
+  | { kind: "PASSKEY_REGISTRATION_STATE_CONFLICT" }
+  | { kind: "PASSKEY_REGISTRATION_UNAVAILABLE" }
+  | { kind: "PASSKEY_REGISTRATION_RATE_LIMITED"; retryAfterSeconds: number }
   | { kind: "ambiguous" };
 
 export function PasskeyEnrollmentPage({
@@ -52,7 +54,6 @@ export function PasskeyEnrollmentPage({
   });
 
   const { 
-    error: requestOptionsError, 
     isPending: isRequestOptionsPending, 
     mutateAsync: requestOptions, 
   } = useMutation({
@@ -62,7 +63,6 @@ export function PasskeyEnrollmentPage({
   });
 
   const {
-    error: verifyError,
     isPending: isVerificationPending,
     mutateAsync: verifyRegistration,
   } = useMutation({
@@ -72,10 +72,10 @@ export function PasskeyEnrollmentPage({
     retry: false,
   });
 
-  const harmonizedError = requestOptionsError ?? verifyError;
-  const harmonizedErrorCode = parsePasskeyRegistrationError(harmonizedError);
-
   useEffect(() => {
+    // If initialUiState is defined, this is a Storybook story for testing 
+    if (initialUiState) return;
+
     if (uiState.kind !== "ready") {
       return;
     }
@@ -115,13 +115,43 @@ export function PasskeyEnrollmentPage({
         return;
       }
 
-      if (createdCredential) {
-        if (typeof window?.PublicKeyCredential?.signalUnknownCredential === "function") {
-          await showPlatformUiForClientPasskeyFailedToRegisterOnServer(createdCredential);
-        } else {
-          // Fallback UI in case browser does not support showing registering server-side failed
-          setIsClientPasskeyFailedToRegisterOnServer(true);
-        }
+      const code = parsePasskeyRegistrationError(error);
+
+      // On the surface, the UI state can look like it duplicates error state found in the mutation errors.
+      // However, not every error comes from the mutations, some come from the WebAuthn API or browser.
+      // So using error uiStates throughout this catch block 
+      // centralizes where we trigger new UI based on any error from the entire ceremony.
+      // Allowing uiState to be the single source of truth for the UI models all possible states
+      // and optimizes for easy understanding.
+      switch (code) {
+        case "PASSKEY_REGISTRATION_FAILED":
+          if (createdCredential) {
+            if (typeof window?.PublicKeyCredential?.signalUnknownCredential === "function") {
+              await showPlatformUiForClientPasskeyFailedToRegisterOnServer(createdCredential);
+            } else {
+              // Fallback UI in case browser does not support showing registering server-side failed
+              setIsClientPasskeyFailedToRegisterOnServer(true);
+            }
+          }
+          setUiState({ kind: "PASSKEY_REGISTRATION_FAILED" });
+          return;
+        case "ENROLLMENT_AUTHORIZATION_REQUIRED":
+        case "ORIGIN_NOT_ALLOWED":
+        case "PASSKEY_REGISTRATION_STATE_CONFLICT":
+        case "PASSKEY_REGISTRATION_UNAVAILABLE":
+          setUiState({ kind: code });
+          return;
+        case "PASSKEY_REGISTRATION_RATE_LIMITED":
+          setUiState({
+            kind: code,
+            retryAfterSeconds:
+              error instanceof ApiError && error.retryAfterSeconds
+                ? error.retryAfterSeconds
+                : 60,
+          });
+          return;
+        default:
+          setUiState({ kind: "ambiguous" });
       }
     }
   }
@@ -141,10 +171,26 @@ export function PasskeyEnrollmentPage({
         </p>
 
         {isClientPasskeyFailedToRegisterOnServer && (
-          <WarningBanner className="mt-lg">
-            Your passkey was created on this device, but we could not register it with our server. 
-            Please delete the existing one and try again.
-          </WarningBanner>
+          <div className="mt-lg space-y-md">
+            <WarningBanner className="mt-lg">
+              Your passkey was created on this device, but it was not registered with our server. 
+              Please delete the existing one and try again.
+            </WarningBanner>
+            <Button className="w-full" disabled={isPending} onClick={() => void runCeremony()}>
+              Try again
+            </Button>
+          </div>
+        )}
+
+        {uiState.kind === "PASSKEY_REGISTRATION_RATE_LIMITED" && (
+          <div className="mt-lg space-y-md">
+            <WarningBanner>
+              Too many passkey attempts. Wait {uiState.retryAfterSeconds} seconds, then try again.
+            </WarningBanner>
+            <Button className="w-full" disabled={isPending} onClick={() => void runCeremony()}>
+              Try again
+            </Button>
+          </div>
         )}
 
         {uiState.kind === "unsupported" && (
@@ -162,7 +208,7 @@ export function PasskeyEnrollmentPage({
           </div>
         )}
 
-        {harmonizedErrorCode === "ENROLLMENT_AUTHORIZATION_REQUIRED" && (
+        {uiState.kind === "ENROLLMENT_AUTHORIZATION_REQUIRED" && (
           <div className="mt-lg space-y-md">
             <WarningBanner>
               Your enrollment authorization expired or can no longer be used. Verify your email
@@ -174,7 +220,7 @@ export function PasskeyEnrollmentPage({
           </div>
         )}
 
-        {harmonizedErrorCode === "ORIGIN_NOT_ALLOWED" && (
+        {uiState.kind === "ORIGIN_NOT_ALLOWED" && (
           <WarningBanner className="mt-lg">
             Passkey setup cannot continue from this site. Open Calibrate from your usual web address.
           </WarningBanner>
@@ -189,7 +235,7 @@ export function PasskeyEnrollmentPage({
           </div>
         )}
 
-        {harmonizedErrorCode === "PASSKEY_REGISTRATION_FAILED" && (
+        {uiState.kind === "PASSKEY_REGISTRATION_FAILED" && (
           <div className="mt-lg space-y-md">
             <WarningBanner>Passkey verification failed. </WarningBanner>
             <Button className="w-full" disabled={isPending} onClick={() => void runCeremony()}>
@@ -198,14 +244,14 @@ export function PasskeyEnrollmentPage({
           </div>
         )}
 
-        {(harmonizedErrorCode === "PASSKEY_REGISTRATION_STATE_CONFLICT" || uiState.kind === "ambiguous" || harmonizedErrorCode === "PASSKEY_REGISTRATION_UNAVAILABLE") && (
+        {(uiState.kind === "PASSKEY_REGISTRATION_STATE_CONFLICT" || uiState.kind === "ambiguous" || uiState.kind === "PASSKEY_REGISTRATION_UNAVAILABLE") && (
           <div className="mt-lg space-y-md">
             <WarningBanner>
-              {harmonizedErrorCode === "PASSKEY_REGISTRATION_UNAVAILABLE"
+              {uiState.kind === "PASSKEY_REGISTRATION_UNAVAILABLE"
                 ? "Passkey registration is temporarily unavailable."
-                : "Something went wrong while creating your passkey. Start a fresh ceremony to continue."}
+                : "Something went wrong while creating your passkey. Please try again."}
             </WarningBanner>
-            {harmonizedErrorCode !== "PASSKEY_REGISTRATION_UNAVAILABLE" && (
+            {uiState.kind !== "PASSKEY_REGISTRATION_UNAVAILABLE" && (
               <Button className="w-full" disabled={isPending} onClick={() => void runCeremony()}>
                 Try again
               </Button>
@@ -213,7 +259,7 @@ export function PasskeyEnrollmentPage({
           </div>
         )}
 
-        {(uiState.kind === "ready" || uiState.kind === "pending") && !harmonizedErrorCode && (
+        {(uiState.kind === "ready" || uiState.kind === "pending") && (
           <div className="mt-xl space-y-lg">
             <label className="flex items-start gap-sm text-left text-sm text-on-surface-variant">
               <input
@@ -227,8 +273,7 @@ export function PasskeyEnrollmentPage({
               <span>
                 <span className="font-semibold text-on-background">Keep me signed in on this device</span>
                 <span className="mt-xs block text-xs text-on-surface-variant/80">
-                  On a shared device, leave this unchecked so your refresh credential is not persisted in the
-                  browser.
+                  On a shared device, leave this unchecked.
                 </span>
               </span>
             </label>

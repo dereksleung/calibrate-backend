@@ -69,21 +69,30 @@ export const Ambiguous: Story = {
 };
 
 export const EnrollmentAuthorizationRequired: Story = {
-  args: { initialErrorCode: "ENROLLMENT_AUTHORIZATION_REQUIRED" },
+  args: { initialUiState: { kind: "ENROLLMENT_AUTHORIZATION_REQUIRED" } },
 };
 
 export const OriginNotAllowed: Story = {
-  args: { initialErrorCode: "ORIGIN_NOT_ALLOWED" },
+  args: { initialUiState: { kind: "ORIGIN_NOT_ALLOWED" } },
 };
 
 export const VerificationFailed: Story = {
-  args: { initialErrorCode: "PASSKEY_REGISTRATION_FAILED" },
+  args: { initialUiState: { kind: "PASSKEY_REGISTRATION_FAILED" } },
 };
 
 export const StateConflict: Story = {
-  args: { initialErrorCode: "PASSKEY_REGISTRATION_STATE_CONFLICT" },
+  args: { initialUiState: { kind: "PASSKEY_REGISTRATION_STATE_CONFLICT" } },
 };
 
 export const Unavailable: Story = {
-  args: { initialErrorCode: "PASSKEY_REGISTRATION_UNAVAILABLE" },
+  args: { initialUiState: { kind: "PASSKEY_REGISTRATION_UNAVAILABLE" } },
+};
+
+export const RateLimited: Story = {
+  args: {
+    initialUiState: {
+      kind: "PASSKEY_REGISTRATION_RATE_LIMITED",
+      retryAfterSeconds: 60,
+    },
+  },
 };
