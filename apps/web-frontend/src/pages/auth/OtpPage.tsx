@@ -30,6 +30,7 @@ function OtpPage({ handoff }: OtpPageProps) {
     useVerifySignupEmailVerification(apiTransport);
   const [otpCode, setOtpCode] = useState("");
   const [resendCountdown, setResendCountdown] = useState(() => getResendCountdown(handoff));
+  const isResendLocked = resendCountdown > 0;
   const [resendError, setResendError] = useState<string>();
   const [verificationError, setVerificationError] = useState<string>();
   const expiryMinutes = Math.ceil(handoff.expiresInSeconds / 60);
@@ -40,16 +41,14 @@ function OtpPage({ handoff }: OtpPageProps) {
   }, [handoff.challengeId, handoff.requestedAtEpochMs, handoff.resendAfterSeconds]);
 
   useEffect(() => {
-    if (resendCountdown <= 0) {
-      return;
-    }
+    if (!isResendLocked) return;
 
-    const timer = window.setTimeout(() => {
-      setResendCountdown((current) => current - 1);
+    const interval = window.setInterval(() => {
+      setResendCountdown((current) => Math.max(0, current - 1));
     }, 1000);
 
-    return () => window.clearTimeout(timer);
-  }, [resendCountdown]);
+    return () => window.clearInterval(interval);
+  }, [isResendLocked]);
 
   async function handleResend() {
     setResendError(undefined);
@@ -149,7 +148,7 @@ function OtpPage({ handoff }: OtpPageProps) {
             <div className="flex flex-col items-center gap-sm">
               <p className="text-xs text-on-surface-variant/70">
                 Didn&apos;t receive a code?
-                {resendCountdown > 0 ? (
+                {isResendLocked ? (
                   <>
                     {" "}
                     Resend in <span className="font-semibold text-on-background">{resendCountdown}s</span>
@@ -159,7 +158,7 @@ function OtpPage({ handoff }: OtpPageProps) {
               <Button
                 variant="ghost"
                 className="h-auto px-0 py-xs text-xs font-bold tracking-[0.12em] text-primary uppercase hover:bg-transparent"
-                disabled={resendCountdown > 0 || isPending}
+                disabled={isResendLocked || isPending}
                 type="button"
                 onClick={() => void handleResend()}
               >
