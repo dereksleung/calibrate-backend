@@ -3,11 +3,11 @@ import { FoodEntry, MealNameEnum } from "@domain/entities/food-entry.js";
 
 import type { DatabaseClient } from "../../persistence/database-client.js";
 
-import {
-  FindOrCreateDayLogByDateAndUserIdRepositoryDto,
-  GetDayLogByDateAndUserDto,
-} from "../../../application/dtos/day-log-dtos.js";
-import { IDayLogRepository } from "../../../application/ports/day-log-repository.js";
+import type {
+  FindDayLogByDateAndUserInput,
+  FindOrCreateDayLogByDateAndUserInput,
+  IDayLogRepository,
+} from "../../../application/ports/day-log-repository.js";
 import { SelectableDayLog } from "../schemas/day-logs-table.js";
 import { InsertableFoodEntry, SelectableFoodEntry } from "../schemas/food-entries-table.js";
 
@@ -17,7 +17,7 @@ export class PostgresDayLogRepository implements IDayLogRepository {
   async findOrCreateByDateAndUserId({
     date,
     userId,
-  }: FindOrCreateDayLogByDateAndUserIdRepositoryDto): Promise<DayLog> {
+  }: FindOrCreateDayLogByDateAndUserInput): Promise<DayLog> {
     if (!date) throw new Error("Date is required");
     let dayLogRow: SelectableDayLog;
     if (date) {
@@ -89,7 +89,7 @@ export class PostgresDayLogRepository implements IDayLogRepository {
     return this.mapRowToFoodEntry(foodEntryRow);
   }
 
-  async findLogByDateAndUserId({ userId, date }: GetDayLogByDateAndUserDto): Promise<DayLog | null> {
+  async findLogByDateAndUserId({ userId, date }: FindDayLogByDateAndUserInput): Promise<DayLog | null> {
     const dayLogRow = await this.databaseClient
       .selectFrom("day_logs")
       .selectAll()

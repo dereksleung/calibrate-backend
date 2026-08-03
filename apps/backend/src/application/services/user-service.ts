@@ -1,11 +1,15 @@
-import { CreateUserRequestDto } from "@application/dtos/user-dtos.js";
 import { IPasswordHasher } from "@application/ports/password-hasher.js";
 import { IUserRepository } from "@application/ports/user-repository.js";
 import { User } from "@domain/entities/user.js";
 import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 
+export interface CreateUserInput {
+  email: string;
+  password: string;
+}
+
 export interface IUserService {
-  createUser(props: CreateUserRequestDto): Promise<User>;
+  createUser(props: CreateUserInput): Promise<User>;
 }
 
 export class UserServiceImpl implements IUserService {
@@ -14,7 +18,7 @@ export class UserServiceImpl implements IUserService {
     private readonly userRepository: IUserRepository,
   ) {}
 
-  async createUser(props: CreateUserRequestDto): Promise<User> {
+  async createUser(props: CreateUserInput): Promise<User> {
     const existingUser = await this.userRepository.findByEmail(props.email);
     if (existingUser) {
       throw new BusinessLogicError("User already exists");

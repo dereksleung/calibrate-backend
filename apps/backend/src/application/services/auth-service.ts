@@ -1,11 +1,22 @@
-import { LoginRequestDto, LoginResultDto } from "@application/dtos/auth-dtos.js";
 import { AuthenticationError } from "@application/errors/authentication-error.js";
 import { IAccessTokenService } from "@application/ports/access-token-service.js";
 import { IPasswordHasher } from "@application/ports/password-hasher.js";
 import { IUserRepository } from "@application/ports/user-repository.js";
+import { User } from "@domain/entities/user.js";
+
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
+export interface LoginResult {
+  accessToken: string;
+  expiresInSeconds: number;
+  user: User;
+}
 
 export interface IAuthService {
-  login(props: LoginRequestDto): Promise<LoginResultDto>;
+  login(props: LoginInput): Promise<LoginResult>;
 }
 
 export class AuthServiceImpl implements IAuthService {
@@ -15,7 +26,7 @@ export class AuthServiceImpl implements IAuthService {
     private readonly accessTokenService: IAccessTokenService,
   ) {}
 
-  async login(props: LoginRequestDto): Promise<LoginResultDto> {
+  async login(props: LoginInput): Promise<LoginResult> {
     const user = await this.userRepository.findByEmail(props.email);
 
     if (!user || !user.passwordHash) {

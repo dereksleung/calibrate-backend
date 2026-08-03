@@ -1,18 +1,23 @@
-import { DayLog } from "@domain/entities/day-log.js";
-import { FoodEntry } from "@domain/entities/food-entry.js";
+import type { DayLog } from "@domain/entities/day-log.js";
+import type { FoodEntry } from "@domain/entities/food-entry.js";
 
-import {
-  FindOrCreateDayLogByDateAndUserIdRepositoryDto,
-  GetDayLogByDateAndUserDto,
-} from "../dtos/day-log-dtos.js";
+export interface FindDayLogByDateAndUserInput {
+  userId: string;
+  date: string;
+}
+
+export interface FindOrCreateDayLogByDateAndUserInput {
+  date: string;
+  userId: string;
+}
 
 export interface IDayLogRepository {
-  findLogByDateAndUserId({ userId, date }: GetDayLogByDateAndUserDto): Promise<DayLog | null>;
+  findLogByDateAndUserId({ userId, date }: FindDayLogByDateAndUserInput): Promise<DayLog | null>;
 
   findOrCreateByDateAndUserId({
     date,
     userId,
-  }: FindOrCreateDayLogByDateAndUserIdRepositoryDto): Promise<DayLog>;
+  }: FindOrCreateDayLogByDateAndUserInput): Promise<DayLog>;
 
   addFoodEntry(dayLogId: string, foodEntry: FoodEntry): Promise<FoodEntry>;
 

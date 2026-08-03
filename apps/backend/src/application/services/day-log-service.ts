@@ -1,14 +1,46 @@
 import { DayLog } from "@domain/entities/day-log.js";
-import { FoodEntry } from "@domain/entities/food-entry.js";
+import { FoodEntry, MealNameEnumType } from "@domain/entities/food-entry.js";
 import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 
-import { AddFoodEntryRequestDto, GetDayLogRequestDto } from "../dtos/day-log-dtos.js";
 import { IDayLogRepository } from "../ports/day-log-repository.js";
 import { IUserRepository } from "../ports/user-repository.js";
 
+export interface GetDayLogInput {
+  userId: string;
+  date: string;
+}
+
+export interface AddFoodEntryInput {
+  userId: string;
+  date: string;
+  foodEntry: {
+    meal: MealNameEnumType;
+    name: string;
+    brand: string | null;
+    iconName: string | null;
+    chosenQuantity: number;
+    chosenUnit: string;
+    quantityServing: number;
+    servingLabel: string;
+    quantityMass: number | null;
+    massUnit: string | null;
+    quantityVolume: number | null;
+    volumeUnit: string | null;
+    calories: number;
+    totalFatGrams: number;
+    saturatedFatGrams: number | null;
+    cholesterolMg: number | null;
+    sodiumMg: number | null;
+    totalCarbohydrateGrams: number;
+    fiberGrams: number | null;
+    sugarGrams: number | null;
+    proteinGrams: number;
+  };
+}
+
 export interface IDayLogService {
-  getLogForDay({ userId, date }: GetDayLogRequestDto): Promise<DayLog | null>;
-  addFoodEntry({ userId, date, foodEntry }: AddFoodEntryRequestDto): Promise<FoodEntry>;
+  getLogForDay({ userId, date }: GetDayLogInput): Promise<DayLog | null>;
+  addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<FoodEntry>;
 }
 
 export class DayLogServiceImpl implements IDayLogService {
@@ -19,11 +51,11 @@ export class DayLogServiceImpl implements IDayLogService {
     this.userRepository = userRepository;
   }
 
-  async getLogForDay({ userId, date }: GetDayLogRequestDto): Promise<DayLog | null> {
+  async getLogForDay({ userId, date }: GetDayLogInput): Promise<DayLog | null> {
     return this.dayLogRepository.findLogByDateAndUserId({ userId, date });
   }
 
-  async addFoodEntry({ userId, date, foodEntry }: AddFoodEntryRequestDto): Promise<FoodEntry> {
+  async addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<FoodEntry> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new BusinessLogicError("User not found");
