@@ -135,7 +135,7 @@ function SignUpLoginForm({ onSubmitStart = () => undefined }: { onSubmitStart?: 
             disabled={!canSubmit || isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "Sending code…" : "Send verification code"}
+            {isSubmitting ? "Sending code…" : "Sign Up"}
             {!isSubmitting && <ArrowRight aria-hidden="true" />}
           </Button>
         )}
@@ -250,7 +250,7 @@ function PasskeyLogin() {
         type="button"
         onClick={() => void startExplicitLogin()}
       >
-        {state === "pending" ? "Waiting for your passkey…" : "Sign in with a passkey"}
+        {state === "pending" ? "Waiting for your passkey…" : "Log in with passkey"}
       </Button>
     </div>
   );
@@ -304,10 +304,13 @@ function SignupLoginPage() {
               id="signup-heading"
               className="font-heading text-2xl font-light tracking-[-0.01em] text-primary"
             >
-              Create your account
+              Sign Up or Log In
             </h2>
             <p className="mt-sm text-sm font-light text-on-surface-variant/80">
-              Start with a recovery email. We&apos;ll send a six-digit verification code.
+              To sign up, enter your email and click the Sign Up button.
+            </p>
+            <p className="mt-sm text-sm font-light text-on-surface-variant/80">
+              Log in by clicking the email field, or the button below to show passkeys you already registered.
             </p>
           </div>
           <SignUpLoginForm onSubmitStart={() => browserAuthentication.cancel()} />

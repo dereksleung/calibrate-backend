@@ -44,8 +44,8 @@ describe("SignupLoginPage", () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getByRole("heading", { name: "Create your account" })).toBeTruthy();
-    expect(screen.getByText(/start with a recovery email/i)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Sign Up or Log In" })).toBeTruthy();
+    expect(screen.getByText(/To sign up, enter your email and click the Sign Up button./i)).toBeTruthy();
   });
 });
 
@@ -62,7 +62,7 @@ describe("SignUpLoginForm", () => {
       target: { value: "sam@example.com" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /send verification code/i }));
+    fireEvent.click(screen.getByRole("button", { name: /sign up/i }));
 
     await waitFor(() => {
       expect(mockMutateAsync).toHaveBeenCalledWith("sam@example.com");
@@ -94,7 +94,7 @@ describe("SignUpLoginForm", () => {
       target: { value: "sam@example.com" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /send verification code/i }));
+    fireEvent.click(screen.getByRole("button", { name: /sign up/i }));
 
     expect((await screen.findByRole("alert")).textContent).toContain(
       "We couldn't send your verification code. Please try again.",
@@ -117,7 +117,7 @@ describe("SignUpLoginForm", () => {
     fireEvent.change(screen.getByLabelText("Email Address"), {
       target: { value: "sam@example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /send verification code/i }));
+    fireEvent.click(screen.getByRole("button", { name: /sign up/i }));
 
     await waitFor(() => {
       expect((screen.getByRole("button", { name: /sending code/i }) as HTMLButtonElement).disabled).toBe(

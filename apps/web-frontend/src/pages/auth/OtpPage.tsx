@@ -110,6 +110,9 @@ function OtpPage({ handoff }: OtpPageProps) {
               Check your email
             </h1>
             <p className="mt-sm max-w-[20rem] text-sm font-light text-on-surface-variant/80">
+              This is your recovery email address. After you press Verify Code below, it will ask you to create a passkey for future logins.
+            </p>
+            <p className="mt-sm max-w-[20rem] text-sm font-light text-on-surface-variant/80">
               We sent a 6-digit code to{" "}
               <span className="font-semibold text-on-background">{handoff.email}</span>
             </p>
