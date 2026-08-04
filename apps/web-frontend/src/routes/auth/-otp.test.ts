@@ -19,7 +19,7 @@ describe("/auth/otp route", () => {
         location: {
           state: {
             __TSR_index: 0,
-            signupEmailVerification: {
+            accountEmailVerification: {
               email: "person@example.com",
               challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
               expiresInSeconds: 600,

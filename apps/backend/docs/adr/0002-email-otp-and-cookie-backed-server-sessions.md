@@ -71,7 +71,7 @@ Reassess sender constraining and the overall assurance level before adding finan
 Use WebAuthn passkeys as the primary credential. Signup requires both a verified recovery email and creation of an initial passkey:
 
 1. The user supplies a normalized email address.
-2. The backend sends and verifies a short-lived email code for the `signup-email-verification` purpose.
+2. The backend sends and verifies a short-lived email code for the `account-email-verification` purpose.
 3. Successful verification issues a short-lived, single-use enrollment authorization. It does not create an access session.
 4. The client requests WebAuthn registration options under that authorization and calls `navigator.credentials.create()`.
 5. The backend verifies the registration response and atomically creates the user, records the verified recovery email, binds the first passkey, consumes the enrollment authorization, and creates the first remembered-device family and access session.
@@ -262,8 +262,8 @@ This ceremony requires explicit user interaction with the passkey authenticator;
 
 Expose these operations under the existing `/api/v1` prefix:
 
-- `POST /auth/email-verification` requests the signup recovery-email code.
-- `POST /auth/email-verification/verify` verifies that code and creates a limited enrollment authorization.
+- `POST /auth/email-verification` requests an account-email verification code without disclosing whether the email already has an account.
+- `POST /auth/email-verification/verify` atomically consumes a valid code and resolves its continuation: a new email receives a limited enrollment authorization, while an existing email receives only a `login-or-recovery` continuation. The latter is not authentication or recovery authorization; email recovery, its cool-off, and recovered-passkey management remain deferred.
 - `POST /auth/passkeys/registration/options` creates passkey-registration options for an enrollment, recovery, or recently authenticated credential-management authorization.
 - `POST /auth/passkeys/registration/verify` verifies registration and completes the authorized operation.
 - `POST /auth/passkeys/authentication/options` creates usernameless passkey-authentication options.

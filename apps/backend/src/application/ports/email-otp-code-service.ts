@@ -1,4 +1,4 @@
-import type { SignupEmailVerificationPurpose } from "./email-otp-challenge-repository.js";
+import type { AccountEmailVerificationPurpose } from "./email-otp-challenge-repository.js";
 
 export interface CreatedEmailOtpCode {
   challengeId: string;
@@ -12,12 +12,12 @@ export interface VerifyEmailOtpCodeProps {
   challengeId: string;
   code: string;
   codeDigest: string;
-  purpose: SignupEmailVerificationPurpose;
+  purpose: AccountEmailVerificationPurpose;
   hmacFormatVersion: number;
   hmacKeyVersion: number;
 }
 
 export interface IEmailOtpCodeService {
-  createChallenge(purpose: SignupEmailVerificationPurpose): CreatedEmailOtpCode;
+  createChallenge(purpose: AccountEmailVerificationPurpose): CreatedEmailOtpCode;
   verifyChallenge(props: VerifyEmailOtpCodeProps): boolean;
 }

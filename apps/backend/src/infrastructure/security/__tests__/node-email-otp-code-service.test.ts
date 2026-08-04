@@ -8,11 +8,11 @@ describe("NodeEmailOtpCodeService", () => {
     const key = createSecretKey(keyBytes);
     const service = new NodeEmailOtpCodeService({ key, keyVersion: 3 });
 
-    const result = service.createChallenge("signup-email-verification");
+    const result = service.createChallenge("account-email-verification");
     const message = JSON.stringify([
       "calibrate-email-otp",
       2,
-      "signup-email-verification",
+      "account-email-verification",
       result.challengeId,
       result.code,
     ]);
@@ -43,7 +43,7 @@ describe("NodeEmailOtpCodeService", () => {
     const message = JSON.stringify([
       "calibrate-email-otp",
       2,
-      "signup-email-verification",
+      "account-email-verification",
       challengeId,
       code,
     ]);
@@ -54,7 +54,7 @@ describe("NodeEmailOtpCodeService", () => {
         challengeId,
         code,
         codeDigest,
-        purpose: "signup-email-verification",
+        purpose: "account-email-verification",
         hmacFormatVersion: 2,
         hmacKeyVersion: 2,
       }),
@@ -64,7 +64,7 @@ describe("NodeEmailOtpCodeService", () => {
         challengeId,
         code: "999999",
         codeDigest,
-        purpose: "signup-email-verification",
+        purpose: "account-email-verification",
         hmacFormatVersion: 2,
         hmacKeyVersion: 2,
       }),
@@ -84,7 +84,7 @@ describe("NodeEmailOtpCodeService", () => {
         challengeId,
         code,
         codeDigest,
-        purpose: "signup-email-verification",
+        purpose: "account-email-verification",
         hmacFormatVersion: 1,
         hmacKeyVersion: 1,
       }),

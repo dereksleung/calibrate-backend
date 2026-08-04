@@ -1,5 +1,5 @@
 import type { IAuthService } from "@application/services/auth-service.js";
-import type { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
+import type { IAccountEmailVerificationService } from "@application/services/account-email-verification-service.js";
 import type { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -16,7 +16,7 @@ import { createAuthRoutes } from "../auth-routes.js";
 
 describe("passkey registration HTTP routes", () => {
   const authService: IAuthService = { login: vi.fn() };
-  const signupEmailVerificationService: ISignupEmailVerificationService = {
+  const accountEmailVerificationService: IAccountEmailVerificationService = {
     request: vi.fn(),
     verify: vi.fn(),
   };
@@ -30,7 +30,7 @@ describe("passkey registration HTTP routes", () => {
   app.use(
     "/api/v1",
     createAuthRoutes(
-      new AuthController(authService, signupEmailVerificationService, signupPasskeyRegistrationService),
+      new AuthController(authService, accountEmailVerificationService, signupPasskeyRegistrationService),
     ),
   );
 

@@ -2,11 +2,11 @@ import { ServiceUnavailableError } from "@application/errors/service-unavailable
 import {
   IEmailSender,
   PasskeyAddedNotificationEmailInfo,
-  SignupEmailVerificationCodeEmailInfo,
+  AccountEmailVerificationCodeEmailInfo,
 } from "@application/ports/email-sender.js";
 
 import { passkeyAddedNotificationTemplate } from "./passkey-added-notification-template.js";
-import { signupEmailVerificationTemplate } from "./signup-email-verification-template.js";
+import { accountEmailVerificationTemplate } from "./account-email-verification-template.js";
 
 /**
  * Requirements for timeout and retry logic:
@@ -33,7 +33,7 @@ export class BrevoEmailSender implements IEmailSender {
   constructor(private readonly apiKey: string) {}
 
   // Using normal fetch instead of Brevo's SDK because the SDK does not have a license file
-  async sendSignupEmailVerificationCode(message: SignupEmailVerificationCodeEmailInfo): Promise<void> {
+  async sendAccountEmailVerificationCode(message: AccountEmailVerificationCodeEmailInfo): Promise<void> {
     const deadline = Date.now() + TOTAL_BUDGET_MS;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -55,7 +55,7 @@ export class BrevoEmailSender implements IEmailSender {
             },
             to: [{ email: message.email }],
             subject: "Verify your Calibrate recovery email",
-            htmlContent: signupEmailVerificationTemplate,
+            htmlContent: accountEmailVerificationTemplate,
             params: {
               code: message.code,
             },

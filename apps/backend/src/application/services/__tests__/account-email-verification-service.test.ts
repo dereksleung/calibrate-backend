@@ -4,16 +4,16 @@ import { IEmailOtpCodeService } from "@application/ports/email-otp-code-service.
 import { IEmailSender } from "@application/ports/email-sender.js";
 import { IOpaqueTokenService } from "@application/ports/session-token-service.js";
 import { ISignupEnrollmentAuthorizationRepository } from "@application/ports/signup-enrollment-authorization-repository.js";
-import { SignupEmailVerificationServiceImpl } from "@application/services/signup-email-verification-service.js";
+import { AccountEmailVerificationServiceImpl } from "@application/services/account-email-verification-service.js";
 import { MockedObject, vi } from "vitest";
 
-describe("SignupEmailVerificationServiceImpl", () => {
+describe("AccountEmailVerificationServiceImpl", () => {
   let challengeRepository: MockedObject<IEmailOtpChallengeRepository>;
   let codeService: MockedObject<IEmailOtpCodeService>;
   let emailSender: MockedObject<IEmailSender>;
   let enrollmentRepository: MockedObject<ISignupEnrollmentAuthorizationRepository>;
   let opaqueTokenService: MockedObject<IOpaqueTokenService>;
-  let service: SignupEmailVerificationServiceImpl;
+  let service: AccountEmailVerificationServiceImpl;
 
   const now = new Date("2026-07-12T12:00:00.000Z");
   const clock: IClock = { now: () => now };
@@ -27,12 +27,12 @@ describe("SignupEmailVerificationServiceImpl", () => {
     };
     codeService = { createChallenge: vi.fn(), verifyChallenge: vi.fn() };
     emailSender = {
-      sendSignupEmailVerificationCode: vi.fn(),
+      sendAccountEmailVerificationCode: vi.fn(),
       sendPasskeyAddedNotification: vi.fn(),
     };
-    enrollmentRepository = { consumeAndCreate: vi.fn() };
+    enrollmentRepository = { consumeAndResolveContinuation: vi.fn() };
     opaqueTokenService = { create: vi.fn() };
-    service = new SignupEmailVerificationServiceImpl(
+    service = new AccountEmailVerificationServiceImpl(
       challengeRepository,
       codeService,
       emailSender,
@@ -46,7 +46,7 @@ describe("SignupEmailVerificationServiceImpl", () => {
     const challenge = {
       id: "d9428888-122b-4e2b-9c24-2dc8442eaa31",
       email: "person@example.com",
-      purpose: "signup-email-verification" as const,
+      purpose: "account-email-verification" as const,
       codeDigest: "code-digest",
       hmacFormatVersion: 2,
       hmacKeyVersion: 1,
@@ -61,7 +61,7 @@ describe("SignupEmailVerificationServiceImpl", () => {
     challengeRepository.findById.mockResolvedValue(challenge);
     codeService.verifyChallenge.mockReturnValue(true);
     opaqueTokenService.create.mockReturnValue({ token: "raw-enrollment-token", digest: "token-digest" });
-    enrollmentRepository.consumeAndCreate.mockResolvedValue(true);
+    enrollmentRepository.consumeAndResolveContinuation.mockResolvedValue({ next: "passkey-registration" });
 
     const result = await service.verify({
       challengeId: challenge.id,
@@ -73,11 +73,11 @@ describe("SignupEmailVerificationServiceImpl", () => {
       challengeId: challenge.id,
       code: "012345",
       codeDigest: "code-digest",
-      purpose: "signup-email-verification",
+      purpose: "account-email-verification",
       hmacFormatVersion: 2,
       hmacKeyVersion: 1,
     });
-    expect(enrollmentRepository.consumeAndCreate).toHaveBeenCalledWith({
+    expect(enrollmentRepository.consumeAndResolveContinuation).toHaveBeenCalledWith({
       challengeId: challenge.id,
       consumedAt: now,
       authorization: expect.objectContaining({
@@ -90,16 +90,30 @@ describe("SignupEmailVerificationServiceImpl", () => {
       }),
     });
     expect(result).toEqual({
+      next: "passkey-registration",
       enrollmentToken: "raw-enrollment-token",
       expiresAt: new Date("2026-07-12T12:05:00.000Z"),
     });
+  });
+
+  it("returns the existing-account continuation without an enrollment token", async () => {
+    challengeRepository.findById.mockResolvedValue({
+      id: "d9428888-122b-4e2b-9c24-2dc8442eaa31", email: "person@example.com", purpose: "account-email-verification",
+      codeDigest: "code-digest", hmacFormatVersion: 2, hmacKeyVersion: 1, attemptCount: 0, maxAttempts: 5,
+      sessionTransport: "cookie", mobilePlatform: null, expiresAt: new Date("2026-07-12T12:10:00.000Z"), consumedAt: null, invalidatedAt: null,
+    });
+    codeService.verifyChallenge.mockReturnValue(true);
+    opaqueTokenService.create.mockReturnValue({ token: "unused", digest: "unused" });
+    enrollmentRepository.consumeAndResolveContinuation.mockResolvedValue({ next: "login-or-recovery" });
+
+    await expect(service.verify({ challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "012345", platform: null })).resolves.toEqual({ next: "login-or-recovery" });
   });
 
   it("rejects a mismatched client binding without checking the code or consuming an OTP attempt", async () => {
     challengeRepository.findById.mockResolvedValue({
       id: "d9428888-122b-4e2b-9c24-2dc8442eaa31",
       email: "person@example.com",
-      purpose: "signup-email-verification",
+      purpose: "account-email-verification",
       codeDigest: "code-digest",
       hmacFormatVersion: 2,
       hmacKeyVersion: 1,
@@ -138,11 +152,11 @@ describe("SignupEmailVerificationServiceImpl", () => {
       requestingIp: "203.0.113.4",
     });
 
-    expect(codeService.createChallenge).toHaveBeenCalledWith("signup-email-verification");
+    expect(codeService.createChallenge).toHaveBeenCalledWith("account-email-verification");
     expect(challengeRepository.create).toHaveBeenCalledWith({
       id: "d9428888-122b-4e2b-9c24-2dc8442eaa31",
       email: "person@example.com",
-      purpose: "signup-email-verification",
+      purpose: "account-email-verification",
       codeDigest: "digest",
       hmacFormatVersion: 2,
       hmacKeyVersion: 1,
@@ -154,7 +168,7 @@ describe("SignupEmailVerificationServiceImpl", () => {
       expiresAt: new Date("2026-07-12T12:10:00.000Z"),
       createdAt: now,
     });
-    expect(emailSender.sendSignupEmailVerificationCode).toHaveBeenCalledWith({
+    expect(emailSender.sendAccountEmailVerificationCode).toHaveBeenCalledWith({
       email: "person@example.com",
       code: "012345",
       expiresInMinutes: 10,
@@ -204,7 +218,7 @@ describe("SignupEmailVerificationServiceImpl", () => {
         requestingIp: "203.0.113.4",
       }),
     ).rejects.toThrow("Too many verification-code requests");
-    expect(emailSender.sendSignupEmailVerificationCode).not.toHaveBeenCalled();
+    expect(emailSender.sendAccountEmailVerificationCode).not.toHaveBeenCalled();
   });
 
   it("invalidates a persisted challenge when delivery fails", async () => {
@@ -215,7 +229,7 @@ describe("SignupEmailVerificationServiceImpl", () => {
       hmacFormatVersion: 2,
       hmacKeyVersion: 1,
     });
-    emailSender.sendSignupEmailVerificationCode.mockRejectedValue(new Error("delivery failed"));
+    emailSender.sendAccountEmailVerificationCode.mockRejectedValue(new Error("delivery failed"));
 
     await expect(
       service.request({

@@ -3,12 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { ApiTransport } from "../transport.js";
 
 import {
-  getRequestSignupEmailVerificationMutationOptions,
-  requestSignupEmailVerification,
-  verifySignupEmailVerification,
-} from "./signup-email-verification.js";
+  getRequestAccountEmailVerificationMutationOptions,
+  requestAccountEmailVerification,
+  verifyAccountEmailVerification,
+} from "./account-email-verification.js";
 
-describe("requestSignupEmailVerification", () => {
+describe("requestAccountEmailVerification", () => {
   it("posts the validated email and parses the challenge metadata", async () => {
     const request = vi.fn(async ({ responseBodySchema }) =>
       responseBodySchema.parse({
@@ -19,7 +19,7 @@ describe("requestSignupEmailVerification", () => {
     );
     const transport = { request } as unknown as ApiTransport;
 
-    const result = await requestSignupEmailVerification(transport, {
+    const result = await requestAccountEmailVerification(transport, {
       email: "  Person@Example.COM ",
     });
 
@@ -40,30 +40,27 @@ describe("requestSignupEmailVerification", () => {
     const request = vi.fn();
     const transport = { request } as unknown as ApiTransport;
 
-    expect(() => requestSignupEmailVerification(transport, { email: "not-an-email" })).toThrow();
+    expect(() => requestAccountEmailVerification(transport, { email: "not-an-email" })).toThrow();
     expect(request).not.toHaveBeenCalled();
   });
 });
 
-describe("verifySignupEmailVerification", () => {
-  it("posts a code and returns only the passkey-registration handoff", async () => {
+describe("verifyAccountEmailVerification", () => {
+  it.each([
+    { next: "passkey-registration", expiresAt: "2030-01-01T00:05:00.000Z" },
+    { next: "login-or-recovery" },
+  ])("posts a code and parses continuation %#", async (expected) => {
     const request = vi.fn(async ({ responseBodySchema }) =>
-      responseBodySchema.parse({
-        next: "passkey-registration",
-        expiresAt: "2030-01-01T00:05:00.000Z",
-      }),
+      responseBodySchema.parse(expected),
     );
     const transport = { request } as unknown as ApiTransport;
 
     await expect(
-      verifySignupEmailVerification(transport, {
+      verifyAccountEmailVerification(transport, {
         challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
         code: "012345",
       }),
-    ).resolves.toEqual({
-      next: "passkey-registration",
-      expiresAt: "2030-01-01T00:05:00.000Z",
-    });
+    ).resolves.toEqual(expected);
     expect(request).toHaveBeenCalledWith({
       path: "/auth/email-verification/verify",
       method: "POST",
@@ -76,8 +73,8 @@ describe("verifySignupEmailVerification", () => {
   });
 });
 
-describe("getRequestSignupEmailVerificationMutationOptions", () => {
-  it("uses the signup-verification key and requests an OTP when invoked", async () => {
+describe("getRequestAccountEmailVerificationMutationOptions", () => {
+  it("uses the neutral verification key and requests an OTP when invoked", async () => {
     const request = vi.fn(async ({ responseBodySchema }) =>
       responseBodySchema.parse({
         challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
@@ -87,9 +84,9 @@ describe("getRequestSignupEmailVerificationMutationOptions", () => {
     );
     const transport = { request } as unknown as ApiTransport;
 
-    const options = getRequestSignupEmailVerificationMutationOptions(transport);
+    const options = getRequestAccountEmailVerificationMutationOptions(transport);
 
-    expect(options.mutationKey).toEqual(["requestSignupEmailVerification"]);
+    expect(options.mutationKey).toEqual(["requestAccountEmailVerification"]);
     await expect(options.mutationFn?.("person@example.com", {} as any)).resolves.toEqual({
       challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
       expiresInSeconds: 600,

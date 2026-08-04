@@ -3,20 +3,21 @@ import { Button } from "#/shared/components/base/Button";
 import { WarningBanner } from "#/shared/components/base/WarningBanner";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "#/verticals/auth/components/InputOtp.tsx";
 import {
-  createSignupEmailVerificationHandoff,
+  createAccountEmailVerificationHandoff,
+  createLoginRecoveryHandoff,
   createPasskeyEnrollmentHandoff,
-  type SignupEmailVerificationHandoff,
-} from "#/verticals/auth/signup-email-verification-handoff";
-import { useRequestSignupEmailVerification, useVerifySignupEmailVerification } from "@calibrate/api-client";
+  type AccountEmailVerificationHandoff,
+} from "#/verticals/auth/account-email-verification-handoff";
+import { useRequestAccountEmailVerification, useVerifyAccountEmailVerification } from "@calibrate/api-client";
 import { useNavigate } from "@tanstack/react-router";
 import { MailCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type OtpPageProps = {
-  handoff: SignupEmailVerificationHandoff;
+  handoff: AccountEmailVerificationHandoff;
 };
 
-function getResendCountdown(handoff: SignupEmailVerificationHandoff): number {
+function getResendCountdown(handoff: AccountEmailVerificationHandoff): number {
   const availableAtEpochMs = handoff.requestedAtEpochMs + handoff.resendAfterSeconds * 1000;
 
   return Math.max(0, Math.ceil((availableAtEpochMs - Date.now()) / 1000));
@@ -24,10 +25,10 @@ function getResendCountdown(handoff: SignupEmailVerificationHandoff): number {
 
 function OtpPage({ handoff }: OtpPageProps) {
   const navigate = useNavigate();
-  const { isPending, mutateAsync: requestSignupEmailVerification } =
-    useRequestSignupEmailVerification(apiTransport);
-  const { isPending: isVerifying, mutateAsync: verifySignupEmailVerification } =
-    useVerifySignupEmailVerification(apiTransport);
+  const { isPending, mutateAsync: requestAccountEmailVerification } =
+    useRequestAccountEmailVerification(apiTransport);
+  const { isPending: isVerifying, mutateAsync: verifyAccountEmailVerification } =
+    useVerifyAccountEmailVerification(apiTransport);
   const [otpCode, setOtpCode] = useState("");
   const [resendCountdown, setResendCountdown] = useState(() => getResendCountdown(handoff));
   const isResendLocked = resendCountdown > 0;
@@ -54,14 +55,14 @@ function OtpPage({ handoff }: OtpPageProps) {
     setResendError(undefined);
 
     try {
-      const response = await requestSignupEmailVerification(handoff.email);
-      const replacement = createSignupEmailVerificationHandoff(handoff.email, response);
+      const response = await requestAccountEmailVerification(handoff.email);
+      const replacement = createAccountEmailVerificationHandoff(handoff.email, response);
 
       await navigate({
         replace: true,
         state: (previous) => ({
           ...previous,
-          signupEmailVerification: replacement,
+          accountEmailVerification: replacement,
         }),
         to: "/auth/otp",
       });
@@ -77,12 +78,14 @@ function OtpPage({ handoff }: OtpPageProps) {
       return;
     }
     try {
-      const response = await verifySignupEmailVerification({ challengeId: handoff.challengeId, code: otpCode });
-      const enrollment = createPasskeyEnrollmentHandoff(handoff.email, response);
-      await navigate({
-        to: "/auth/passkey-enrollment",
-        state: (previous) => ({ ...previous, passkeyEnrollment: enrollment }),
-      });
+      const response = await verifyAccountEmailVerification({ challengeId: handoff.challengeId, code: otpCode });
+      if (response.next === "passkey-registration") {
+        const enrollment = createPasskeyEnrollmentHandoff(handoff.email, response);
+        await navigate({ to: "/auth/passkey-enrollment", state: (previous) => ({ ...previous, passkeyEnrollment: enrollment }) });
+      } else {
+        const loginRecovery = createLoginRecoveryHandoff(handoff.email);
+        await navigate({ to: "/auth/login-recovery", state: (previous) => ({ ...previous, loginRecovery }) });
+      }
     } catch {
       setVerificationError("This verification code is invalid or has expired. Request a new code and try again.");
     }
@@ -109,7 +112,7 @@ function OtpPage({ handoff }: OtpPageProps) {
               Check your email
             </h1>
             <p className="mt-sm max-w-[20rem] text-sm font-light text-on-surface-variant/80">
-              This is your recovery email address. After you press Verify Code below, it will ask you to create a passkey for future logins.
+              Verify the code to continue with account setup or account access.
             </p>
             <p className="mt-sm max-w-[20rem] text-sm font-light text-on-surface-variant/80">
               We sent a 6-digit code to{" "}

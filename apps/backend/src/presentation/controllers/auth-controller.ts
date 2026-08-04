@@ -21,20 +21,20 @@ import {
   IPasskeyAuthenticationService,
   UnavailablePasskeyAuthenticationService,
 } from "@application/services/passkey-authentication-service.js";
-import { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
+import { IAccountEmailVerificationService } from "@application/services/account-email-verification-service.js";
 import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import {
   AppPlatformHeaderValueSchema,
   AuthenticatedSessionResponse,
   LoginRequestBodySchema,
   PasskeyRegistrationErrorResponse,
-  RequestSignupEmailVerificationRequestBodySchema,
+  RequestAccountEmailVerificationRequestBodySchema,
   VerifyPasskeyAuthenticationRequestBodySchema,
   VerifyPasskeyRegistrationRequestBodySchema,
-  VerifySignupEmailVerificationRequestBodySchema,
+  VerifyAccountEmailVerificationRequestBodySchema,
   type LoginResponse,
-  type RequestSignupEmailVerificationResponse,
-  type VerifySignupEmailVerificationResponse,
+  type RequestAccountEmailVerificationResponse,
+  type VerifyAccountEmailVerificationResponse,
 } from "@calibrate/api-contracts";
 import { handleControllerError } from "@common/errors/controller-error-handler.js";
 import { validate } from "@validation/validation-helpers.js";
@@ -51,7 +51,7 @@ import { UserResponseMapper } from "../mappers/user-response-mapper.js";
 export class AuthController {
   constructor(
     private readonly authService: IAuthService,
-    private readonly signupEmailVerificationService: ISignupEmailVerificationService,
+    private readonly accountEmailVerificationService: IAccountEmailVerificationService,
     private readonly signupPasskeyRegistrationService: ISignupPasskeyRegistrationService,
     private readonly passkeyAuthenticationService: IPasskeyAuthenticationService = new UnavailablePasskeyAuthenticationService(),
     private readonly sessionRestorationService?: ISessionRestorationService,
@@ -199,9 +199,9 @@ export class AuthController {
     }
   }
 
-  async requestSignupEmailVerification(req: Request, res: Response): Promise<void> {
+  async requestAccountEmailVerification(req: Request, res: Response): Promise<void> {
     res.set("Cache-Control", "no-store");
-    const validatedBody = validate(RequestSignupEmailVerificationRequestBodySchema, req.body);
+    const validatedBody = validate(RequestAccountEmailVerificationRequestBodySchema, req.body);
     const platformHeader = req.get("X-App-Platform");
     const validatedPlatform = platformHeader
       ? AppPlatformHeaderValueSchema.safeParse(platformHeader)
@@ -220,12 +220,12 @@ export class AuthController {
     }
 
     try {
-      const result = await this.signupEmailVerificationService.request({
+      const result = await this.accountEmailVerificationService.request({
         email: validatedBody.data.email,
         platform: validatedPlatform.data,
         requestingIp: req.ip,
       });
-      const response: RequestSignupEmailVerificationResponse = {
+      const response: RequestAccountEmailVerificationResponse = {
         challengeId: result.challengeId,
         expiresInSeconds: result.expiresInSeconds,
         resendAfterSeconds: result.resendAfterSeconds,
@@ -246,9 +246,9 @@ export class AuthController {
     }
   }
 
-  async verifySignupEmailVerification(req: Request, res: Response): Promise<void> {
+  async verifyAccountEmailVerification(req: Request, res: Response): Promise<void> {
     res.set("Cache-Control", "no-store");
-    const validatedBody = validate(VerifySignupEmailVerificationRequestBodySchema, req.body);
+    const validatedBody = validate(VerifyAccountEmailVerificationRequestBodySchema, req.body);
     const platformHeader = req.get("X-App-Platform");
     const validatedPlatform = platformHeader
       ? AppPlatformHeaderValueSchema.safeParse(platformHeader)
@@ -267,18 +267,23 @@ export class AuthController {
     }
 
     try {
-      const result = await this.signupEmailVerificationService.verify({
+      const result = await this.accountEmailVerificationService.verify({
         challengeId: validatedBody.data.challengeId,
         code: validatedBody.data.code,
         platform: validatedPlatform.data,
       });
 
-      const cookie = getEnrollmentCookieConfiguration();
-      res.cookie(cookie.name, result.enrollmentToken, cookie.options);
-      const response: VerifySignupEmailVerificationResponse = {
-        next: "passkey-registration",
-        expiresAt: result.expiresAt.toISOString(),
-      };
+      const response: VerifyAccountEmailVerificationResponse =
+        result.next === "passkey-registration"
+          ? (() => {
+              const cookie = getEnrollmentCookieConfiguration();
+              res.cookie(cookie.name, result.enrollmentToken, cookie.options);
+              return { next: "passkey-registration" as const, expiresAt: result.expiresAt.toISOString() };
+            })()
+          : (() => {
+              this.clearEnrollmentCookie(res);
+              return { next: "login-or-recovery" as const };
+            })();
       res.status(200).json(response);
     } catch (error) {
       if (error instanceof InvalidEmailVerificationCodeError) {

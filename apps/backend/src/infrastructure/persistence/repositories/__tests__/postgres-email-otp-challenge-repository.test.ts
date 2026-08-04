@@ -92,7 +92,7 @@ function challenge(overrides: Partial<NewEmailOtpChallenge> = {}): NewEmailOtpCh
   return {
     id: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
     email: "person@example.com",
-    purpose: "signup-email-verification",
+    purpose: "account-email-verification",
     codeDigest: "code-digest",
     hmacFormatVersion: 2,
     hmacKeyVersion: 1,
@@ -138,7 +138,7 @@ describe("PostgresEmailOtpChallengeRepository.create", () => {
     expect(invalidation?.sql).toContain('"session_transport" =');
     expect(invalidation?.sql).toContain('"mobile_platform" =');
     expect(invalidation?.parameters).toEqual(
-      expect.arrayContaining(["person@example.com", "signup-email-verification", "bearer", "ios"]),
+      expect.arrayContaining(["person@example.com", "account-email-verification", "bearer", "ios"]),
     );
 
     const insert = driver.connection.queries.find((query) =>
@@ -148,7 +148,7 @@ describe("PostgresEmailOtpChallengeRepository.create", () => {
     expect(insert?.parameters).toContain(expectedIpDigest);
     expect(insert?.parameters).not.toContain(input.requestingIp);
     expect(insert?.parameters).toEqual(
-      expect.arrayContaining(["signup-email-verification", "bearer", "ios"]),
+      expect.arrayContaining(["account-email-verification", "bearer", "ios"]),
     );
 
     const globalCount = driver.connection.queries.find(

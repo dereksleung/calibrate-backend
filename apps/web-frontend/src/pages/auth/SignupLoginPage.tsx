@@ -18,18 +18,18 @@ import {
   isPasskeyAuthenticationCancellation,
   startPasskeyAuthentication,
 } from "#/verticals/auth/browser-passkey-authentication-adapter";
-import { createSignupEmailVerificationHandoff } from "#/verticals/auth/signup-email-verification-handoff";
+import { createAccountEmailVerificationHandoff } from "#/verticals/auth/account-email-verification-handoff";
 import {
   ApiError,
   parsePasskeyAuthenticationError,
   requestPasskeyAuthenticationOptions,
-  useRequestSignupEmailVerification,
+  useRequestAccountEmailVerification,
   verifyPasskeyAuthentication,
 } from "@calibrate/api-client";
 import {
-  RequestSignupEmailVerificationRequestBodySchema,
+  RequestAccountEmailVerificationRequestBodySchema,
   type PasskeyAuthenticationErrorCode,
-  type RequestSignupEmailVerificationRequestBody,
+  type RequestAccountEmailVerificationRequestBody,
 } from "@calibrate/api-contracts";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
@@ -37,7 +37,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Mail } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-type SignUpLoginFormValues = RequestSignupEmailVerificationRequestBody;
+type SignUpLoginFormValues = RequestAccountEmailVerificationRequestBody;
 
 const PASSKEY_AUTHENTICATION_ERROR_MESSAGES: Partial<
   Record<PasskeyAuthenticationErrorCode, string>
@@ -50,7 +50,7 @@ const DEFAULT_PASSKEY_AUTHENTICATION_ERROR_MESSAGE =
   "We couldn't verify that passkey. Try the Log in with Passkey button again, or use the email field to verify and recover your account.";
 
 function firstContractError(field: "email", value: string): string | undefined {
-  const result = RequestSignupEmailVerificationRequestBodySchema.shape[field].safeParse(value);
+  const result = RequestAccountEmailVerificationRequestBodySchema.shape[field].safeParse(value);
   return result.success ? undefined : result.error.issues[0]?.message;
 }
 
@@ -68,8 +68,8 @@ function fieldErrors(errors: unknown[]): Array<{ message?: string }> {
 function SignUpLoginForm({ onSubmitStart = () => undefined }: { onSubmitStart?: () => void }) {
   const [requestError, setRequestError] = useState<string>();
   const navigate = useNavigate();
-  const { mutateAsync: requestSignupEmailVerification } =
-    useRequestSignupEmailVerification(apiTransport);
+  const { mutateAsync: requestAccountEmailVerification } =
+    useRequestAccountEmailVerification(apiTransport);
 
   const form = useForm({
     defaultValues: {
@@ -80,14 +80,14 @@ function SignUpLoginForm({ onSubmitStart = () => undefined }: { onSubmitStart?: 
       setRequestError(undefined);
 
       try {
-        const response = await requestSignupEmailVerification(value.email);
-        const handoff = createSignupEmailVerificationHandoff(value.email, response);
+        const response = await requestAccountEmailVerification(value.email);
+        const handoff = createAccountEmailVerificationHandoff(value.email, response);
 
         await navigate({
           to: "/auth/otp",
           state: (previous) => ({
             ...previous,
-            signupEmailVerification: handoff,
+            accountEmailVerification: handoff,
           }),
         });
       } catch {
@@ -149,7 +149,7 @@ function SignUpLoginForm({ onSubmitStart = () => undefined }: { onSubmitStart?: 
             disabled={!canSubmit || isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "Sending code…" : "Sign Up"}
+            {isSubmitting ? "Sending code…" : "Continue with email"}
             {!isSubmitting && <ArrowRight aria-hidden="true" />}
           </Button>
         )}
@@ -360,7 +360,7 @@ function SignupLoginPage() {
               Sign Up or Log In
             </h2>
             <p className="mt-sm text-sm font-light text-on-surface-variant/80">
-              To sign up, enter your email and click the Sign Up button.
+              Enter your email and we&apos;ll send a code to continue.
             </p>
             <p className="mt-sm text-sm font-light text-on-surface-variant/80">
               Log in by clicking the email field, or the button below to show passkeys you already

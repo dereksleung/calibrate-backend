@@ -5,10 +5,10 @@ export function createAuthRoutes(authController: AuthController): Router {
   const router = Router();
 
   router.post("/auth/email-verification", (req, res) =>
-    authController.requestSignupEmailVerification(req, res),
+    authController.requestAccountEmailVerification(req, res),
   );
   router.post("/auth/email-verification/verify", (req, res) =>
-    authController.verifySignupEmailVerification(req, res),
+    authController.verifyAccountEmailVerification(req, res),
   );
   router.post("/auth/passkeys/registration/options", (req, res) =>
     authController.createPasskeyRegistrationOptions(req, res),

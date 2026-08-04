@@ -1,5 +1,6 @@
 import type {
   ConsumeAndCreateEnrollmentAuthorizationProps,
+  EmailVerificationContinuation,
   ISignupEnrollmentAuthorizationRepository,
 } from "@application/ports/signup-enrollment-authorization-repository.js";
 
@@ -8,14 +9,16 @@ import type { DatabaseClient } from "../database-client.js";
 export class PostgresSignupEnrollmentAuthorizationRepository implements ISignupEnrollmentAuthorizationRepository {
   constructor(private readonly databaseClient: DatabaseClient) {}
 
-  async consumeAndCreate(props: ConsumeAndCreateEnrollmentAuthorizationProps): Promise<boolean> {
+  async consumeAndResolveContinuation(
+    props: ConsumeAndCreateEnrollmentAuthorizationProps,
+  ): Promise<EmailVerificationContinuation | null> {
     return this.databaseClient.transaction().execute(async (trx) => {
       const authorization = props.authorization;
       let consumeQuery = trx
         .updateTable("email_otp_challenges")
         .set({ consumed_at: props.consumedAt })
         .where("id", "=", props.challengeId)
-        .where("purpose", "=", "signup-email-verification")
+        .where("purpose", "=", "account-email-verification")
         .where("session_transport", "=", authorization.sessionTransport)
         .where("consumed_at", "is", null)
         .where("invalidated_at", "is", null)
@@ -28,7 +31,14 @@ export class PostgresSignupEnrollmentAuthorizationRepository implements ISignupE
           : consumeQuery.where("mobile_platform", "=", authorization.mobilePlatform);
 
       const consumed = await consumeQuery.executeTakeFirst();
-      if (Number(consumed.numUpdatedRows) !== 1) return false;
+      if (Number(consumed.numUpdatedRows) !== 1) return null;
+
+      const existingUser = await trx
+        .selectFrom("users")
+        .select("id")
+        .where("email", "=", authorization.email)
+        .executeTakeFirst();
+      if (existingUser) return { next: "login-or-recovery" };
 
       let invalidateQuery = trx
         .updateTable("signup_enrollment_authorizations")
@@ -59,7 +69,7 @@ export class PostgresSignupEnrollmentAuthorizationRepository implements ISignupE
           invalidated_at: null,
         })
         .execute();
-      return true;
+      return { next: "passkey-registration" };
     });
   }
 }

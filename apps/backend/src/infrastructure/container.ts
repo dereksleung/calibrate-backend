@@ -14,10 +14,10 @@ import {
   PasskeyAuthenticationServiceImpl,
 } from "@application/services/passkey-authentication-service.js";
 import {
-  ISignupEmailVerificationService,
-  SignupEmailVerificationServiceImpl,
-  UnavailableSignupEmailVerificationService,
-} from "@application/services/signup-email-verification-service.js";
+  IAccountEmailVerificationService,
+  AccountEmailVerificationServiceImpl,
+  UnavailableAccountEmailVerificationService,
+} from "@application/services/account-email-verification-service.js";
 import {
   ISignupPasskeyRegistrationService,
   SignupPasskeyRegistrationServiceImpl,
@@ -98,7 +98,7 @@ export class Container {
   private readonly authService: IAuthService;
   private readonly clock: IClock;
   private readonly emailOtpCodeService: IEmailOtpCodeService;
-  private readonly signupEmailVerificationService: ISignupEmailVerificationService;
+  private readonly accountEmailVerificationService: IAccountEmailVerificationService;
   private readonly signupPasskeyRegistrationService: ISignupPasskeyRegistrationService;
   private readonly passkeyAuthenticationService: IPasskeyAuthenticationService;
   private readonly sessionRestorationService: ISessionRestorationService;
@@ -115,7 +115,7 @@ export class Container {
     authController,
     authService,
     emailOtpCodeService,
-    signupEmailVerificationService,
+    accountEmailVerificationService,
     signupPasskeyRegistrationService,
     passkeyAuthenticationService,
     emailSender,
@@ -132,7 +132,7 @@ export class Container {
     authController?: AuthController;
     authService?: IAuthService;
     emailOtpCodeService?: IEmailOtpCodeService;
-    signupEmailVerificationService?: ISignupEmailVerificationService;
+    accountEmailVerificationService?: IAccountEmailVerificationService;
     signupPasskeyRegistrationService?: ISignupPasskeyRegistrationService;
     passkeyAuthenticationService?: IPasskeyAuthenticationService;
     emailSender?: IEmailSender;
@@ -161,10 +161,10 @@ export class Container {
       emailOtpCodeService ?? new NodeEmailOtpCodeService({ key: otpHmacKey, keyVersion });
     const configuredEmailSender =
       emailSender ?? (emailServiceCredential ? new BrevoEmailSender(emailServiceCredential) : null);
-    this.signupEmailVerificationService =
-      signupEmailVerificationService ??
+    this.accountEmailVerificationService =
+      accountEmailVerificationService ??
       (configuredEmailSender
-        ? new SignupEmailVerificationServiceImpl(
+        ? new AccountEmailVerificationServiceImpl(
             new PostgresEmailOtpChallengeRepository(
               {
                 ipDigestKey: ipDigestKeyBytes,
@@ -178,7 +178,7 @@ export class Container {
             new NodeOpaqueTokenService(),
             this.clock,
           )
-        : new UnavailableSignupEmailVerificationService());
+        : new UnavailableAccountEmailVerificationService());
 
     this.signupPasskeyRegistrationService =
       signupPasskeyRegistrationService ??
@@ -219,7 +219,7 @@ export class Container {
       authController ??
       new AuthController(
         this.authService,
-        this.signupEmailVerificationService,
+        this.accountEmailVerificationService,
         this.signupPasskeyRegistrationService,
         this.passkeyAuthenticationService,
         this.sessionRestorationService,
@@ -243,8 +243,8 @@ export class Container {
   getAuthService(): IAuthService {
     return this.authService;
   }
-  getSignupEmailVerificationService(): ISignupEmailVerificationService {
-    return this.signupEmailVerificationService;
+  getAccountEmailVerificationService(): IAccountEmailVerificationService {
+    return this.accountEmailVerificationService;
   }
   getSignupPasskeyRegistrationService(): ISignupPasskeyRegistrationService {
     return this.signupPasskeyRegistrationService;

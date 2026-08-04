@@ -16,11 +16,11 @@ vi.mock("@calibrate/api-client", async (importOriginal) => {
   const original = (await importOriginal()) as object;
   return {
     ...original,
-    useRequestSignupEmailVerification: vi.fn(() => ({
+    useRequestAccountEmailVerification: vi.fn(() => ({
       isPending: false,
       mutateAsync: mockMutateAsync,
     })),
-    useVerifySignupEmailVerification: vi.fn(() => ({
+    useVerifyAccountEmailVerification: vi.fn(() => ({
       isPending: false,
       mutateAsync: mockVerifyMutateAsync,
     })),
@@ -146,7 +146,7 @@ describe("OtpPage", () => {
     const stateUpdater = mockNavigate.mock.calls[0]?.[0].state;
     expect(stateUpdater({ __TSR_index: 1 })).toEqual({
       __TSR_index: 1,
-      signupEmailVerification: {
+      accountEmailVerification: {
         email: "person@example.com",
         challengeId: "7534698d-ab5b-455d-8739-3a41ed1458cc",
         expiresInSeconds: 600,

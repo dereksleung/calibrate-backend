@@ -9,11 +9,11 @@ import type { IAuthService } from "@application/services/auth-service.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { SignupEmailVerificationServiceImpl } from "@application/services/signup-email-verification-service.js";
+import { AccountEmailVerificationServiceImpl } from "@application/services/account-email-verification-service.js";
 import { UnavailableSignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import {
-  RequestSignupEmailVerificationResponseSchema,
-  VerifySignupEmailVerificationResponseSchema,
+  RequestAccountEmailVerificationResponseSchema,
+  VerifyAccountEmailVerificationResponseSchema,
 } from "@calibrate/api-contracts";
 import express from "express";
 import { createSecretKey } from "node:crypto";
@@ -49,19 +49,19 @@ class InMemoryChallengeRepository implements IEmailOtpChallengeRepository {
 class InMemoryEnrollmentRepository implements ISignupEnrollmentAuthorizationRepository {
   readonly authorizations: unknown[] = [];
 
-  async consumeAndCreate({
+  async consumeAndResolveContinuation({
     authorization,
-  }: Parameters<ISignupEnrollmentAuthorizationRepository["consumeAndCreate"]>[0]): Promise<boolean> {
+  }: Parameters<ISignupEnrollmentAuthorizationRepository["consumeAndResolveContinuation"]>[0]): Promise<{ next: "passkey-registration" }> {
     this.authorizations.push(authorization);
-    return true;
+    return { next: "passkey-registration" };
   }
 }
 
 describe("signup email verification HTTP route", () => {
   const challengeRepository = new InMemoryChallengeRepository();
-  const deliveredMessages: Parameters<IEmailSender["sendSignupEmailVerificationCode"]>[0][] = [];
+  const deliveredMessages: Parameters<IEmailSender["sendAccountEmailVerificationCode"]>[0][] = [];
   const emailSender: IEmailSender = {
-    async sendSignupEmailVerificationCode(message) {
+    async sendAccountEmailVerificationCode(message) {
       deliveredMessages.push(message);
     },
     async sendPasskeyAddedNotification() {},
@@ -70,7 +70,7 @@ describe("signup email verification HTTP route", () => {
     login: vi.fn(),
   };
   const enrollmentRepository = new InMemoryEnrollmentRepository();
-  const service = new SignupEmailVerificationServiceImpl(
+  const service = new AccountEmailVerificationServiceImpl(
     challengeRepository,
     new NodeEmailOtpCodeService({
       key: createSecretKey(Buffer.alloc(32, 7)),
@@ -115,7 +115,7 @@ describe("signup email verification HTTP route", () => {
     expect(response.status).toBe(202);
     expect(response.headers.get("cache-control")).toBe("no-store");
 
-    const body = RequestSignupEmailVerificationResponseSchema.parse(await response.json());
+    const body = RequestAccountEmailVerificationResponseSchema.parse(await response.json());
     expect(body).toEqual({
       challengeId: expect.any(String),
       expiresInSeconds: 600,
@@ -128,7 +128,7 @@ describe("signup email verification HTTP route", () => {
     expect(challengeRepository.created).toHaveLength(1);
     expect(challengeRepository.created[0]).toMatchObject({
       email: "person@example.com",
-      purpose: "signup-email-verification",
+      purpose: "account-email-verification",
       hmacFormatVersion: 2,
       sessionTransport: "cookie",
       mobilePlatform: null,
@@ -150,7 +150,7 @@ describe("signup email verification HTTP route", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "verify@example.com" }),
     });
-    const requestBody = RequestSignupEmailVerificationResponseSchema.parse(await requestResponse.json());
+    const requestBody = RequestAccountEmailVerificationResponseSchema.parse(await requestResponse.json());
     const code = deliveredMessages[deliveredMessages.length - 1]?.code;
 
     const response = await fetch(`${baseUrl}/api/v1/auth/email-verification/verify`, {
@@ -167,7 +167,7 @@ describe("signup email verification HTTP route", () => {
     expect(cookie).toContain("Path=/api/v1/auth/passkeys/registration");
     expect(cookie).toContain("HttpOnly");
     expect(cookie).toContain("SameSite=Strict");
-    const body = VerifySignupEmailVerificationResponseSchema.parse(await response.json());
+    const body = VerifyAccountEmailVerificationResponseSchema.parse(await response.json());
     expect(body).toEqual({ next: "passkey-registration", expiresAt: "2026-07-26T12:05:00.000Z" });
     expect(JSON.stringify(body)).not.toContain("token");
     expect(enrollmentRepository.authorizations).toEqual([

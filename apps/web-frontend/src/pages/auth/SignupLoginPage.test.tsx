@@ -34,7 +34,7 @@ vi.mock("@calibrate/api-client", async (importOriginal) => {
   const original = (await importOriginal()) as any;
   return {
     ...original,
-    useRequestSignupEmailVerification: vi.fn(() => ({
+    useRequestAccountEmailVerification: vi.fn(() => ({
       mutateAsync: mockMutateAsync,
     })),
     requestPasskeyAuthenticationOptions: mockRequestPasskeyAuthenticationOptions,
@@ -69,7 +69,7 @@ describe("SignupLoginPage", () => {
 
     expect(screen.getByRole("heading", { name: "Sign Up or Log In" })).toBeTruthy();
     expect(
-      screen.getByText(/To sign up, enter your email and click the Sign Up button./i),
+      screen.getByText(/Enter your email and we'll send a code to continue./i),
     ).toBeTruthy();
   });
 
@@ -159,7 +159,7 @@ describe("SignUpLoginForm", () => {
       target: { value: "sam@example.com" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /sign up/i }));
+    fireEvent.click(screen.getByRole("button", { name: /continue with email/i }));
 
     await waitFor(() => {
       expect(mockMutateAsync).toHaveBeenCalledWith("sam@example.com");
@@ -173,7 +173,7 @@ describe("SignUpLoginForm", () => {
     const stateUpdater = mockNavigate.mock.calls[0]?.[0].state;
     expect(stateUpdater({ __TSR_index: 0 })).toEqual({
       __TSR_index: 0,
-      signupEmailVerification: {
+      accountEmailVerification: {
         email: "sam@example.com",
         challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
         expiresInSeconds: 600,
@@ -191,7 +191,7 @@ describe("SignUpLoginForm", () => {
       target: { value: "sam@example.com" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /sign up/i }));
+    fireEvent.click(screen.getByRole("button", { name: /continue with email/i }));
 
     expect((await screen.findByRole("alert")).textContent).toContain(
       "We couldn't send your verification code. Please try again.",
@@ -218,7 +218,7 @@ describe("SignUpLoginForm", () => {
     fireEvent.change(screen.getByLabelText("Email Address"), {
       target: { value: "sam@example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /sign up/i }));
+    fireEvent.click(screen.getByRole("button", { name: /continue with email/i }));
 
     await waitFor(() => {
       expect(

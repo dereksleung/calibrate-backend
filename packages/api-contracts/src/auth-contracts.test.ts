@@ -6,10 +6,10 @@ import {
   AuthenticatedSessionResponseSchema,
   DeleteCurrentSessionResponseSchema,
   RefreshSessionRequiredErrorResponseSchema,
-  RequestSignupEmailVerificationRequestBodySchema,
-  RequestSignupEmailVerificationResponseSchema,
-  VerifySignupEmailVerificationRequestBodySchema,
-  VerifySignupEmailVerificationResponseSchema,
+  RequestAccountEmailVerificationRequestBodySchema,
+  RequestAccountEmailVerificationResponseSchema,
+  VerifyAccountEmailVerificationRequestBodySchema,
+  VerifyAccountEmailVerificationResponseSchema,
 } from "./index.js";
 
 const user = {
@@ -23,7 +23,7 @@ const user = {
 describe("signup email verification request contracts", () => {
   it("normalizes a valid recovery email without accepting credentials", () => {
     expect(
-      RequestSignupEmailVerificationRequestBodySchema.parse({
+      RequestAccountEmailVerificationRequestBodySchema.parse({
         email: "  Person@Example.COM ",
       }),
     ).toEqual({
@@ -33,15 +33,15 @@ describe("signup email verification request contracts", () => {
 
   it("rejects invalid, oversized, and unexpected request fields", () => {
     expect(() =>
-      RequestSignupEmailVerificationRequestBodySchema.parse({ email: "not-an-email" }),
+      RequestAccountEmailVerificationRequestBodySchema.parse({ email: "not-an-email" }),
     ).toThrow();
     expect(() =>
-      RequestSignupEmailVerificationRequestBodySchema.parse({
+      RequestAccountEmailVerificationRequestBodySchema.parse({
         email: `${"a".repeat(310)}@example.com`,
       }),
     ).toThrow();
     expect(() =>
-      RequestSignupEmailVerificationRequestBodySchema.parse({
+      RequestAccountEmailVerificationRequestBodySchema.parse({
         email: "person@example.com",
         password: "Password123!",
       }),
@@ -56,7 +56,7 @@ describe("signup email verification request contracts", () => {
   });
 
   it("returns public challenge timing metadata without the OTP", () => {
-    const result = RequestSignupEmailVerificationResponseSchema.parse({
+    const result = RequestAccountEmailVerificationResponseSchema.parse({
       challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
       expiresInSeconds: 600,
       resendAfterSeconds: 60,
@@ -73,10 +73,10 @@ describe("signup email verification request contracts", () => {
   });
 });
 
-describe("signup email verification contracts", () => {
+describe("account email verification contracts", () => {
   it("accepts a public challenge ID and exactly six ASCII digits", () => {
     expect(
-      VerifySignupEmailVerificationRequestBodySchema.parse({
+      VerifyAccountEmailVerificationRequestBodySchema.parse({
         challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
         code: "012345",
       }),
@@ -90,7 +90,7 @@ describe("signup email verification contracts", () => {
     "rejects non-canonical verification code %s",
     (code) => {
       expect(() =>
-        VerifySignupEmailVerificationRequestBodySchema.parse({
+        VerifyAccountEmailVerificationRequestBodySchema.parse({
           challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
           code,
         }),
@@ -98,19 +98,32 @@ describe("signup email verification contracts", () => {
     },
   );
 
-  it("returns workflow metadata without an enrollment credential", () => {
-    const result = VerifySignupEmailVerificationResponseSchema.parse({
+  it("accepts each exact post-verification continuation without credentials", () => {
+    const passkeyRegistration = VerifyAccountEmailVerificationResponseSchema.parse({
       next: "passkey-registration",
       expiresAt: "2030-01-01T00:05:00.000Z",
+    });
+    const loginOrRecovery = VerifyAccountEmailVerificationResponseSchema.parse({
+      next: "login-or-recovery",
     });
 
-    expect(result).toEqual({
+    expect(passkeyRegistration).toEqual({
       next: "passkey-registration",
       expiresAt: "2030-01-01T00:05:00.000Z",
     });
-    expect(result).not.toHaveProperty("enrollmentToken");
-    expect(result).not.toHaveProperty("tokenDigest");
-    expect(result).not.toHaveProperty("webauthnUserHandle");
+    expect(loginOrRecovery).toEqual({ next: "login-or-recovery" });
+    expect(passkeyRegistration).not.toHaveProperty("enrollmentToken");
+    expect(loginOrRecovery).not.toHaveProperty("userId");
+    expect(loginOrRecovery).not.toHaveProperty("credentialId");
+  });
+
+  it.each([
+    { next: "passkey-registration" },
+    { next: "login-or-recovery", expiresAt: "2030-01-01T00:05:00.000Z" },
+    { next: "login-or-recovery", accountExists: true },
+    { next: "login-or-recovery", userId: "9f26d52e-c3c7-4d30-96db-34749f0cf32a" },
+  ])("rejects an incomplete or leaking continuation %#", (response) => {
+    expect(() => VerifyAccountEmailVerificationResponseSchema.parse(response)).toThrow();
   });
 });
 

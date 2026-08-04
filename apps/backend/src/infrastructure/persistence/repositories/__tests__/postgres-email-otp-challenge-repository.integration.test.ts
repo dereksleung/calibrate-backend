@@ -19,7 +19,7 @@ function challenge(overrides: Partial<NewEmailOtpChallenge> = {}): NewEmailOtpCh
   return {
     id: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
     email: "person@example.com",
-    purpose: "signup-email-verification",
+    purpose: "account-email-verification",
     codeDigest: "code-digest",
     hmacFormatVersion: 2,
     hmacKeyVersion: 1,
@@ -43,7 +43,7 @@ async function insertChallenge(
     .values({
       id: randomUUID(),
       email: "person@example.com",
-      purpose: "signup-email-verification",
+      purpose: "account-email-verification",
       code_digest: "existing-code-digest",
       hmac_format_version: 2,
       hmac_key_version: 1,
@@ -292,7 +292,7 @@ describe("PostgresEmailOtpChallengeRepository", () => {
     await expect(repository.findById(id)).resolves.toEqual({
       id,
       email: "person@example.com",
-      purpose: "signup-email-verification",
+      purpose: "account-email-verification",
       codeDigest: "persisted-code-digest",
       hmacFormatVersion: 3,
       hmacKeyVersion: 4,

@@ -16,6 +16,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthPasskeyEnrollmentRouteImport } from './routes/auth/passkey-enrollment'
 import { Route as AuthOtpRouteImport } from './routes/auth/otp'
+import { Route as AuthLoginRecoveryRouteImport } from './routes/auth/login-recovery'
 
 const SignupLoginRoute = SignupLoginRouteImport.update({
   id: '/signup-login',
@@ -52,6 +53,11 @@ const AuthOtpRoute = AuthOtpRouteImport.update({
   path: '/auth/otp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthLoginRecoveryRoute = AuthLoginRecoveryRouteImport.update({
+  id: '/auth/login-recovery',
+  path: '/auth/login-recovery',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/goals': typeof GoalsRoute
   '/logs': typeof LogsRoute
   '/signup-login': typeof SignupLoginRoute
+  '/auth/login-recovery': typeof AuthLoginRecoveryRoute
   '/auth/otp': typeof AuthOtpRoute
   '/auth/passkey-enrollment': typeof AuthPasskeyEnrollmentRoute
 }
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/goals': typeof GoalsRoute
   '/logs': typeof LogsRoute
   '/signup-login': typeof SignupLoginRoute
+  '/auth/login-recovery': typeof AuthLoginRecoveryRoute
   '/auth/otp': typeof AuthOtpRoute
   '/auth/passkey-enrollment': typeof AuthPasskeyEnrollmentRoute
 }
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/goals': typeof GoalsRoute
   '/logs': typeof LogsRoute
   '/signup-login': typeof SignupLoginRoute
+  '/auth/login-recovery': typeof AuthLoginRecoveryRoute
   '/auth/otp': typeof AuthOtpRoute
   '/auth/passkey-enrollment': typeof AuthPasskeyEnrollmentRoute
 }
@@ -89,6 +98,7 @@ export interface FileRouteTypes {
     | '/goals'
     | '/logs'
     | '/signup-login'
+    | '/auth/login-recovery'
     | '/auth/otp'
     | '/auth/passkey-enrollment'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/goals'
     | '/logs'
     | '/signup-login'
+    | '/auth/login-recovery'
     | '/auth/otp'
     | '/auth/passkey-enrollment'
   id:
@@ -107,6 +118,7 @@ export interface FileRouteTypes {
     | '/goals'
     | '/logs'
     | '/signup-login'
+    | '/auth/login-recovery'
     | '/auth/otp'
     | '/auth/passkey-enrollment'
   fileRoutesById: FileRoutesById
@@ -117,6 +129,7 @@ export interface RootRouteChildren {
   GoalsRoute: typeof GoalsRoute
   LogsRoute: typeof LogsRoute
   SignupLoginRoute: typeof SignupLoginRoute
+  AuthLoginRecoveryRoute: typeof AuthLoginRecoveryRoute
   AuthOtpRoute: typeof AuthOtpRoute
   AuthPasskeyEnrollmentRoute: typeof AuthPasskeyEnrollmentRoute
 }
@@ -172,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthOtpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/login-recovery': {
+      id: '/auth/login-recovery'
+      path: '/auth/login-recovery'
+      fullPath: '/auth/login-recovery'
+      preLoaderRoute: typeof AuthLoginRecoveryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -181,6 +201,7 @@ const rootRouteChildren: RootRouteChildren = {
   GoalsRoute: GoalsRoute,
   LogsRoute: LogsRoute,
   SignupLoginRoute: SignupLoginRoute,
+  AuthLoginRecoveryRoute: AuthLoginRecoveryRoute,
   AuthOtpRoute: AuthOtpRoute,
   AuthPasskeyEnrollmentRoute: AuthPasskeyEnrollmentRoute,
 }

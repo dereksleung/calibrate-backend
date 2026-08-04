@@ -4,7 +4,7 @@ import { RateLimitError } from "@application/errors/rate-limit-error.js";
 import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
 import { IAuthService } from "@application/services/auth-service.js";
 import { IPasskeyAuthenticationService } from "@application/services/passkey-authentication-service.js";
-import { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
+import { IAccountEmailVerificationService } from "@application/services/account-email-verification-service.js";
 import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import { ISessionRestorationService } from "@application/services/session-restoration-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
@@ -15,7 +15,7 @@ import { MockedObject, vi } from "vitest";
 describe("AuthController", () => {
   let authController: AuthController;
   let mockAuthService: MockedObject<IAuthService>;
-  let mockSignupEmailVerificationService: MockedObject<ISignupEmailVerificationService>;
+  let mockAccountEmailVerificationService: MockedObject<IAccountEmailVerificationService>;
   let mockSignupPasskeyRegistrationService: MockedObject<ISignupPasskeyRegistrationService>;
   let mockPasskeyAuthenticationService: MockedObject<IPasskeyAuthenticationService>;
   let mockSessionRestorationService: MockedObject<ISessionRestorationService>;
@@ -31,7 +31,7 @@ describe("AuthController", () => {
 
   beforeEach(() => {
     mockAuthService = { login: vi.fn() } as MockedObject<IAuthService>;
-    mockSignupEmailVerificationService = {
+    mockAccountEmailVerificationService = {
       request: vi.fn(),
       verify: vi.fn(),
     };
@@ -50,7 +50,7 @@ describe("AuthController", () => {
     };
     authController = new AuthController(
       mockAuthService,
-      mockSignupEmailVerificationService,
+      mockAccountEmailVerificationService,
       mockSignupPasskeyRegistrationService,
       mockPasskeyAuthenticationService,
       mockSessionRestorationService,
@@ -117,7 +117,7 @@ describe("AuthController", () => {
   });
 
   it("returns a no-store 202 response for a normalized web request", async () => {
-    mockSignupEmailVerificationService.request.mockResolvedValue({
+    mockAccountEmailVerificationService.request.mockResolvedValue({
       challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31",
       expiresInSeconds: 600,
       resendAfterSeconds: 60,
@@ -133,9 +133,9 @@ describe("AuthController", () => {
       json: vi.fn(),
     } as any;
 
-    await authController.requestSignupEmailVerification(req, res);
+    await authController.requestAccountEmailVerification(req, res);
 
-    expect(mockSignupEmailVerificationService.request).toHaveBeenCalledWith({
+    expect(mockAccountEmailVerificationService.request).toHaveBeenCalledWith({
       email: "person@example.com",
       platform: null,
       requestingIp: "203.0.113.4",
@@ -286,7 +286,7 @@ describe("AuthController", () => {
   });
 
   it("binds a recognized native platform to the request", async () => {
-    mockSignupEmailVerificationService.request.mockResolvedValue({
+    mockAccountEmailVerificationService.request.mockResolvedValue({
       challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31",
       expiresInSeconds: 600,
       resendAfterSeconds: 60,
@@ -302,15 +302,16 @@ describe("AuthController", () => {
       json: vi.fn(),
     } as any;
 
-    await authController.requestSignupEmailVerification(req, res);
+    await authController.requestAccountEmailVerification(req, res);
 
-    expect(mockSignupEmailVerificationService.request).toHaveBeenCalledWith(
+    expect(mockAccountEmailVerificationService.request).toHaveBeenCalledWith(
       expect.objectContaining({ platform: "ios" }),
     );
   });
 
   it("sets a scoped enrollment cookie while returning metadata only", async () => {
-    mockSignupEmailVerificationService.verify.mockResolvedValue({
+    mockAccountEmailVerificationService.verify.mockResolvedValue({
+      next: "passkey-registration",
       enrollmentToken: "raw-enrollment-token",
       expiresAt: new Date("2026-07-12T12:05:00.000Z"),
     });
@@ -325,9 +326,9 @@ describe("AuthController", () => {
       json: vi.fn(),
     } as any;
 
-    await authController.verifySignupEmailVerification(req, res);
+    await authController.verifyAccountEmailVerification(req, res);
 
-    expect(mockSignupEmailVerificationService.verify).toHaveBeenCalledWith({
+    expect(mockAccountEmailVerificationService.verify).toHaveBeenCalledWith({
       challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31",
       code: "012345",
       platform: null,
@@ -351,15 +352,27 @@ describe("AuthController", () => {
     });
   });
 
+  it("clears a stale enrollment cookie for an existing-account continuation", async () => {
+    mockAccountEmailVerificationService.verify.mockResolvedValue({ next: "login-or-recovery" });
+    const req = { body: { challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "012345" }, get: vi.fn().mockReturnValue(undefined) } as unknown as Request;
+    const res = { set: vi.fn(), clearCookie: vi.fn(), cookie: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+
+    await authController.verifyAccountEmailVerification(req, res);
+
+    expect(res.cookie).not.toHaveBeenCalled();
+    expect(res.clearCookie).toHaveBeenCalledWith("passkey-enrollment", expect.objectContaining({ path: "/api/v1/auth/passkeys/registration" }));
+    expect(res.json).toHaveBeenCalledWith({ next: "login-or-recovery" });
+  });
+
   it("returns the generic verification failure without issuing a cookie", async () => {
-    mockSignupEmailVerificationService.verify.mockRejectedValue(new InvalidEmailVerificationCodeError());
+    mockAccountEmailVerificationService.verify.mockRejectedValue(new InvalidEmailVerificationCodeError());
     const req = {
       body: { challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "012345" },
       get: vi.fn().mockReturnValue(undefined),
     } as unknown as Request;
     const res = { set: vi.fn(), cookie: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
 
-    await authController.verifySignupEmailVerification(req, res);
+    await authController.verifyAccountEmailVerification(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ error: "Invalid or expired verification code" });
@@ -378,9 +391,9 @@ describe("AuthController", () => {
     } as unknown as Request;
     const res = { set: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
 
-    await authController.requestSignupEmailVerification(req, res);
+    await authController.requestAccountEmailVerification(req, res);
 
-    expect(mockSignupEmailVerificationService.request).not.toHaveBeenCalled();
+    expect(mockAccountEmailVerificationService.request).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ error: "Validation failed" });
   });
@@ -393,9 +406,9 @@ describe("AuthController", () => {
     } as unknown as Request;
     const res = { set: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
 
-    await authController.requestSignupEmailVerification(req, res);
+    await authController.requestAccountEmailVerification(req, res);
 
-    expect(mockSignupEmailVerificationService.request).not.toHaveBeenCalled();
+    expect(mockAccountEmailVerificationService.request).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(503);
     expect(res.json).toHaveBeenCalledWith({
       error: "Email verification is temporarily unavailable",
@@ -407,7 +420,7 @@ describe("AuthController", () => {
     [new ServiceUnavailableError("provider detail"), 503, "Email verification is temporarily unavailable"],
     [new Error("database detail"), 500, "Internal server error"],
   ])("returns a safe request failure", async (error, status, message) => {
-    mockSignupEmailVerificationService.request.mockRejectedValue(error);
+    mockAccountEmailVerificationService.request.mockRejectedValue(error);
     const req = {
       body: { email: "person@example.com" },
       get: vi.fn().mockReturnValue(undefined),
@@ -415,7 +428,7 @@ describe("AuthController", () => {
     } as unknown as Request;
     const res = { set: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
 
-    await authController.requestSignupEmailVerification(req, res);
+    await authController.requestAccountEmailVerification(req, res);
 
     expect(res.status).toHaveBeenCalledWith(status);
     expect(res.json).toHaveBeenCalledWith({ error: message });

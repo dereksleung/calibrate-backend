@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createSignupEmailVerificationHandoff,
-  parseSignupEmailVerificationHandoff,
-} from "./signup-email-verification-handoff";
+  createAccountEmailVerificationHandoff,
+  parseAccountEmailVerificationHandoff,
+} from "./account-email-verification-handoff";
 
 describe("signup email verification handoff", () => {
   it("creates normalized typed history state", () => {
     expect(
-      createSignupEmailVerificationHandoff(
+      createAccountEmailVerificationHandoff(
         " Person@Example.COM ",
         {
           challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
@@ -45,6 +45,6 @@ describe("signup email verification handoff", () => {
       unexpected: true,
     },
   ])("rejects invalid direct-navigation state", (value) => {
-    expect(parseSignupEmailVerificationHandoff(value)).toBeNull();
+    expect(parseAccountEmailVerificationHandoff(value)).toBeNull();
   });
 });

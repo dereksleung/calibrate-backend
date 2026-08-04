@@ -43,7 +43,7 @@ function createService(overrides: {
       { create: () => ({ token: "access-token", digest: "access-digest" }) },
       {
         sendPasskeyAddedNotification: vi.fn().mockResolvedValue(undefined),
-        sendSignupEmailVerificationCode: vi.fn(),
+        sendAccountEmailVerificationCode: vi.fn(),
       },
       { now: () => now },
       { expectedOrigin },

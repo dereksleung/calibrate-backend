@@ -1,5 +1,5 @@
 import { PasskeyEnrollmentPage } from "#/pages/auth/PasskeyEnrollmentPage.tsx";
-import { parsePasskeyEnrollmentHandoff } from "#/verticals/auth/signup-email-verification-handoff";
+import { parsePasskeyEnrollmentHandoff } from "#/verticals/auth/account-email-verification-handoff";
 import { createFileRoute, redirect, useRouterState } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/auth/passkey-enrollment")({

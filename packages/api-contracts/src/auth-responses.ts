@@ -6,7 +6,7 @@ import { UserResponseSchema, type UserResponse } from "./user-responses.js";
 // The session transport is determined by the client platform and is included in the response to indicate how the session should be handled.
 export const SessionTransportSchema = z.enum(["cookie", "bearer"]);
 
-export const RequestSignupEmailVerificationResponseSchema = z
+export const RequestAccountEmailVerificationResponseSchema = z
   .object({
     challengeId: z.uuid(),
     expiresInSeconds: z.number().int().positive(),
@@ -14,12 +14,15 @@ export const RequestSignupEmailVerificationResponseSchema = z
   })
   .strict();
 
-export const VerifySignupEmailVerificationResponseSchema = z
-  .object({
-    next: z.literal("passkey-registration"),
-    expiresAt: z.iso.datetime(),
-  })
-  .strict();
+export const VerifyAccountEmailVerificationResponseSchema = z.discriminatedUnion("next", [
+  z
+    .object({
+      next: z.literal("passkey-registration"),
+      expiresAt: z.iso.datetime(),
+    })
+    .strict(),
+  z.object({ next: z.literal("login-or-recovery") }).strict(),
+]);
 
 export const AuthenticatedSessionResponseSchema = z
   .object({
@@ -40,11 +43,11 @@ export const RefreshSessionRequiredErrorResponseSchema = z
 export const DeleteCurrentSessionResponseSchema = z.null();
 
 export type SessionTransport = z.infer<typeof SessionTransportSchema>;
-export type RequestSignupEmailVerificationResponse = z.infer<
-  typeof RequestSignupEmailVerificationResponseSchema
+export type RequestAccountEmailVerificationResponse = z.infer<
+  typeof RequestAccountEmailVerificationResponseSchema
 >;
-export type VerifySignupEmailVerificationResponse = z.infer<
-  typeof VerifySignupEmailVerificationResponseSchema
+export type VerifyAccountEmailVerificationResponse = z.infer<
+  typeof VerifyAccountEmailVerificationResponseSchema
 >;
 export type AuthenticatedSessionResponse = z.infer<typeof AuthenticatedSessionResponseSchema>;
 export type AccessSessionRequiredErrorResponse = z.infer<typeof AccessSessionRequiredErrorResponseSchema>;

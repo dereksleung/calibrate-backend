@@ -4,7 +4,7 @@ import type { ColumnType, Generated } from "kysely";
 export interface EmailOtpChallengesTable {
   id: string;
   email: string;
-  purpose: "authentication" | "signup-email-verification";
+  purpose: "authentication" | "account-email-verification";
   code_digest: string;
   hmac_format_version: number;
   hmac_key_version: number;

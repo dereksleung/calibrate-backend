@@ -8,11 +8,11 @@ const StrongPasswordSchema = z
   .refine((val) => /[0-9]/.test(val), "Must include a number")
   .refine((val) => /[!@#$%^&*-]/.test(val), "Must include a special character");
 
-/** @deprecated Use RequestSignupEmailVerificationRequestBodySchema for passkey signup. */
+/** @deprecated Use RequestAccountEmailVerificationRequestBodySchema for passkey signup. */
 export const CreateUserRequestBodySchema = z.object({
   email: z.email(),
   password: StrongPasswordSchema,
 });
 
-/** @deprecated Use RequestSignupEmailVerificationRequestBody. */
+/** @deprecated Use RequestAccountEmailVerificationRequestBody. */
 export type CreateUserRequestBody = z.infer<typeof CreateUserRequestBodySchema>;

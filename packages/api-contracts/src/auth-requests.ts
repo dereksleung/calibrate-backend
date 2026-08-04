@@ -2,13 +2,13 @@ import { z } from "zod";
 
 export const AppPlatformHeaderValueSchema = z.enum(["ios", "android"]);
 
-export const RequestSignupEmailVerificationRequestBodySchema = z
+export const RequestAccountEmailVerificationRequestBodySchema = z
   .object({
     email: z.string().trim().toLowerCase().max(320).pipe(z.email()),
   })
   .strict();
 
-export const VerifySignupEmailVerificationRequestBodySchema = z
+export const VerifyAccountEmailVerificationRequestBodySchema = z
   .object({
     challengeId: z.uuid(),
     code: z.string().regex(/^[0-9]{6}$/),
@@ -22,11 +22,11 @@ export const LoginRequestBodySchema = z.object({
 });
 
 export type AppPlatformHeaderValue = z.infer<typeof AppPlatformHeaderValueSchema>;
-export type RequestSignupEmailVerificationRequestBody = z.infer<
-  typeof RequestSignupEmailVerificationRequestBodySchema
+export type RequestAccountEmailVerificationRequestBody = z.infer<
+  typeof RequestAccountEmailVerificationRequestBodySchema
 >;
-export type VerifySignupEmailVerificationRequestBody = z.infer<
-  typeof VerifySignupEmailVerificationRequestBodySchema
+export type VerifyAccountEmailVerificationRequestBody = z.infer<
+  typeof VerifyAccountEmailVerificationRequestBodySchema
 >;
 
 /** @deprecated Use passkey authentication contracts when they are available. */

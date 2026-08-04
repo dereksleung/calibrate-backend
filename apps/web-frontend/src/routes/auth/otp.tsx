@@ -1,10 +1,10 @@
 import { OtpPage } from "#/pages/auth/OtpPage.tsx";
-import { parseSignupEmailVerificationHandoff } from "#/verticals/auth/signup-email-verification-handoff";
+import { parseAccountEmailVerificationHandoff } from "#/verticals/auth/account-email-verification-handoff";
 import { createFileRoute, redirect, useRouterState } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/auth/otp")({
   beforeLoad: ({ location }) => {
-    const handoff = parseSignupEmailVerificationHandoff(location.state.signupEmailVerification);
+    const handoff = parseAccountEmailVerificationHandoff(location.state.accountEmailVerification);
 
     if (!handoff) {
       throw redirect({ replace: true, to: "/signup-login" });
@@ -15,9 +15,9 @@ export const Route = createFileRoute("/auth/otp")({
 
 function OtpRoute() {
   const rawHandoff = useRouterState({
-    select: (state) => state.location.state.signupEmailVerification,
+    select: (state) => state.location.state.accountEmailVerification,
   });
-  const handoff = parseSignupEmailVerificationHandoff(rawHandoff);
+  const handoff = parseAccountEmailVerificationHandoff(rawHandoff);
 
   if (!handoff) return null;
 

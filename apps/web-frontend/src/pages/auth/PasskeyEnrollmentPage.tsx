@@ -9,7 +9,7 @@ import {
   showPlatformUiForClientPasskeyFailedToRegisterOnServer,
   type BrowserPasskeyRegistrationAdapter,
 } from "#/verticals/auth/browser-passkey-registration-adapter";
-import type { PasskeyEnrollmentHandoff } from "#/verticals/auth/signup-email-verification-handoff";
+import type { PasskeyEnrollmentHandoff } from "#/verticals/auth/account-email-verification-handoff";
 import {
   ApiError,
   parsePasskeyRegistrationError,

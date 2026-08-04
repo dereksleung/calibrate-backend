@@ -1,12 +1,12 @@
 import type { MobilePlatform, SessionTransport } from "@application/auth/session-client.js";
 
-export type SignupEmailVerificationPurpose = "signup-email-verification";
-export type EmailOtpPurpose = "authentication" | SignupEmailVerificationPurpose;
+export type AccountEmailVerificationPurpose = "account-email-verification";
+export type EmailOtpPurpose = "authentication" | AccountEmailVerificationPurpose;
 
 export interface NewEmailOtpChallenge {
   id: string;
   email: string;
-  purpose: SignupEmailVerificationPurpose;
+  purpose: AccountEmailVerificationPurpose;
   codeDigest: string;
   hmacFormatVersion: number;
   hmacKeyVersion: number;

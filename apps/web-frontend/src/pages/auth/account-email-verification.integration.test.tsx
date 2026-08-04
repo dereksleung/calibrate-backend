@@ -97,7 +97,7 @@ describe("signup email verification routing", () => {
     expect(screen.getByText("person@example.com")).toBeTruthy();
     expect(router.state.location.pathname).toBe("/auth/otp");
     expect(router.state.location.searchStr).toBe("");
-    expect(router.state.location.state.signupEmailVerification).toMatchObject({
+    expect(router.state.location.state.accountEmailVerification).toMatchObject({
       email: "person@example.com",
       challengeId: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
       expiresInSeconds: 600,

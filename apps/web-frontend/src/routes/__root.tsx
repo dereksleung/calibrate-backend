@@ -33,7 +33,8 @@ function RootComponent() {
     select: (state) =>
       state.location.pathname === '/signup-login' ||
       state.location.pathname === '/auth/otp' ||
-      state.location.pathname === '/auth/passkey-enrollment',
+      state.location.pathname === '/auth/passkey-enrollment' ||
+      state.location.pathname === '/auth/login-recovery',
   });
 
   const content = (
