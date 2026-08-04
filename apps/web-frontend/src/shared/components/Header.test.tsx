@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { QueryClientProvider } from "@tanstack/react-query";
 import {
   RouterContextProvider,
   createMemoryHistory,
@@ -7,8 +8,14 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { createQueryClient } from "#/shared/api/query-client.ts";
+import {
+  authenticatedSessionQueryKey,
+  setAuthenticatedSession,
+} from "#/verticals/auth/authenticated-session.ts";
 
 import Header from "./Header.tsx";
 
@@ -49,9 +56,39 @@ const goalsRoute = createRoute({
   component: () => null,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, logsRoute, goalsRoute]);
+const signupLoginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/signup-login",
+  component: () => null,
+});
 
-async function renderHeader(initialEntry = "/") {
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  logsRoute,
+  goalsRoute,
+  signupLoginRoute,
+]);
+
+const authenticatedSession = {
+  user: {
+    id: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
+    email: "person@example.com",
+    tier: "FREE" as const,
+    createdAt: new Date("2030-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2030-01-01T00:00:00.000Z"),
+  },
+  sessionTransport: "cookie" as const,
+};
+
+async function renderHeader(
+  initialEntry = "/",
+  options?: { authenticated?: boolean },
+) {
+  const queryClient = createQueryClient();
+  if (options?.authenticated) {
+    setAuthenticatedSession(queryClient, authenticatedSession);
+  }
+
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: [initialEntry] }),
@@ -59,11 +96,15 @@ async function renderHeader(initialEntry = "/") {
 
   await router.load();
 
-  return render(
-    <RouterContextProvider router={router}>
-      <Header />
-    </RouterContextProvider>,
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterContextProvider router={router}>
+        <Header />
+      </RouterContextProvider>
+    </QueryClientProvider>,
   );
+
+  return { queryClient, router };
 }
 
 beforeEach(() => {
@@ -119,6 +160,25 @@ describe("Header", () => {
       expect(screen.getByRole("link", { name: "Logs" })).toBeTruthy();
       expect(screen.getByRole("link", { name: "Goals" })).toBeTruthy();
     });
+
+    it("shows the account avatar instead of Sign Up when logged in", async () => {
+      await renderHeader("/", { authenticated: true });
+
+      expect(screen.queryByRole("button", { name: "Sign Up" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Account menu" })).toBeTruthy();
+    });
+
+    it("opens a logout option from the account avatar and clears the session", async () => {
+      const { queryClient, router } = await renderHeader("/", { authenticated: true });
+
+      fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Log out" }));
+
+      await waitFor(() => {
+        expect(queryClient.getQueryData(authenticatedSessionQueryKey)).toBeUndefined();
+        expect(router.state.location.pathname).toBe("/signup-login");
+      });
+    });
   });
 
   describe("mobile", () => {
@@ -136,6 +196,13 @@ describe("Header", () => {
       await renderHeader();
 
       expect(screen.getByRole("button", { name: "Sign Up" })).toBeTruthy();
+    });
+
+    it("shows the account avatar instead of Sign Up when logged in", async () => {
+      await renderHeader("/", { authenticated: true });
+
+      expect(screen.queryByRole("button", { name: "Sign Up" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Account menu" })).toBeTruthy();
     });
 
     it("does not render desktop primary navigation links", async () => {
