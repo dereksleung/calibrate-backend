@@ -21,13 +21,43 @@ export const VerifyAccountEmailVerificationResponseSchema = z.discriminatedUnion
       expiresAt: z.iso.datetime(),
     })
     .strict(),
-  z.object({ next: z.literal("login-or-recovery") }).strict(),
+  z
+    .object({
+      next: z.literal("login-or-recovery"),
+      expiresAt: z.iso.datetime(),
+    })
+    .strict(),
 ]);
+
+export const ActiveRecoverySecurityStateSchema = z.discriminatedUnion("state", [
+  z.object({ state: z.literal("none") }).strict(),
+  z
+    .object({
+      state: z.enum(["provisional", "promotion-eligible"]),
+      restrictionEndsAt: z.iso.datetime(),
+    })
+    .strict(),
+]);
+
+export const SessionRestrictionSecurityStateSchema = z
+  .object({
+    state: z.literal("restricted"),
+    restrictionEndsAt: z.iso.datetime(),
+  })
+  .strict();
+
+export const AuthSecurityStateSchema = z
+  .object({
+    activeRecovery: ActiveRecoverySecurityStateSchema,
+    sessionRestriction: SessionRestrictionSecurityStateSchema.nullable(),
+  })
+  .strict();
 
 export const AuthenticatedSessionResponseSchema = z
   .object({
     user: UserResponseSchema,
     sessionTransport: SessionTransportSchema,
+    security: AuthSecurityStateSchema.optional(),
   })
   .strict();
 

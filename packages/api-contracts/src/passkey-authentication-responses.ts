@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+const AuthenticatorTransportSchema = z.enum(["usb", "nfc", "ble", "internal", "hybrid", "smart-card"]);
+
+const AuthenticationOptionsSchema = z
+  .object({
+    challenge: z.string().min(1),
+    rpId: z.string().min(1),
+    timeout: z.literal(300_000),
+    userVerification: z.literal("required"),
+  })
+  .strict();
+
 export const PasskeyAuthenticationErrorCodeSchema = z.enum([
   "PASSKEY_AUTHENTICATION_FAILED",
   "ORIGIN_NOT_ALLOWED",
@@ -16,14 +27,26 @@ export const PasskeyAuthenticationErrorResponseSchema = z
 
 export const PasskeyAuthenticationOptionsResponseSchema = z
   .object({
-    options: z
-      .object({
-        challenge: z.string().min(1),
-        rpId: z.string().min(1),
-        timeout: z.literal(300_000),
-        userVerification: z.literal("required"),
-      })
-      .strict(),
+    options: AuthenticationOptionsSchema,
+    expiresAt: z.iso.datetime(),
+  })
+  .strict();
+
+export const IdentifiedPasskeyAuthenticationOptionsResponseSchema = z
+  .object({
+    options: AuthenticationOptionsSchema.extend({
+      allowCredentials: z
+        .array(
+          z
+            .object({
+              id: z.base64url(),
+              type: z.literal("public-key"),
+              transports: z.array(AuthenticatorTransportSchema).optional(),
+            })
+            .strict(),
+        )
+        .min(1),
+    }).strict(),
     expiresAt: z.iso.datetime(),
   })
   .strict();
@@ -34,4 +57,7 @@ export type PasskeyAuthenticationErrorResponse = z.infer<
 >;
 export type PasskeyAuthenticationOptionsResponse = z.infer<
   typeof PasskeyAuthenticationOptionsResponseSchema
+>;
+export type IdentifiedPasskeyAuthenticationOptionsResponse = z.infer<
+  typeof IdentifiedPasskeyAuthenticationOptionsResponseSchema
 >;

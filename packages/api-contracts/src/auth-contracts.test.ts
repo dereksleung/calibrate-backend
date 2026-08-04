@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   AppPlatformHeaderValueSchema,
   AccessSessionRequiredErrorResponseSchema,
+  AccountAccessStatusResponseSchema,
+  AccountRecoveryErrorResponseSchema,
   AuthenticatedSessionResponseSchema,
+  AuthorizeRecoveryRegistrationRequestBodySchema,
+  AuthorizeRecoveryRegistrationResponseSchema,
   DeleteCurrentSessionResponseSchema,
   RefreshSessionRequiredErrorResponseSchema,
   RequestAccountEmailVerificationRequestBodySchema,
@@ -105,13 +109,14 @@ describe("account email verification contracts", () => {
     });
     const loginOrRecovery = VerifyAccountEmailVerificationResponseSchema.parse({
       next: "login-or-recovery",
+      expiresAt: "2030-01-01T00:05:00.000Z",
     });
 
     expect(passkeyRegistration).toEqual({
       next: "passkey-registration",
       expiresAt: "2030-01-01T00:05:00.000Z",
     });
-    expect(loginOrRecovery).toEqual({ next: "login-or-recovery" });
+    expect(loginOrRecovery).toEqual({ next: "login-or-recovery", expiresAt: "2030-01-01T00:05:00.000Z" });
     expect(passkeyRegistration).not.toHaveProperty("enrollmentToken");
     expect(loginOrRecovery).not.toHaveProperty("userId");
     expect(loginOrRecovery).not.toHaveProperty("credentialId");
@@ -119,7 +124,7 @@ describe("account email verification contracts", () => {
 
   it.each([
     { next: "passkey-registration" },
-    { next: "login-or-recovery", expiresAt: "2030-01-01T00:05:00.000Z" },
+    { next: "login-or-recovery" },
     { next: "login-or-recovery", accountExists: true },
     { next: "login-or-recovery", userId: "9f26d52e-c3c7-4d30-96db-34749f0cf32a" },
   ])("rejects an incomplete or leaking continuation %#", (response) => {
@@ -142,6 +147,106 @@ describe("authenticated session response contract", () => {
     expect(bearerSession.sessionTransport).toBe("bearer");
     expect(cookieSession).not.toHaveProperty("sessionToken");
     expect(bearerSession).not.toHaveProperty("sessionToken");
+  });
+
+  it("exposes only public recovery state and timestamps when session security metadata is present", () => {
+    const session = AuthenticatedSessionResponseSchema.parse({
+      user,
+      sessionTransport: "cookie",
+      security: {
+        activeRecovery: {
+          state: "provisional",
+          restrictionEndsAt: "2030-01-06T00:00:00.000Z",
+        },
+        sessionRestriction: {
+          state: "restricted",
+          restrictionEndsAt: "2030-01-06T00:00:00.000Z",
+        },
+      },
+    });
+
+    expect(session.security).toEqual({
+      activeRecovery: { state: "provisional", restrictionEndsAt: "2030-01-06T00:00:00.000Z" },
+      sessionRestriction: { state: "restricted", restrictionEndsAt: "2030-01-06T00:00:00.000Z" },
+    });
+    expect(() =>
+      AuthenticatedSessionResponseSchema.parse({
+        ...session,
+        security: { ...session.security, recoveryId: "secret" },
+      }),
+    ).toThrow();
+  });
+});
+
+describe("account access and recovery contracts", () => {
+  it("accepts only public account-access status", () => {
+    expect(
+      AccountAccessStatusResponseSchema.parse({
+        email: "person@example.com",
+        hasRegisteredPasskeys: true,
+        activeRecovery: { state: "promotion-eligible", restrictionEndsAt: "2030-01-06T00:00:00.000Z" },
+        authorizationExpiresAt: "2030-01-01T00:15:00.000Z",
+      }),
+    ).toEqual({
+      email: "person@example.com",
+      hasRegisteredPasskeys: true,
+      activeRecovery: { state: "promotion-eligible", restrictionEndsAt: "2030-01-06T00:00:00.000Z" },
+      authorizationExpiresAt: "2030-01-01T00:15:00.000Z",
+    });
+    expect(() =>
+      AccountAccessStatusResponseSchema.parse({
+        email: "person@example.com",
+        hasRegisteredPasskeys: true,
+        activeRecovery: { state: "none", restrictionEndsAt: "2030-01-06T00:00:00.000Z" },
+        authorizationExpiresAt: "2030-01-01T00:15:00.000Z",
+      }),
+    ).toThrow();
+  });
+
+  it("permits only explicit recovery registration modes and public expiry metadata", () => {
+    expect(AuthorizeRecoveryRegistrationRequestBodySchema.parse({ mode: "create" })).toEqual({
+      mode: "create",
+    });
+    expect(AuthorizeRecoveryRegistrationResponseSchema.parse({
+      next: "recovery-passkey-registration",
+      expiresAt: "2030-01-01T00:15:00.000Z",
+    })).toEqual({ next: "recovery-passkey-registration", expiresAt: "2030-01-01T00:15:00.000Z" });
+    expect(() => AuthorizeRecoveryRegistrationRequestBodySchema.parse({ mode: "automatic" })).toThrow();
+    expect(() =>
+      AuthorizeRecoveryRegistrationResponseSchema.parse({
+        next: "recovery-passkey-registration",
+        expiresAt: "2030-01-01T00:15:00.000Z",
+        authorization: "secret",
+      }),
+    ).toThrow();
+  });
+
+  it("round-trips every stable recovery error without response metadata", () => {
+    for (const error of [
+      "ACCOUNT_ACCESS_AUTHORIZATION_REQUIRED",
+      "RECOVERY_REGISTRATION_AUTHORIZATION_REQUIRED",
+      "IDENTIFIED_PASSKEY_AUTHENTICATION_FAILED",
+      "RECOVERY_PASSKEY_REGISTRATION_FAILED",
+      "RECOVERY_PROMOTION_FAILED",
+      "RECOVERY_CANCELLATION_FAILED",
+      "RECOVERY_SECURITY_RESTRICTION_ACTIVE",
+      "NO_REGISTERED_PASSKEYS",
+      "ACCOUNT_ACCESS_STATE_CONFLICT",
+      "RECOVERY_ALREADY_ACTIVE",
+      "RECOVERY_PROMOTION_NOT_READY",
+      "RECOVERY_STATE_CONFLICT",
+      "ACCOUNT_RECOVERY_RATE_LIMITED",
+      "ACCOUNT_RECOVERY_UNAVAILABLE",
+    ]) {
+      expect(AccountRecoveryErrorResponseSchema.parse({ error })).toEqual({ error });
+    }
+
+    expect(() =>
+      AccountRecoveryErrorResponseSchema.parse({
+        error: "RECOVERY_SECURITY_RESTRICTION_ACTIVE",
+        restrictionEndsAt: "2030-01-06T00:00:00.000Z",
+      }),
+    ).toThrow();
   });
 });
 

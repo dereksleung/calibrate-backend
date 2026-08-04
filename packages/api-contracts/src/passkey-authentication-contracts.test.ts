@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   AuthenticatedSessionResponseSchema,
   AuthenticationResponseJSONSchema,
+  IdentifiedPasskeyAuthenticationOptionsResponseSchema,
   PasskeyAuthenticationErrorResponseSchema,
   PasskeyAuthenticationOptionsResponseSchema,
   VerifyPasskeyAuthenticationRequestBodySchema,
@@ -84,6 +85,27 @@ describe("passkey authentication contracts", () => {
     ).toThrow();
     expect(() =>
       PasskeyAuthenticationOptionsResponseSchema.parse({ ...response, expiresAt: "not-a-date" }),
+    ).toThrow();
+  });
+
+  it("requires a non-empty allow-credentials list for identified options", () => {
+    const response = {
+      options: {
+        challenge: "challenge",
+        rpId: "localhost",
+        timeout: 300_000 as const,
+        userVerification: "required" as const,
+        allowCredentials: [{ id: "Y3JlZGVudGlhbC1pZA", type: "public-key" as const, transports: ["internal" as const] }],
+      },
+      expiresAt: "2026-08-01T00:05:00.000Z",
+    };
+
+    expect(IdentifiedPasskeyAuthenticationOptionsResponseSchema.parse(response)).toEqual(response);
+    expect(() =>
+      IdentifiedPasskeyAuthenticationOptionsResponseSchema.parse({
+        ...response,
+        options: { ...response.options, allowCredentials: [] },
+      }),
     ).toThrow();
   });
 
