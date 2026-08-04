@@ -75,38 +75,40 @@ export function DailySummary({ totals, progress, weight }: DailySummaryProps) {
         <div className="flex flex-col">
           <div className="flex justify-between gap-2">
             <Typography variant="labelSpaced" color="onSurface">Eaten</Typography>
-            <div className="flex items-center justify-end gap-2 md:justify-start">
-              <Typography variant="labelSpaced" color="onSurface">Weight</Typography>
-              <Pencil aria-hidden className="size-4 text-on-surface-variant/50" strokeWidth={1.5} />
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-end gap-2">
+                <Typography variant="labelSpaced" color="onSurface">Weight</Typography>
+                <Pencil aria-hidden className="size-4 text-on-surface-variant/50" strokeWidth={1.5} />
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex gap-x-2">
+            <div className="flex flex-1 items-baseline">
+              <span className="font-heading text-4xl font-light leading-none text-on-surface md:text-6xl">
+                {Math.round(totals.calories).toLocaleString()}
+              </span>
+              <span className="text-xl font-light leading-none text-on-surface-variant/65">
+                / {DAILY_TARGETS.calories.toLocaleString()}
+              </span>
+              <p className="hidden md:block ml-4 text-sm leading-none text-on-surface-variant/70">
+                {caloriesRemaining.toLocaleString()} left
+              </p>
             </div>
             {weight ? (
-              <p className="mt-2 text-3xl font-light text-on-surface md:text-2xl">
+              <p className="text-xl font-light text-on-surface md:text-2xl">
                 {weight.toFixed(1)} <span className="text-base text-on-surface-variant/70">lb</span>
               </p>
             ) : (
               null
             )}
           </div>
-          <div className="mt-3 flex items-baseline gap-x-2">
-            <div className="flex flex-1 items-baseline">
-              <span className="font-heading text-5xl font-light leading-none text-on-surface md:text-6xl">
-                {Math.round(totals.calories).toLocaleString()}
-              </span>
-
-              <span className="text-2xl font-light leading-none text-on-surface-variant/65">
-                / {DAILY_TARGETS.calories.toLocaleString()}
-              </span>
-            </div>
-
-            <p className="ml-auto text-right text-sm leading-none text-on-surface-variant/70">
-              {caloriesRemaining.toLocaleString()} left
-            </p>
+          <div className="w-2/3 md:w-full">
+            <ProgressBar
+              progress={progress.calories}
+              color={MACRO_PROGRESS_COLORS.calories}
+              className="mt-5"
+            />
           </div>
-          <ProgressBar
-            progress={progress.calories}
-            color={MACRO_PROGRESS_COLORS.calories}
-            className="mt-5"
-          />
         </div>
         <div className="grid grid-cols-3 gap-4 sm:gap-5 md:gap-10">
           <MacroStat
