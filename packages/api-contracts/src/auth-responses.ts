@@ -36,6 +36,9 @@ export const RefreshSessionRequiredErrorResponseSchema = z
   .object({ error: z.literal("REFRESH_SESSION_REQUIRED") })
   .strict();
 
+/** A successful DELETE /auth/session response has no body. */
+export const DeleteCurrentSessionResponseSchema = z.null();
+
 export type SessionTransport = z.infer<typeof SessionTransportSchema>;
 export type RequestSignupEmailVerificationResponse = z.infer<
   typeof RequestSignupEmailVerificationResponseSchema
@@ -46,6 +49,7 @@ export type VerifySignupEmailVerificationResponse = z.infer<
 export type AuthenticatedSessionResponse = z.infer<typeof AuthenticatedSessionResponseSchema>;
 export type AccessSessionRequiredErrorResponse = z.infer<typeof AccessSessionRequiredErrorResponseSchema>;
 export type RefreshSessionRequiredErrorResponse = z.infer<typeof RefreshSessionRequiredErrorResponseSchema>;
+export type DeleteCurrentSessionResponse = z.infer<typeof DeleteCurrentSessionResponseSchema>;
 
 /** @deprecated Use AuthenticatedSessionResponse or the forthcoming passkey contracts. */
 export interface LoginResponse {

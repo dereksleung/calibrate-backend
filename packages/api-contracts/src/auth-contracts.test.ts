@@ -4,6 +4,7 @@ import {
   AppPlatformHeaderValueSchema,
   AccessSessionRequiredErrorResponseSchema,
   AuthenticatedSessionResponseSchema,
+  DeleteCurrentSessionResponseSchema,
   RefreshSessionRequiredErrorResponseSchema,
   RequestSignupEmailVerificationRequestBodySchema,
   RequestSignupEmailVerificationResponseSchema,
@@ -141,5 +142,18 @@ describe("session restoration errors", () => {
     });
     expect(() => AccessSessionRequiredErrorResponseSchema.parse({ error: "expired" })).toThrow();
     expect(() => RefreshSessionRequiredErrorResponseSchema.parse({ error: "REFRESH_SESSION_REQUIRED", token: "x" })).toThrow();
+  });
+});
+
+describe("current-session logout response contract", () => {
+  it("accepts only the empty successful response and rejects credential-shaped data", () => {
+    expect(DeleteCurrentSessionResponseSchema.parse(null)).toBeNull();
+    expect(() =>
+      DeleteCurrentSessionResponseSchema.parse({
+        accessToken: "access-token",
+        refreshToken: "refresh-token",
+        familyId: "family-id",
+      }),
+    ).toThrow();
   });
 });

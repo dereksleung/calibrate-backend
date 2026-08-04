@@ -1,4 +1,9 @@
-import { AuthenticatedSessionResponseSchema, type AuthenticatedSessionResponse } from "@calibrate/api-contracts";
+import {
+  AuthenticatedSessionResponseSchema,
+  DeleteCurrentSessionResponseSchema,
+  type AuthenticatedSessionResponse,
+  type DeleteCurrentSessionResponse,
+} from "@calibrate/api-contracts";
 
 import type { ApiTransport } from "../transport.js";
 
@@ -8,4 +13,8 @@ export function getCurrentSession(transport: ApiTransport): Promise<Authenticate
 
 export function refreshSession(transport: ApiTransport): Promise<AuthenticatedSessionResponse> {
   return transport.request({ path: "/auth/session/refresh", method: "POST", responseBodySchema: AuthenticatedSessionResponseSchema });
+}
+
+export function deleteCurrentSession(transport: ApiTransport): Promise<DeleteCurrentSessionResponse> {
+  return transport.request({ path: "/auth/session", method: "DELETE", responseBodySchema: DeleteCurrentSessionResponseSchema });
 }
