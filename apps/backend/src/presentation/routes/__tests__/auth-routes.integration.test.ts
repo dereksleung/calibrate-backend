@@ -188,3 +188,65 @@ describe("signup email verification HTTP route", () => {
     },
   );
 });
+
+describe("current-session logout HTTP route", () => {
+  const logout = vi.fn();
+  const app = express();
+  const authService: IAuthService = { login: vi.fn() };
+  const emailService = new SignupEmailVerificationServiceImpl(
+    new InMemoryChallengeRepository(),
+    new NodeEmailOtpCodeService({ key: createSecretKey(Buffer.alloc(32, 9)), keyVersion: 2 }),
+    { async sendSignupEmailVerificationCode() {}, async sendPasskeyAddedNotification() {} },
+    new InMemoryEnrollmentRepository(),
+    new NodeOpaqueTokenService(),
+    { now: () => new Date("2026-08-03T12:00:00.000Z") },
+  );
+  app.use("/api/v1", createAuthRoutes(new AuthController(
+    authService,
+    emailService,
+    new UnavailableSignupPasskeyRegistrationService(),
+    undefined,
+    { getCurrentSession: vi.fn(), refresh: vi.fn(), logout },
+  )));
+  let server: Server;
+  let baseUrl: string;
+
+  beforeAll(() => new Promise<void>((resolve) => {
+    server = app.listen(0, "127.0.0.1", () => {
+      baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      resolve();
+    });
+  }));
+  afterAll(() => new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())));
+  beforeEach(() => logout.mockReset());
+
+  it("returns an idempotent no-store 204 and clears both cookies after revocation", async () => {
+    const response = await fetch(`${baseUrl}/api/v1/auth/session`, {
+      method: "DELETE",
+      headers: {
+        Origin: "http://localhost:3000",
+        Cookie: "calibrate-access=access-token; calibrate-refresh=refresh-token",
+      },
+    });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.text()).toBe("");
+    expect(logout).toHaveBeenCalledWith({ accessToken: "access-token", refreshToken: "refresh-token" });
+    const cookieHeaders = response.headers.getSetCookie().join("\n");
+    expect(cookieHeaders).toContain("calibrate-access=;");
+    expect(cookieHeaders).toContain("calibrate-refresh=;");
+    expect(cookieHeaders).not.toContain("access-token");
+    expect(cookieHeaders).not.toContain("refresh-token");
+  });
+
+  it("rejects an unexpected origin before invoking session revocation", async () => {
+    const response = await fetch(`${baseUrl}/api/v1/auth/session`, {
+      method: "DELETE",
+      headers: { Origin: "https://attacker.example", Cookie: "calibrate-access=access-token" },
+    });
+
+    expect(response.status).toBe(403);
+    expect(logout).not.toHaveBeenCalled();
+  });
+});
