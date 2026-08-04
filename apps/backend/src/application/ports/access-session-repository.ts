@@ -14,4 +14,9 @@ export interface IRefreshSessionRepository extends IAccessSessionRepository {
     familyInactivityExpiresAt: Date;
     familyAbsoluteExpiresAt: Date;
   } | null>;
+  revokeFamilyForLogout(input: {
+    accessTokenDigest?: string;
+    refreshTokenDigest?: string;
+    now: Date;
+  }): Promise<void>;
 }

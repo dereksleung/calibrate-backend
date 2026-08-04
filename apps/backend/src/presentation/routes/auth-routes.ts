@@ -24,6 +24,7 @@ export function createAuthRoutes(authController: AuthController): Router {
   );
   router.get("/auth/session", (req, res) => authController.getCurrentSession(req, res));
   router.post("/auth/session/refresh", (req, res) => authController.refreshSession(req, res));
+  router.delete("/auth/session", (req, res) => authController.logout(req, res));
   router.post("/auth/login", (req, res) => authController.login(req, res));
   return router;
 }

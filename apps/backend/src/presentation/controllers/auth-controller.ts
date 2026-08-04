@@ -99,6 +99,33 @@ export class AuthController {
     }
   }
 
+  async logout(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const origin = readRequestOrigin(req.get("Origin"));
+    if (!origin || origin !== getExpectedWebAuthnOrigin()) {
+      res.status(403).json({ error: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    if (!this.sessionRestorationService) {
+      res.status(503).json({ error: "SESSION_UNAVAILABLE" });
+      return;
+    }
+
+    const accessCookie = getAccessCookieConfiguration();
+    const refreshCookie = getRefreshCookieConfiguration();
+    try {
+      await this.sessionRestorationService.logout({
+        accessToken: extractCookieValue(req.get("Cookie"), accessCookie.name) ?? undefined,
+        refreshToken: extractCookieValue(req.get("Cookie"), refreshCookie.name) ?? undefined,
+      });
+      res.clearCookie(accessCookie.name, accessCookie.options);
+      res.clearCookie(refreshCookie.name, refreshCookie.options);
+      res.status(204).send();
+    } catch {
+      res.status(503).json({ error: "SESSION_UNAVAILABLE" });
+    }
+  }
+
   async createPasskeyAuthenticationOptions(req: Request, res: Response): Promise<void> {
     res.set("Cache-Control", "no-store");
     const origin = readRequestOrigin(req.get("Origin"));

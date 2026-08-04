@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 
 export interface ISessionRestorationService {
   getCurrentSession(accessToken: string): Promise<User | null>;
+  logout(credentials: { accessToken?: string; refreshToken?: string }): Promise<void>;
   refresh(refreshToken: string): Promise<{
     user: User;
     accessToken: string;
@@ -28,6 +29,14 @@ export class SessionRestorationServiceImpl implements ISessionRestorationService
   async getCurrentSession(accessToken: string): Promise<User | null> {
     const userId = await this.sessions.findActiveUserIdByTokenDigest(digest(accessToken), this.clock.now());
     return userId ? this.users.findById(userId) : null;
+  }
+
+  async logout(credentials: { accessToken?: string; refreshToken?: string }): Promise<void> {
+    await this.sessions.revokeFamilyForLogout({
+      accessTokenDigest: credentials.accessToken ? digest(credentials.accessToken) : undefined,
+      refreshTokenDigest: credentials.refreshToken ? digest(credentials.refreshToken) : undefined,
+      now: this.clock.now(),
+    });
   }
 
   async refresh(refreshToken: string) {

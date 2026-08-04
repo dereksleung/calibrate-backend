@@ -6,6 +6,7 @@ import { IAuthService } from "@application/services/auth-service.js";
 import { IPasskeyAuthenticationService } from "@application/services/passkey-authentication-service.js";
 import { ISignupEmailVerificationService } from "@application/services/signup-email-verification-service.js";
 import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
+import { ISessionRestorationService } from "@application/services/session-restoration-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
 import { User } from "@domain/entities/user.js";
 import { Request } from "express";
@@ -17,6 +18,7 @@ describe("AuthController", () => {
   let mockSignupEmailVerificationService: MockedObject<ISignupEmailVerificationService>;
   let mockSignupPasskeyRegistrationService: MockedObject<ISignupPasskeyRegistrationService>;
   let mockPasskeyAuthenticationService: MockedObject<IPasskeyAuthenticationService>;
+  let mockSessionRestorationService: MockedObject<ISessionRestorationService>;
 
   const user = User.reconstitute({
     id: "user-1",
@@ -41,12 +43,77 @@ describe("AuthController", () => {
       createAuthenticationOptions: vi.fn(),
       verifyAuthentication: vi.fn(),
     };
+    mockSessionRestorationService = {
+      getCurrentSession: vi.fn(),
+      logout: vi.fn(),
+      refresh: vi.fn(),
+    };
     authController = new AuthController(
       mockAuthService,
       mockSignupEmailVerificationService,
       mockSignupPasskeyRegistrationService,
       mockPasskeyAuthenticationService,
+      mockSessionRestorationService,
     );
+  });
+
+  it("revokes the current session and clears matching cookies after an allowed-origin logout", async () => {
+    const req = {
+      get: vi.fn((name: string) => {
+        if (name === "Origin") return "http://localhost:3000";
+        if (name === "Cookie") return "calibrate-access=access-token; calibrate-refresh=refresh-token";
+        return undefined;
+      }),
+    } as unknown as Request;
+    const res = { set: vi.fn(), clearCookie: vi.fn(), status: vi.fn().mockReturnThis(), send: vi.fn() } as any;
+
+    await authController.logout(req, res);
+
+    expect(mockSessionRestorationService.logout).toHaveBeenCalledWith({
+      accessToken: "access-token",
+      refreshToken: "refresh-token",
+    });
+    expect(res.set).toHaveBeenCalledWith("Cache-Control", "no-store");
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      "calibrate-access",
+      expect.objectContaining({ httpOnly: true, secure: false, sameSite: "lax", path: "/" }),
+    );
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      "calibrate-refresh",
+      expect.objectContaining({ httpOnly: true, secure: false, sameSite: "strict", path: "/api/v1/auth/session" }),
+    );
+    expect(res.status).toHaveBeenCalledWith(204);
+    expect(res.send).toHaveBeenCalledWith();
+  });
+
+  it("rejects an unexpected origin before reading credentials, revoking state, or clearing cookies", async () => {
+    const req = { get: vi.fn((name: string) => (name === "Origin" ? "https://attacker.example" : undefined)) } as unknown as Request;
+    const res = { set: vi.fn(), clearCookie: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+
+    await authController.logout(req, res);
+
+    expect(mockSessionRestorationService.logout).not.toHaveBeenCalled();
+    expect(res.clearCookie).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: "ORIGIN_NOT_ALLOWED" });
+  });
+
+  it("preserves cookies when session revocation is unavailable", async () => {
+    mockSessionRestorationService.logout.mockRejectedValue(new Error("database unavailable"));
+    const req = {
+      get: vi.fn((name: string) => {
+        if (name === "Origin") return "http://localhost:3000";
+        if (name === "Cookie") return "calibrate-access=access-token";
+        return undefined;
+      }),
+    } as unknown as Request;
+    const res = { set: vi.fn(), clearCookie: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+
+    await authController.logout(req, res);
+
+    expect(res.clearCookie).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(res.json).toHaveBeenCalledWith({ error: "SESSION_UNAVAILABLE" });
   });
 
   it("returns a no-store 202 response for a normalized web request", async () => {

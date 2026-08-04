@@ -173,4 +173,89 @@ export class PostgresAccessSessionRepository implements IRefreshSessionRepositor
       };
     });
   }
+
+  async revokeFamilyForLogout(input: {
+    accessTokenDigest?: string;
+    refreshTokenDigest?: string;
+    now: Date;
+  }): Promise<void> {
+    if (!input.accessTokenDigest && !input.refreshTokenDigest) return;
+
+    await this.databaseClient.transaction().execute(async (trx) => {
+      let familyId: string | undefined;
+
+      if (input.accessTokenDigest) {
+        const accessSession = await trx
+          .selectFrom("sessions")
+          .innerJoin(
+            "remembered_device_families",
+            "remembered_device_families.id",
+            "sessions.remembered_device_family_id",
+          )
+          .select("sessions.remembered_device_family_id")
+          .where("sessions.token_digest", "=", input.accessTokenDigest)
+          .where("sessions.inactivity_expires_at", ">", input.now)
+          .where("sessions.absolute_expires_at", ">", input.now)
+          .where("sessions.revoked_at", "is", null)
+          .where("sessions.replaced_by_session_id", "is", null)
+          .where("remembered_device_families.revoked_at", "is", null)
+          .where("remembered_device_families.inactivity_expires_at", ">", input.now)
+          .where("remembered_device_families.absolute_expires_at", ">", input.now)
+          .executeTakeFirst();
+        familyId = accessSession?.remembered_device_family_id ?? undefined;
+      }
+
+      if (!familyId && input.refreshTokenDigest) {
+        const refreshGeneration = await trx
+          .selectFrom("refresh_token_generations as generation")
+          .innerJoin(
+            "remembered_device_families as family",
+            "family.id",
+            "generation.family_id",
+          )
+          .select("generation.family_id")
+          .where("generation.token_digest", "=", input.refreshTokenDigest)
+          .where("generation.revoked_at", "is", null)
+          .where("generation.expires_at", ">", input.now)
+          .where("family.revoked_at", "is", null)
+          .where("family.inactivity_expires_at", ">", input.now)
+          .where("family.absolute_expires_at", ">", input.now)
+          .where((eb) =>
+            eb.or([
+              eb("generation.consumed_at", "is not", null),
+              eb.and([
+                eb("generation.consumed_at", "is", null),
+                eb("generation.generation", "=", eb.ref("family.current_refresh_generation")),
+              ]),
+            ]),
+          )
+          .executeTakeFirst();
+        familyId = refreshGeneration?.family_id;
+      }
+
+      if (!familyId) return;
+
+      const revokedFamily = await trx
+        .updateTable("remembered_device_families")
+        .set({ revoked_at: input.now, revocation_reason: "current-device-logout" })
+        .where("id", "=", familyId)
+        .where("revoked_at", "is", null)
+        .returning("id")
+        .executeTakeFirst();
+      if (!revokedFamily) return;
+
+      await trx
+        .updateTable("sessions")
+        .set({ revoked_at: input.now })
+        .where("remembered_device_family_id", "=", familyId)
+        .where("revoked_at", "is", null)
+        .execute();
+      await trx
+        .updateTable("refresh_token_generations")
+        .set({ revoked_at: input.now })
+        .where("family_id", "=", familyId)
+        .where("revoked_at", "is", null)
+        .execute();
+    });
+  }
 }
