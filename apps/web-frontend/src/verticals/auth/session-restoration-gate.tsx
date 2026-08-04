@@ -1,4 +1,8 @@
-import { getCurrentSession, refreshSession, ApiError } from "@calibrate/api-client";
+import {
+  getCurrentSession,
+  refreshSession,
+  ApiError,
+} from "@calibrate/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
@@ -10,14 +14,21 @@ import { setAuthenticatedSession } from "./authenticated-session.ts";
 
 type State = "checking" | "refreshing" | "available" | "unavailable";
 
-export function SessionRestorationGate({ children }: { children: React.ReactNode }) {
+export function SessionRestorationGate({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [state, setState] = useState<State>("checking");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const restore = useCallback(async () => {
     setState("checking");
     try {
-      setAuthenticatedSession(queryClient, await getCurrentSession(apiTransport));
+      setAuthenticatedSession(
+        queryClient,
+        await getCurrentSession(apiTransport),
+      );
       setState("available");
       return;
     } catch (error) {
@@ -29,7 +40,10 @@ export function SessionRestorationGate({ children }: { children: React.ReactNode
     setState("refreshing");
     try {
       await refreshSession(apiTransport);
-      setAuthenticatedSession(queryClient, await getCurrentSession(apiTransport));
+      setAuthenticatedSession(
+        queryClient,
+        await getCurrentSession(apiTransport),
+      );
       setState("available");
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -41,10 +55,30 @@ export function SessionRestorationGate({ children }: { children: React.ReactNode
     }
   }, [navigate, queryClient]);
 
-  useEffect(() => { void restore(); }, [restore]);
+  useEffect(() => {
+    void restore();
+  }, [restore]);
   if (state === "available") return <>{children}</>;
   if (state === "unavailable") {
-    return <main className="flex min-h-dvh items-center justify-center px-gutter"><div className="w-full max-w-md space-y-md"><WarningBanner>Calibrate is temporarily unavailable.</WarningBanner><Button className="w-full" onClick={() => void restore()}>Try again</Button></div></main>;
+    return (
+      <main className="flex min-h-dvh items-center justify-center px-gutter">
+        <div className="w-full max-w-md space-y-md">
+          <WarningBanner>Calibrate is temporarily unavailable.</WarningBanner>
+          <Button className="w-full" onClick={() => void restore()}>
+            Try again
+          </Button>
+        </div>
+      </main>
+    );
   }
-  return <main className="flex min-h-dvh items-center justify-center" aria-busy="true"><p role="status">{state === "refreshing" ? "Restoring your session…" : "Checking your session…"}</p></main>;
+  return (
+    <main
+      className="flex min-h-dvh items-center justify-center"
+      aria-busy="true"
+    >
+      <p role="status">
+        Loading your user...
+      </p>
+    </main>
+  );
 }
