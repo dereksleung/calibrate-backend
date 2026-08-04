@@ -34,7 +34,7 @@ export interface AccountEmailVerificationChallenge {
 }
 
 export type VerifyAccountEmailVerificationResult =
-  | { next: "login-or-recovery"; expiresAt: Date }
+  | { next: "login-or-recovery"; expiresAt: Date; accountAccessToken: string }
   | { next: "passkey-registration"; enrollmentToken: string; expiresAt: Date };
 
 export interface IAccountEmailVerificationService {
@@ -137,6 +137,7 @@ export class AccountEmailVerificationServiceImpl implements IAccountEmailVerific
 
     const created = this.opaqueTokenService.create();
     const expiresAt = new Date(now.getTime() + ENROLLMENT_LIFETIME_SECONDS * 1000);
+    const accountAccessExpiresAt = new Date(now.getTime() + 15 * 60 * 1000);
     const continuation = await this.enrollmentRepository.consumeAndResolveContinuation({
       challengeId: challenge.id,
       consumedAt: now,
@@ -149,10 +150,16 @@ export class AccountEmailVerificationServiceImpl implements IAccountEmailVerific
         createdAt: now,
         expiresAt,
       },
+      accountAccessAuthorization: {
+        id: randomUUID(),
+        tokenDigest: created.digest,
+        clientBinding: sessionTransport,
+        expiresAt: accountAccessExpiresAt,
+      },
     });
     if (!continuation) throw new InvalidEmailVerificationCodeError();
     if (continuation.next === "login-or-recovery") {
-      return { next: "login-or-recovery", expiresAt: new Date(now.getTime() + 15 * 60 * 1000) };
+      return { next: "login-or-recovery", expiresAt: accountAccessExpiresAt, accountAccessToken: created.token };
     }
 
     return { next: "passkey-registration", enrollmentToken: created.token, expiresAt };

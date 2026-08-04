@@ -38,7 +38,28 @@ export class PostgresSignupEnrollmentAuthorizationRepository implements ISignupE
         .select("id")
         .where("email", "=", authorization.email)
         .executeTakeFirst();
-      if (existingUser) return { next: "login-or-recovery" };
+      if (existingUser) {
+        await trx
+          .updateTable("account_access_authorizations")
+          .set({ invalidated_at: props.consumedAt })
+          .where("user_id", "=", existingUser.id)
+          .where("client_binding", "=", props.accountAccessAuthorization.clientBinding)
+          .where("consumed_at", "is", null)
+          .where("invalidated_at", "is", null)
+          .execute();
+        await trx.insertInto("account_access_authorizations").values({
+          id: props.accountAccessAuthorization.id,
+          user_id: existingUser.id,
+          source_otp_challenge_id: props.challengeId,
+          token_digest: props.accountAccessAuthorization.tokenDigest,
+          client_binding: props.accountAccessAuthorization.clientBinding,
+          created_at: props.consumedAt,
+          expires_at: props.accountAccessAuthorization.expiresAt,
+          consumed_at: null,
+          invalidated_at: null,
+        }).execute();
+        return { next: "login-or-recovery" };
+      }
 
       let invalidateQuery = trx
         .updateTable("signup_enrollment_authorizations")

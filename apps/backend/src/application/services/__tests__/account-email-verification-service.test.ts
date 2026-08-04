@@ -88,6 +88,11 @@ describe("AccountEmailVerificationServiceImpl", () => {
         createdAt: now,
         expiresAt: new Date("2026-07-12T12:05:00.000Z"),
       }),
+      accountAccessAuthorization: expect.objectContaining({
+        tokenDigest: "token-digest",
+        clientBinding: "cookie",
+        expiresAt: new Date("2026-07-12T12:15:00.000Z"),
+      }),
     });
     expect(result).toEqual({
       next: "passkey-registration",
@@ -109,6 +114,7 @@ describe("AccountEmailVerificationServiceImpl", () => {
     await expect(service.verify({ challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "012345", platform: null })).resolves.toEqual({
       next: "login-or-recovery",
       expiresAt: new Date("2026-07-12T12:15:00.000Z"),
+      accountAccessToken: "unused",
     });
   });
 

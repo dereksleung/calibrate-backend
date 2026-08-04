@@ -41,6 +41,7 @@ import { validate } from "@validation/validation-helpers.js";
 import { Request, Response } from "express";
 
 import { getAccessCookieConfiguration, getAccessCookieMaxAgeMs } from "../auth/access-cookie.js";
+import { getAccountAccessCookieConfiguration } from "../auth/account-access-cookie.js";
 import { extractCookieValue } from "../auth/cookie-extractor.js";
 import { getEnrollmentCookieConfiguration } from "../auth/enrollment-cookie.js";
 import { getRefreshCookieConfiguration, getRefreshCookieMaxAgeMs } from "../auth/refresh-cookie.js";
@@ -282,6 +283,8 @@ export class AuthController {
             })()
           : (() => {
               this.clearEnrollmentCookie(res);
+              const cookie = getAccountAccessCookieConfiguration();
+              res.cookie(cookie.name, result.accountAccessToken, cookie.options);
               return { next: "login-or-recovery" as const, expiresAt: result.expiresAt.toISOString() };
             })();
       res.status(200).json(response);

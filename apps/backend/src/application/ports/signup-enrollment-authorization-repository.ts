@@ -14,6 +14,12 @@ export interface ConsumeAndCreateEnrollmentAuthorizationProps {
   challengeId: string;
   consumedAt: Date;
   authorization: NewSignupEnrollmentAuthorization;
+  accountAccessAuthorization: {
+    id: string;
+    tokenDigest: string;
+    clientBinding: string;
+    expiresAt: Date;
+  };
 }
 
 export type EmailVerificationContinuation =
