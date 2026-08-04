@@ -232,7 +232,8 @@ npx nx run web:typecheck
 
 - Cross-tab single-flight refresh, fixed-window `409 REFRESH_ALREADY_ROTATED` recovery, and
   recognized-consumed-token family revocation.
-- `DELETE /auth/session` logout and cookie clearing.
+- Current-device `DELETE /auth/session` logout and cookie clearing, specified in
+  [`006-current-device-logout-and-session-revocation.md`](./006-current-device-logout-and-session-revocation.md).
 - Family-absolute-expiry `REAUTHENTICATION_REQUIRED` ceremony and replacement family.
 - Five-minute jittered retry for idempotent session checks on sleeping-backend failures.
 - Protecting every domain route/mutation and deciding the exact pre-auth route-shell UX.
