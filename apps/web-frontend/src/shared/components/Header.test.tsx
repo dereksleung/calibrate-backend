@@ -20,6 +20,12 @@ import {
 import Header from "./Header.tsx";
 
 const mockUseIsMobile = vi.fn<() => boolean>();
+const { mockDeleteCurrentSession } = vi.hoisted(() => ({ mockDeleteCurrentSession: vi.fn() }));
+
+vi.mock("@calibrate/api-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@calibrate/api-client")>()),
+  deleteCurrentSession: mockDeleteCurrentSession,
+}));
 
 vi.mock("#/shared/hooks/use-media-query.ts", () => ({
   useIsMobile: () => mockUseIsMobile(),
@@ -108,6 +114,7 @@ async function renderHeader(
 }
 
 beforeEach(() => {
+  mockDeleteCurrentSession.mockResolvedValue(null);
   mockUseIsMobile.mockReturnValue(false);
   window.scrollTo = vi.fn();
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -168,16 +175,29 @@ describe("Header", () => {
       expect(screen.getByRole("button", { name: "Account menu" })).toBeTruthy();
     });
 
-    it("opens a logout option from the account avatar and clears the session", async () => {
+    it("waits for successful server logout before clearing the session and navigating", async () => {
       const { queryClient, router } = await renderHeader("/", { authenticated: true });
 
       fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
       fireEvent.click(await screen.findByRole("button", { name: "Log out" }));
 
       await waitFor(() => {
+        expect(mockDeleteCurrentSession).toHaveBeenCalledTimes(1);
         expect(queryClient.getQueryData(authenticatedSessionQueryKey)).toBeUndefined();
         expect(router.state.location.pathname).toBe("/signup-login");
       });
+    });
+
+    it("preserves authenticated state and shows a retryable error when logout fails", async () => {
+      mockDeleteCurrentSession.mockRejectedValueOnce(new Error("offline"));
+      const { queryClient, router } = await renderHeader("/", { authenticated: true });
+
+      fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Log out" }));
+
+      await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Unable to log out"));
+      expect(queryClient.getQueryData(authenticatedSessionQueryKey)).toBeDefined();
+      expect(router.state.location.pathname).toBe("/");
     });
   });
 

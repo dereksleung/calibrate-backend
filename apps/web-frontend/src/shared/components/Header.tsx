@@ -1,6 +1,8 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
+import { deleteCurrentSession } from '@calibrate/api-client'
 import { UserRound, UserRoundPlus } from 'lucide-react'
+import { useState } from 'react'
 
 import { cn } from '#/lib/utils'
 import { getTodayDateString } from '#/pages/logs/log-page-helpers.ts'
@@ -8,6 +10,7 @@ import {
   clearAuthenticatedSession,
   useAuthenticatedSession,
 } from '#/verticals/auth/authenticated-session.ts'
+import { apiTransport } from '#/shared/api/api-client.ts'
 
 import ThemeToggle from './ThemeToggle'
 import { useIsMobile } from '../hooks/use-media-query';
@@ -26,7 +29,7 @@ const navLinkBase =
 
 const navLinkActive = 'border-primary text-primary'
 
-function AccountMenu({ onLogout }: { onLogout: () => void }) {
+function AccountMenu({ onLogout, isLogoutPending }: { onLogout: () => void; isLogoutPending: boolean }) {
   return (
     <NavigationMenu align="end" render={<div />} className="max-w-none flex-none">
       <NavigationMenuList>
@@ -42,7 +45,7 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
               <li>
                 <NavigationMenuLink
                   closeOnClick
-                  render={<button type="button" className="w-full" />}
+                  render={<button type="button" className="w-full" disabled={isLogoutPending} />}
                   onClick={onLogout}
                 >
                   Log out
@@ -62,14 +65,26 @@ export default function Header() {
   const queryClient = useQueryClient();
   const session = useAuthenticatedSession();
   const isLoggedIn = session !== undefined;
+  const [isLogoutPending, setIsLogoutPending] = useState(false);
+  const [logoutError, setLogoutError] = useState(false);
 
-  function handleLogout() {
-    clearAuthenticatedSession(queryClient);
-    void navigate({ to: '/signup-login' });
+  async function handleLogout() {
+    if (isLogoutPending) return;
+    setIsLogoutPending(true);
+    setLogoutError(false);
+    try {
+      await deleteCurrentSession(apiTransport);
+      clearAuthenticatedSession(queryClient);
+      await navigate({ to: '/signup-login' });
+    } catch {
+      setLogoutError(true);
+    } finally {
+      setIsLogoutPending(false);
+    }
   }
 
   const authAction = isLoggedIn ? (
-    <AccountMenu onLogout={handleLogout} />
+    <AccountMenu onLogout={() => void handleLogout()} isLogoutPending={isLogoutPending} />
   ) : isMobile ? (
     <Button size="sm" onClick={() => navigate({ to: '/signup-login' })}>
       <UserRoundPlus />
@@ -92,6 +107,7 @@ export default function Header() {
         </Link>
 
         <div className="flex flex-1 items-center gap-6">
+          {logoutError ? <p role="alert" className="text-sm text-destructive">Unable to log out. Please try again.</p> : null}
           {isMobile
             ? (
               <div className="flex flex-1 justify-end">
