@@ -61,8 +61,8 @@ export function SessionRestorationGate({
   if (state === "available") return <>{children}</>;
   if (state === "unavailable") {
     return (
-      <main className="flex min-h-dvh items-center justify-center px-gutter">
-        <div className="w-full max-w-md space-y-md">
+      <main className="flex min-h-dvh w-screen items-center justify-center">
+        <div className="space-y-md">
           <WarningBanner>Calibrate is temporarily unavailable.</WarningBanner>
           <Button className="w-full" onClick={() => void restore()}>
             Try again
