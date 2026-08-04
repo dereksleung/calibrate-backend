@@ -34,7 +34,7 @@ export interface AccountEmailVerificationChallenge {
 }
 
 export type VerifyAccountEmailVerificationResult =
-  | { next: "login-or-recovery" }
+  | { next: "login-or-recovery"; expiresAt: Date }
   | { next: "passkey-registration"; enrollmentToken: string; expiresAt: Date };
 
 export interface IAccountEmailVerificationService {
@@ -151,7 +151,9 @@ export class AccountEmailVerificationServiceImpl implements IAccountEmailVerific
       },
     });
     if (!continuation) throw new InvalidEmailVerificationCodeError();
-    if (continuation.next === "login-or-recovery") return continuation;
+    if (continuation.next === "login-or-recovery") {
+      return { next: "login-or-recovery", expiresAt: new Date(now.getTime() + 15 * 60 * 1000) };
+    }
 
     return { next: "passkey-registration", enrollmentToken: created.token, expiresAt };
   }

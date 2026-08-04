@@ -3,6 +3,9 @@ import type { ColumnType } from "kysely";
 export interface WebauthnChallengesTable {
   id: string;
   enrollment_authorization_id: string | null;
+  account_access_authorization_id: ColumnType<string | null, string | null | undefined, string | null>;
+  recovery_registration_authorization_id: ColumnType<string | null, string | null | undefined, string | null>;
+  recovery_id: ColumnType<string | null, string | null | undefined, string | null>;
   purpose: string;
   challenge_digest: string;
   attempt_count: number;

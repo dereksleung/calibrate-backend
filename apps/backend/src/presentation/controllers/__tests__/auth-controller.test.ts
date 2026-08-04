@@ -353,7 +353,10 @@ describe("AuthController", () => {
   });
 
   it("clears a stale enrollment cookie for an existing-account continuation", async () => {
-    mockAccountEmailVerificationService.verify.mockResolvedValue({ next: "login-or-recovery" });
+    mockAccountEmailVerificationService.verify.mockResolvedValue({
+      next: "login-or-recovery",
+      expiresAt: new Date("2026-08-03T12:15:00.000Z"),
+    });
     const req = { body: { challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "012345" }, get: vi.fn().mockReturnValue(undefined) } as unknown as Request;
     const res = { set: vi.fn(), clearCookie: vi.fn(), cookie: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
 
@@ -361,7 +364,10 @@ describe("AuthController", () => {
 
     expect(res.cookie).not.toHaveBeenCalled();
     expect(res.clearCookie).toHaveBeenCalledWith("passkey-enrollment", expect.objectContaining({ path: "/api/v1/auth/passkeys/registration" }));
-    expect(res.json).toHaveBeenCalledWith({ next: "login-or-recovery" });
+    expect(res.json).toHaveBeenCalledWith({
+      next: "login-or-recovery",
+      expiresAt: "2026-08-03T12:15:00.000Z",
+    });
   });
 
   it("returns the generic verification failure without issuing a cookie", async () => {

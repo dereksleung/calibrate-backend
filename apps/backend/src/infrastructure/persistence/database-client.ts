@@ -2,12 +2,16 @@ import { Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
 
 import { DayLogsTable } from "./schemas/day-logs-table.js";
+import { AccountAccessAuthorizationsTable } from "./schemas/account-access-authorizations-table.js";
+import { AccountRecoveriesTable } from "./schemas/account-recoveries-table.js";
 import { EmailOtpChallengesTable } from "./schemas/email-otp-challenges-table.js";
 import { FoodEntriesTable } from "./schemas/food-entries-table.js";
 import { PasskeyAuthenticationRateLimitEventsTable } from "./schemas/passkey-authentication-rate-limit-events-table.js";
 import { PasskeyCredentialsTable } from "./schemas/passkey-credentials-table.js";
 import { RefreshTokenGenerationsTable } from "./schemas/refresh-token-generations-table.js";
 import { RememberedDeviceFamiliesTable } from "./schemas/remembered-device-families-table.js";
+import { RecoveryRegistrationAuthorizationsTable } from "./schemas/recovery-registration-authorizations-table.js";
+import { SecurityNotificationOutboxTable } from "./schemas/security-notification-outbox-table.js";
 import { SecurityEventsTable } from "./schemas/security-events-table.js";
 import { SessionsTable } from "./schemas/sessions-table.js";
 import { SignupEnrollmentAuthorizationsTable } from "./schemas/signup-enrollment-authorizations-table.js";
@@ -15,12 +19,16 @@ import { UsersTable } from "./schemas/users-table.js";
 import { WebauthnChallengesTable } from "./schemas/webauthn-challenges-table.js";
 
 export interface DatabaseSchema {
+  account_access_authorizations: AccountAccessAuthorizationsTable;
+  account_recoveries: AccountRecoveriesTable;
   email_otp_challenges: EmailOtpChallengesTable;
   passkey_authentication_rate_limit_events: PasskeyAuthenticationRateLimitEventsTable;
   passkey_credentials: PasskeyCredentialsTable;
   refresh_token_generations: RefreshTokenGenerationsTable;
   remembered_device_families: RememberedDeviceFamiliesTable;
+  recovery_registration_authorizations: RecoveryRegistrationAuthorizationsTable;
   security_events: SecurityEventsTable;
+  security_notification_outbox: SecurityNotificationOutboxTable;
   sessions: SessionsTable;
   signup_enrollment_authorizations: SignupEnrollmentAuthorizationsTable;
   users: UsersTable;

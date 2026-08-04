@@ -106,7 +106,10 @@ describe("AccountEmailVerificationServiceImpl", () => {
     opaqueTokenService.create.mockReturnValue({ token: "unused", digest: "unused" });
     enrollmentRepository.consumeAndResolveContinuation.mockResolvedValue({ next: "login-or-recovery" });
 
-    await expect(service.verify({ challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "012345", platform: null })).resolves.toEqual({ next: "login-or-recovery" });
+    await expect(service.verify({ challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "012345", platform: null })).resolves.toEqual({
+      next: "login-or-recovery",
+      expiresAt: new Date("2026-07-12T12:15:00.000Z"),
+    });
   });
 
   it("rejects a mismatched client binding without checking the code or consuming an OTP attempt", async () => {

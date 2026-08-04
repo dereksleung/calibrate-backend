@@ -11,6 +11,8 @@ export interface PasskeyCredentialsTable {
   aaguid: string;
   backup_eligible: boolean;
   backup_state: boolean;
+  recovery_id: ColumnType<string | null, string | null | undefined, string | null>;
+  trust_state: ColumnType<"trusted" | "provisional", "trusted" | "provisional" | undefined, "trusted" | "provisional">;
   created_at: ColumnType<Date, Date, never>;
   last_used_at: ColumnType<Date | null, Date | null, Date | null>;
   revoked_at: ColumnType<Date | null, Date | null, Date | null>;

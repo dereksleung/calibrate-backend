@@ -282,7 +282,7 @@ export class AuthController {
             })()
           : (() => {
               this.clearEnrollmentCookie(res);
-              return { next: "login-or-recovery" as const };
+              return { next: "login-or-recovery" as const, expiresAt: result.expiresAt.toISOString() };
             })();
       res.status(200).json(response);
     } catch (error) {

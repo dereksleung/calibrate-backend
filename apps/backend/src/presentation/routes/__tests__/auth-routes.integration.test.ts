@@ -193,10 +193,10 @@ describe("current-session logout HTTP route", () => {
   const logout = vi.fn();
   const app = express();
   const authService: IAuthService = { login: vi.fn() };
-  const emailService = new SignupEmailVerificationServiceImpl(
+  const emailService = new AccountEmailVerificationServiceImpl(
     new InMemoryChallengeRepository(),
     new NodeEmailOtpCodeService({ key: createSecretKey(Buffer.alloc(32, 9)), keyVersion: 2 }),
-    { async sendSignupEmailVerificationCode() {}, async sendPasskeyAddedNotification() {} },
+    { async sendAccountEmailVerificationCode() {}, async sendPasskeyAddedNotification() {} },
     new InMemoryEnrollmentRepository(),
     new NodeOpaqueTokenService(),
     { now: () => new Date("2026-08-03T12:00:00.000Z") },
