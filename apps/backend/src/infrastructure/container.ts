@@ -1,4 +1,7 @@
-import { IAccessSessionRepository, IRefreshSessionRepository } from "@application/ports/access-session-repository.js";
+import {
+  IAccessSessionRepository,
+  IRefreshSessionRepository,
+} from "@application/ports/access-session-repository.js";
 import { IAccessTokenService } from "@application/ports/access-token-service.js";
 import { IClock, SystemClock } from "@application/ports/clock.js";
 import { IDayLogRepository } from "@application/ports/day-log-repository.js";
@@ -6,31 +9,35 @@ import { IEmailOtpCodeService } from "@application/ports/email-otp-code-service.
 import { IEmailSender } from "@application/ports/email-sender.js";
 import { IPasswordHasher } from "@application/ports/password-hasher.js";
 import { IUserRepository } from "@application/ports/user-repository.js";
+import {
+  IAccountEmailVerificationService,
+  AccountEmailVerificationServiceImpl,
+  UnavailableAccountEmailVerificationService,
+} from "@application/services/account-email-verification-service.js";
 import { IAuthService, AuthServiceImpl } from "@application/services/auth-service.js";
-import { ISessionRestorationService, SessionRestorationServiceImpl } from "@application/services/session-restoration-service.js";
 import { IDayLogService, DayLogServiceImpl } from "@application/services/day-log-service.js";
 import {
   IPasskeyAuthenticationService,
   PasskeyAuthenticationServiceImpl,
 } from "@application/services/passkey-authentication-service.js";
 import {
-  IAccountEmailVerificationService,
-  AccountEmailVerificationServiceImpl,
-  UnavailableAccountEmailVerificationService,
-} from "@application/services/account-email-verification-service.js";
-import {
-  ISignupPasskeyRegistrationService,
-  SignupPasskeyRegistrationServiceImpl,
-  UnavailableSignupPasskeyRegistrationService,
-} from "@application/services/signup-passkey-registration-service.js";
+  IRecoveryPasskeyRegistrationService,
+  RecoveryPasskeyRegistrationServiceImpl,
+} from "@application/services/recovery-passkey-registration-service.js";
+import { RecoveryPromotionServiceImpl } from "@application/services/recovery-promotion-service.js";
 import {
   IRecoveryRegistrationAuthorizationService,
   RecoveryRegistrationAuthorizationServiceImpl,
 } from "@application/services/recovery-registration-authorization-service.js";
 import {
-  IRecoveryPasskeyRegistrationService,
-  RecoveryPasskeyRegistrationServiceImpl,
-} from "@application/services/recovery-passkey-registration-service.js";
+  ISessionRestorationService,
+  SessionRestorationServiceImpl,
+} from "@application/services/session-restoration-service.js";
+import {
+  ISignupPasskeyRegistrationService,
+  SignupPasskeyRegistrationServiceImpl,
+  UnavailableSignupPasskeyRegistrationService,
+} from "@application/services/signup-passkey-registration-service.js";
 import { IUserService, UserServiceImpl } from "@application/services/user-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
 import { DayLogController } from "@controllers/day-log-controller.js";
@@ -44,10 +51,11 @@ import { PostgresAccessSessionRepository } from "./persistence/repositories/post
 import { PostgresDayLogRepository } from "./persistence/repositories/postgres-day-log-repository.js";
 import { PostgresEmailOtpChallengeRepository } from "./persistence/repositories/postgres-email-otp-challenge-repository.js";
 import { PostgresPasskeyAuthenticationRepository } from "./persistence/repositories/postgres-passkey-authentication-repository.js";
+import { PostgresRecoveryPasskeyRegistrationRepository } from "./persistence/repositories/postgres-recovery-passkey-registration-repository.js";
+import { PostgresRecoveryPromotionRepository } from "./persistence/repositories/postgres-recovery-promotion-repository.js";
+import { PostgresRecoveryRegistrationAuthorizationRepository } from "./persistence/repositories/postgres-recovery-registration-authorization-repository.js";
 import { PostgresSignupEnrollmentAuthorizationRepository } from "./persistence/repositories/postgres-signup-enrollment-authorization-repository.js";
 import { PostgresSignupPasskeyRegistrationRepository } from "./persistence/repositories/postgres-signup-passkey-registration-repository.js";
-import { PostgresRecoveryRegistrationAuthorizationRepository } from "./persistence/repositories/postgres-recovery-registration-authorization-repository.js";
-import { PostgresRecoveryPasskeyRegistrationRepository } from "./persistence/repositories/postgres-recovery-passkey-registration-repository.js";
 import { PostgresUserRepository } from "./persistence/repositories/postgres-user-repository.js";
 import { Argon2PasswordHasher } from "./security/argon2-password-hasher.js";
 import { JoseAccessTokenService } from "./security/jose-access-token-service.js";
@@ -113,6 +121,7 @@ export class Container {
   private readonly passkeyAuthenticationService: IPasskeyAuthenticationService;
   private readonly recoveryRegistrationAuthorizationService: IRecoveryRegistrationAuthorizationService;
   private readonly recoveryPasskeyRegistrationService: IRecoveryPasskeyRegistrationService;
+  private readonly recoveryPromotionService: RecoveryPromotionServiceImpl;
   private readonly sessionRestorationService: ISessionRestorationService;
   private readonly dayLogRepository: IDayLogRepository;
   private readonly dayLogService: IDayLogService;
@@ -132,6 +141,7 @@ export class Container {
     passkeyAuthenticationService,
     recoveryRegistrationAuthorizationService,
     recoveryPasskeyRegistrationService,
+    recoveryPromotionService,
     emailSender,
     clock,
     dayLogRepository,
@@ -151,6 +161,7 @@ export class Container {
     passkeyAuthenticationService?: IPasskeyAuthenticationService;
     recoveryRegistrationAuthorizationService?: IRecoveryRegistrationAuthorizationService;
     recoveryPasskeyRegistrationService?: IRecoveryPasskeyRegistrationService;
+    recoveryPromotionService?: RecoveryPromotionServiceImpl;
     emailSender?: IEmailSender;
     clock?: IClock;
     dayLogRepository?: IDayLogRepository;
@@ -244,6 +255,14 @@ export class Container {
         this.clock,
         { expectedOrigin: webAuthnOrigin },
       );
+    this.recoveryPromotionService =
+      recoveryPromotionService ??
+      new RecoveryPromotionServiceImpl(
+        new PostgresRecoveryPromotionRepository(databaseClient),
+        new SimpleWebAuthnAuthenticationAdapter({ rpId: webAuthnRpId }),
+        this.clock,
+        { expectedOrigin: webAuthnOrigin },
+      );
 
     this.sessionRestorationService = new SessionRestorationServiceImpl(
       this.accessSessionRepository,
@@ -262,6 +281,7 @@ export class Container {
         this.sessionRestorationService,
         this.recoveryRegistrationAuthorizationService,
         this.recoveryPasskeyRegistrationService,
+        this.recoveryPromotionService,
       );
     this.userService = userService ?? new UserServiceImpl(this.passwordHasher, this.userRepository);
     this.userController = userController ?? new UserController(this.userService);

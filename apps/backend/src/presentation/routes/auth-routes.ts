@@ -28,7 +28,9 @@ export function createAuthRoutes(authController: AuthController): Router {
   router.post("/auth/account-access/passkeys/authentication/verify", (req, res) =>
     authController.verifyIdentifiedPasskeyAuthentication(req, res),
   );
-  router.post("/auth/account-access/recovery", (req, res) => authController.authorizeRecoveryRegistration(req, res));
+  router.post("/auth/account-access/recovery", (req, res) =>
+    authController.authorizeRecoveryRegistration(req, res),
+  );
   router.get("/auth/account-access", (req, res) => authController.getAccountAccessStatus(req, res));
   router.post("/auth/recovery/passkeys/registration/options", (req, res) =>
     authController.createRecoveryPasskeyRegistrationOptions(req, res),
@@ -38,6 +40,12 @@ export function createAuthRoutes(authController: AuthController): Router {
   );
   router.get("/auth/session", (req, res) => authController.getCurrentSession(req, res));
   router.get("/auth/recovery/status", (req, res) => authController.getRecoveryStatus(req, res));
+  router.post("/auth/recovery/promotion/options", (req, res) =>
+    authController.createRecoveryPromotionOptions(req, res),
+  );
+  router.post("/auth/recovery/promotion/verify", (req, res) =>
+    authController.verifyRecoveryPromotion(req, res),
+  );
   router.post("/auth/session/refresh", (req, res) => authController.refreshSession(req, res));
   router.delete("/auth/session", (req, res) => authController.logout(req, res));
   router.post("/auth/login", (req, res) => authController.login(req, res));

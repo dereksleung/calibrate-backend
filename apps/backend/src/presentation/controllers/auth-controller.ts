@@ -21,10 +21,11 @@ import {
   IPasskeyAuthenticationService,
   UnavailablePasskeyAuthenticationService,
 } from "@application/services/passkey-authentication-service.js";
+import { IRecoveryPasskeyRegistrationService } from "@application/services/recovery-passkey-registration-service.js";
+import { RecoveryPromotionServiceImpl } from "@application/services/recovery-promotion-service.js";
+import { IRecoveryRegistrationAuthorizationService } from "@application/services/recovery-registration-authorization-service.js";
 import { ISessionRestorationService } from "@application/services/session-restoration-service.js";
 import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
-import { IRecoveryRegistrationAuthorizationService } from "@application/services/recovery-registration-authorization-service.js";
-import { IRecoveryPasskeyRegistrationService } from "@application/services/recovery-passkey-registration-service.js";
 import {
   AppPlatformHeaderValueSchema,
   AuthorizeRecoveryRegistrationRequestBodySchema,
@@ -48,8 +49,8 @@ import { getAccessCookieConfiguration, getAccessCookieMaxAgeMs } from "../auth/a
 import { getAccountAccessCookieConfiguration } from "../auth/account-access-cookie.js";
 import { extractCookieValue } from "../auth/cookie-extractor.js";
 import { getEnrollmentCookieConfiguration } from "../auth/enrollment-cookie.js";
-import { getRefreshCookieConfiguration, getRefreshCookieMaxAgeMs } from "../auth/refresh-cookie.js";
 import { getRecoveryRegistrationCookieConfiguration } from "../auth/recovery-registration-cookie.js";
+import { getRefreshCookieConfiguration, getRefreshCookieMaxAgeMs } from "../auth/refresh-cookie.js";
 import { getExpectedWebAuthnOrigin, readRequestOrigin } from "../auth/webauthn-origin.js";
 import { PasskeyRegistrationOptionsResponseMapper } from "../mappers/passkey-registration-options-response-mapper.js";
 import { UserResponseMapper } from "../mappers/user-response-mapper.js";
@@ -63,6 +64,7 @@ export class AuthController {
     private readonly sessionRestorationService?: ISessionRestorationService,
     private readonly recoveryRegistrationAuthorizationService?: IRecoveryRegistrationAuthorizationService,
     private readonly recoveryPasskeyRegistrationService?: IRecoveryPasskeyRegistrationService,
+    private readonly recoveryPromotionService?: RecoveryPromotionServiceImpl,
   ) {}
 
   async getCurrentSession(req: Request, res: Response): Promise<void> {
@@ -106,6 +108,78 @@ export class AuthController {
     }
   }
 
+  async createRecoveryPromotionOptions(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const origin = readRequestOrigin(req.get("Origin"));
+    const accessToken = extractCookieValue(req.get("Cookie"), getAccessCookieConfiguration().name);
+    if (!origin || origin !== getExpectedWebAuthnOrigin()) {
+      res.status(403).json({ error: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    if (!accessToken) {
+      res.status(401).json({ error: "ACCESS_SESSION_REQUIRED" });
+      return;
+    }
+    if (!this.recoveryPromotionService) {
+      res.status(503).json({ error: "ACCOUNT_RECOVERY_UNAVAILABLE" });
+      return;
+    }
+    try {
+      const result = await this.recoveryPromotionService.createOptions({ accessToken, origin });
+      res.status(200).json({ options: result.options, expiresAt: result.expiresAt.toISOString() });
+    } catch {
+      res.status(409).json({ error: "RECOVERY_PROMOTION_NOT_READY" });
+    }
+  }
+
+  async verifyRecoveryPromotion(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const origin = readRequestOrigin(req.get("Origin"));
+    const accessToken = extractCookieValue(req.get("Cookie"), getAccessCookieConfiguration().name);
+    const body = validate(VerifyPasskeyAuthenticationRequestBodySchema, req.body);
+    if (!origin || origin !== getExpectedWebAuthnOrigin()) {
+      res.status(403).json({ error: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    if (!accessToken) {
+      res.status(401).json({ error: "ACCESS_SESSION_REQUIRED" });
+      return;
+    }
+    if (!body.isValid) {
+      res.status(400).json({ error: "RECOVERY_PROMOTION_FAILED" });
+      return;
+    }
+    if (!this.recoveryPromotionService) {
+      res.status(503).json({ error: "ACCOUNT_RECOVERY_UNAVAILABLE" });
+      return;
+    }
+    try {
+      const result = await this.recoveryPromotionService.verify({
+        accessToken,
+        origin,
+        assertion: {
+          credentialId: body.data.credential.id,
+          rawCredentialId: body.data.credential.rawId,
+          authenticatorData: body.data.credential.response.authenticatorData,
+          clientDataJSON: body.data.credential.response.clientDataJSON,
+          signature: body.data.credential.response.signature,
+          userHandle: body.data.credential.response.userHandle,
+        },
+        rememberDevice: body.data.rememberDevice,
+      });
+      this.setSessionCookies(res, result, new Date());
+      res
+        .status(200)
+        .json({
+          user: UserResponseMapper.toResponse(result.user),
+          sessionTransport: "cookie",
+          security: { activeRecovery: { state: "none" }, sessionRestriction: null },
+        });
+    } catch {
+      res.status(400).json({ error: "RECOVERY_PROMOTION_FAILED" });
+    }
+  }
+
   async refreshSession(req: Request, res: Response): Promise<void> {
     res.set("Cache-Control", "no-store");
     const origin = readRequestOrigin(req.get("Origin"));
@@ -127,7 +201,13 @@ export class AuthController {
       }
       this.setSessionCookies(res, { ...result, rememberDevice: true }, new Date());
       const security = await this.sessionRestorationService.getSecurityState(result.accessToken);
-      res.status(200).json({ user: UserResponseMapper.toResponse(result.user), sessionTransport: "cookie", ...(security ? { security } : {}) });
+      res
+        .status(200)
+        .json({
+          user: UserResponseMapper.toResponse(result.user),
+          sessionTransport: "cookie",
+          ...(security ? { security } : {}),
+        });
     } catch {
       res.status(503).json({ error: "SESSION_UNAVAILABLE" });
     }
@@ -330,14 +410,27 @@ export class AuthController {
       return;
     }
     try {
-      const result = await this.recoveryRegistrationAuthorizationService.authorize({ accountAccessToken: accountAccess, mode: body.data.mode });
+      const result = await this.recoveryRegistrationAuthorizationService.authorize({
+        accountAccessToken: accountAccess,
+        mode: body.data.mode,
+      });
       const cookie = getRecoveryRegistrationCookieConfiguration();
       res.cookie(cookie.name, result.recoveryRegistrationToken, cookie.options);
       res.clearCookie(accountAccessCookie.name, accountAccessCookie.options);
-      const response: AuthorizeRecoveryRegistrationResponse = { next: "recovery-passkey-registration", expiresAt: result.expiresAt.toISOString() };
+      const response: AuthorizeRecoveryRegistrationResponse = {
+        next: "recovery-passkey-registration",
+        expiresAt: result.expiresAt.toISOString(),
+      };
       res.status(200).json(response);
     } catch (error) {
-      res.status(error instanceof PasskeyRegistrationStateConflictError ? 409 : 503).json({ error: error instanceof PasskeyRegistrationStateConflictError ? "RECOVERY_STATE_CONFLICT" : "ACCOUNT_RECOVERY_UNAVAILABLE" });
+      res
+        .status(error instanceof PasskeyRegistrationStateConflictError ? 409 : 503)
+        .json({
+          error:
+            error instanceof PasskeyRegistrationStateConflictError
+              ? "RECOVERY_STATE_CONFLICT"
+              : "ACCOUNT_RECOVERY_UNAVAILABLE",
+        });
     }
   }
 
