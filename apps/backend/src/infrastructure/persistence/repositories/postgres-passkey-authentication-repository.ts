@@ -268,7 +268,7 @@ export class PostgresPasskeyAuthenticationRepository implements IPasskeyAuthenti
       const credential = await trx
         .selectFrom("passkey_credentials as credential")
         .innerJoin("users as user", "user.id", "credential.user_id")
-        .select(["credential.id", "credential.user_id", "credential.recovery_id"])
+        .select(["credential.id", "credential.user_id", "credential.recovery_id", "credential.trust_state"])
         .where("credential.credential_id", "=", input.credentialId)
         .where("credential.revoked_at", "is", null)
         .forUpdate()
@@ -306,6 +306,10 @@ export class PostgresPasskeyAuthenticationRepository implements IPasskeyAuthenti
         })
         .where("id", "=", credential.id)
         .execute();
+
+      if (credential.trust_state === "trusted") {
+        await this.cancelActiveRecoveryForTrustedAssertion(trx, credential.user_id, input.now);
+      }
 
       const familyId = randomUUID();
       const recovery = credential.recovery_id
@@ -414,7 +418,7 @@ export class PostgresPasskeyAuthenticationRepository implements IPasskeyAuthenti
       const credential = authorization
         ? await trx
             .selectFrom("passkey_credentials")
-            .select(["id", "user_id", "recovery_id"])
+            .select(["id", "user_id", "recovery_id", "trust_state"])
             .where("credential_id", "=", input.credentialId)
             .where("user_id", "=", authorization.user_id)
             .where("revoked_at", "is", null)
@@ -466,6 +470,9 @@ export class PostgresPasskeyAuthenticationRepository implements IPasskeyAuthenti
         })
         .where("id", "=", credential.id)
         .execute();
+      if (credential.trust_state === "trusted") {
+        await this.cancelActiveRecoveryForTrustedAssertion(trx, credential.user_id, input.now);
+      }
       const familyId = randomUUID();
       const recovery = credential.recovery_id
         ? await trx
@@ -554,6 +561,64 @@ export class PostgresPasskeyAuthenticationRepository implements IPasskeyAuthenti
   private async configureTransaction(trx: Transaction<DatabaseSchema>): Promise<void> {
     await sql`set local lock_timeout = '2s'`.execute(trx);
     await sql`set local statement_timeout = '5s'`.execute(trx);
+  }
+
+  private async cancelActiveRecoveryForTrustedAssertion(
+    trx: Transaction<DatabaseSchema>,
+    userId: string,
+    now: Date,
+  ): Promise<void> {
+    const recovery = await trx
+      .selectFrom("account_recoveries")
+      .select("id")
+      .where("user_id", "=", userId)
+      .where("promoted_at", "is", null)
+      .where("cancelled_at", "is", null)
+      .where("replaced_at", "is", null)
+      .forUpdate()
+      .executeTakeFirst();
+    if (!recovery) return;
+    await trx
+      .updateTable("passkey_credentials")
+      .set({ revoked_at: now })
+      .where("recovery_id", "=", recovery.id)
+      .where("revoked_at", "is", null)
+      .execute();
+    await trx
+      .updateTable("sessions")
+      .set({ revoked_at: now })
+      .where("remembered_device_family_id", "in", (eb) =>
+        eb.selectFrom("remembered_device_families").select("id").where("recovery_id", "=", recovery.id),
+      )
+      .where("revoked_at", "is", null)
+      .execute();
+    await trx
+      .updateTable("remembered_device_families")
+      .set({ revoked_at: now, revocation_reason: "recovery-cancelled" })
+      .where("recovery_id", "=", recovery.id)
+      .where("revoked_at", "is", null)
+      .execute();
+    await trx
+      .updateTable("webauthn_challenges")
+      .set({ invalidated_at: now })
+      .where("recovery_id", "=", recovery.id)
+      .where("consumed_at", "is", null)
+      .where("invalidated_at", "is", null)
+      .execute();
+    await trx
+      .updateTable("account_recoveries")
+      .set({ cancelled_at: now, terminal_reason: "trusted-passkey-cancelled" })
+      .where("id", "=", recovery.id)
+      .execute();
+    await trx
+      .insertInto("security_events")
+      .values({
+        id: randomUUID(),
+        user_id: userId,
+        event_type: "account-recovery-cancelled",
+        created_at: now,
+      })
+      .execute();
   }
 
   private async consumeRateLimit(
