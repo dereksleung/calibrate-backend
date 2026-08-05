@@ -52,7 +52,10 @@ describe("AuthController", () => {
       logout: vi.fn(),
       refresh: vi.fn(),
     };
-    mockRecoveryPasskeyRegistrationService = { createRegistrationOptions: vi.fn() };
+    mockRecoveryPasskeyRegistrationService = {
+      createRegistrationOptions: vi.fn(),
+      verifyRegistration: vi.fn(),
+    };
     authController = new AuthController(
       mockAuthService,
       mockAccountEmailVerificationService,

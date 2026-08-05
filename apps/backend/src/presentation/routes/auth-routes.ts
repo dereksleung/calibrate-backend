@@ -32,6 +32,9 @@ export function createAuthRoutes(authController: AuthController): Router {
   router.post("/auth/recovery/passkeys/registration/options", (req, res) =>
     authController.createRecoveryPasskeyRegistrationOptions(req, res),
   );
+  router.post("/auth/recovery/passkeys/registration/verify", (req, res) =>
+    authController.verifyRecoveryPasskeyRegistration(req, res),
+  );
   router.get("/auth/session", (req, res) => authController.getCurrentSession(req, res));
   router.post("/auth/session/refresh", (req, res) => authController.refreshSession(req, res));
   router.delete("/auth/session", (req, res) => authController.logout(req, res));

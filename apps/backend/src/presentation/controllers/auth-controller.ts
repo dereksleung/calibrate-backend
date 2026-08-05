@@ -543,6 +543,62 @@ export class AuthController {
     }
   }
 
+  async verifyRecoveryPasskeyRegistration(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const origin = readRequestOrigin(req.get("Origin"));
+    if (!origin || origin !== getExpectedWebAuthnOrigin()) {
+      res.status(403).json({ error: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    const recoveryCookie = getRecoveryRegistrationCookieConfiguration();
+    const recoveryRegistrationToken = extractCookieValue(req.get("Cookie"), recoveryCookie.name);
+    if (!recoveryRegistrationToken) {
+      res.status(401).json({ error: "RECOVERY_REGISTRATION_AUTHORIZATION_REQUIRED" });
+      return;
+    }
+    const validatedBody = validate(VerifyPasskeyRegistrationRequestBodySchema, req.body);
+    if (!validatedBody.isValid) {
+      res.status(400).json({ error: "RECOVERY_PASSKEY_REGISTRATION_FAILED" });
+      return;
+    }
+    if (!this.recoveryPasskeyRegistrationService) {
+      res.status(503).json({ error: "ACCOUNT_RECOVERY_UNAVAILABLE" });
+      return;
+    }
+    try {
+      const now = new Date();
+      const result = await this.recoveryPasskeyRegistrationService.verifyRegistration({
+        recoveryRegistrationToken,
+        origin,
+        attestation: {
+          credentialId: validatedBody.data.credential.id,
+          rawCredentialId: validatedBody.data.credential.rawId,
+          clientDataJSON: validatedBody.data.credential.response.clientDataJSON,
+          attestationObject: validatedBody.data.credential.response.attestationObject,
+          transports: validatedBody.data.credential.response.transports,
+        },
+        rememberDevice: validatedBody.data.rememberDevice,
+      });
+      this.setSessionCookies(res, result, now);
+      res.clearCookie(recoveryCookie.name, recoveryCookie.options);
+      res.status(200).json({ user: UserResponseMapper.toResponse(result.user), sessionTransport: "cookie" });
+    } catch (error) {
+      if (error instanceof EnrollmentAuthorizationRequiredError) {
+        res.status(401).json({ error: "RECOVERY_REGISTRATION_AUTHORIZATION_REQUIRED" });
+        return;
+      }
+      if (error instanceof PasskeyRegistrationFailedError) {
+        res.status(400).json({ error: "RECOVERY_PASSKEY_REGISTRATION_FAILED" });
+        return;
+      }
+      if (error instanceof PasskeyRegistrationStateConflictError) {
+        res.status(409).json({ error: "RECOVERY_STATE_CONFLICT" });
+        return;
+      }
+      res.status(503).json({ error: "ACCOUNT_RECOVERY_UNAVAILABLE" });
+    }
+  }
+
   async login(req: Request, res: Response): Promise<void> {
     try {
       const validatedInput = validate(LoginRequestBodySchema, req.body);
