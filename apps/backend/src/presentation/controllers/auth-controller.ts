@@ -23,8 +23,10 @@ import {
 } from "@application/services/passkey-authentication-service.js";
 import { ISessionRestorationService } from "@application/services/session-restoration-service.js";
 import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
+import { IRecoveryRegistrationAuthorizationService } from "@application/services/recovery-registration-authorization-service.js";
 import {
   AppPlatformHeaderValueSchema,
+  AuthorizeRecoveryRegistrationRequestBodySchema,
   AuthenticatedSessionResponse,
   LoginRequestBodySchema,
   PasskeyRegistrationErrorResponse,
@@ -35,6 +37,7 @@ import {
   type LoginResponse,
   type RequestAccountEmailVerificationResponse,
   type VerifyAccountEmailVerificationResponse,
+  type AuthorizeRecoveryRegistrationResponse,
 } from "@calibrate/api-contracts";
 import { handleControllerError } from "@common/errors/controller-error-handler.js";
 import { validate } from "@validation/validation-helpers.js";
@@ -45,6 +48,7 @@ import { getAccountAccessCookieConfiguration } from "../auth/account-access-cook
 import { extractCookieValue } from "../auth/cookie-extractor.js";
 import { getEnrollmentCookieConfiguration } from "../auth/enrollment-cookie.js";
 import { getRefreshCookieConfiguration, getRefreshCookieMaxAgeMs } from "../auth/refresh-cookie.js";
+import { getRecoveryRegistrationCookieConfiguration } from "../auth/recovery-registration-cookie.js";
 import { getExpectedWebAuthnOrigin, readRequestOrigin } from "../auth/webauthn-origin.js";
 import { PasskeyRegistrationOptionsResponseMapper } from "../mappers/passkey-registration-options-response-mapper.js";
 import { UserResponseMapper } from "../mappers/user-response-mapper.js";
@@ -56,6 +60,7 @@ export class AuthController {
     private readonly signupPasskeyRegistrationService: ISignupPasskeyRegistrationService,
     private readonly passkeyAuthenticationService: IPasskeyAuthenticationService = new UnavailablePasskeyAuthenticationService(),
     private readonly sessionRestorationService?: ISessionRestorationService,
+    private readonly recoveryRegistrationAuthorizationService?: IRecoveryRegistrationAuthorizationService,
   ) {}
 
   async getCurrentSession(req: Request, res: Response): Promise<void> {
@@ -271,6 +276,40 @@ export class AuthController {
       res.status(200).json({ user: UserResponseMapper.toResponse(result.user), sessionTransport: "cookie" });
     } catch (error) {
       this.handlePasskeyAuthenticationError(res, error);
+    }
+  }
+
+  async authorizeRecoveryRegistration(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const origin = readRequestOrigin(req.get("Origin"));
+    const accountAccessCookie = getAccountAccessCookieConfiguration();
+    const accountAccess = extractCookieValue(req.get("Cookie"), accountAccessCookie.name);
+    const body = validate(AuthorizeRecoveryRegistrationRequestBodySchema, req.body);
+    if (!origin || origin !== getExpectedWebAuthnOrigin()) {
+      res.status(403).json({ error: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    if (!accountAccess) {
+      res.status(401).json({ error: "ACCOUNT_ACCESS_AUTHORIZATION_REQUIRED" });
+      return;
+    }
+    if (!body.isValid) {
+      res.status(400).json({ error: "RECOVERY_PASSKEY_REGISTRATION_FAILED" });
+      return;
+    }
+    if (!this.recoveryRegistrationAuthorizationService) {
+      res.status(503).json({ error: "ACCOUNT_RECOVERY_UNAVAILABLE" });
+      return;
+    }
+    try {
+      const result = await this.recoveryRegistrationAuthorizationService.authorize({ accountAccessToken: accountAccess, mode: body.data.mode });
+      const cookie = getRecoveryRegistrationCookieConfiguration();
+      res.cookie(cookie.name, result.recoveryRegistrationToken, cookie.options);
+      res.clearCookie(accountAccessCookie.name, accountAccessCookie.options);
+      const response: AuthorizeRecoveryRegistrationResponse = { next: "recovery-passkey-registration", expiresAt: result.expiresAt.toISOString() };
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(error instanceof PasskeyRegistrationStateConflictError ? 409 : 503).json({ error: error instanceof PasskeyRegistrationStateConflictError ? "RECOVERY_STATE_CONFLICT" : "ACCOUNT_RECOVERY_UNAVAILABLE" });
     }
   }
 
