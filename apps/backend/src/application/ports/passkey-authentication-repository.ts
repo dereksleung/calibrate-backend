@@ -1,4 +1,5 @@
 export const PASSKEY_LOGIN_PURPOSE = "passkey-login" as const;
+export const IDENTIFIED_PASSKEY_LOGIN_PURPOSE = "identified-passkey-login" as const;
 export const PASSKEY_AUTHENTICATION_OPTIONS_RATE_LIMIT_SCOPE = "passkey-authentication-options" as const;
 export const PASSKEY_AUTHENTICATION_VERIFICATION_RATE_LIMIT_SCOPE =
   "passkey-authentication-verification" as const;
@@ -17,6 +18,10 @@ export interface PreparedPasskeyAuthentication {
   challengeId: string;
   rawChallenge: string;
   challengeExpiresAt: Date;
+}
+
+export interface PreparedIdentifiedPasskeyAuthentication extends PreparedPasskeyAuthentication {
+  allowCredentials: Array<{ id: string; transports: string[] }>;
 }
 
 export interface ConsumePasskeyAuthenticationVerificationRateLimitInput {
@@ -55,6 +60,13 @@ export interface CompletePasskeyAuthenticationInput {
 export interface IPasskeyAuthenticationRepository {
   prepareAuthentication(input: PreparePasskeyAuthenticationInput): Promise<PreparedPasskeyAuthentication>;
 
+  prepareIdentifiedAuthentication(
+    input: PreparePasskeyAuthenticationInput & {
+      accountAccessTokenDigest: string;
+      clientBinding: string;
+    },
+  ): Promise<PreparedIdentifiedPasskeyAuthentication>;
+
   consumeVerificationRateLimit(input: ConsumePasskeyAuthenticationVerificationRateLimitInput): Promise<void>;
 
   findActiveCredential(input: {
@@ -63,7 +75,22 @@ export interface IPasskeyAuthenticationRepository {
     now: Date;
   }): Promise<ActivePasskeyAuthenticationCredential | null>;
 
+  findActiveIdentifiedCredential(input: {
+    credentialId: string;
+    challengeDigest: string;
+    accountAccessTokenDigest: string;
+    clientBinding: string;
+    now: Date;
+  }): Promise<ActivePasskeyAuthenticationCredential | null>;
+
   recordFailedVerificationAttempt(input: { challengeId: string; now: Date }): Promise<void>;
 
   completeAuthentication(input: CompletePasskeyAuthenticationInput): Promise<{ userId: string }>;
+
+  completeIdentifiedAuthentication(
+    input: CompletePasskeyAuthenticationInput & {
+      accountAccessTokenDigest: string;
+      clientBinding: string;
+    },
+  ): Promise<{ userId: string }>;
 }

@@ -21,10 +21,13 @@ function createService(
 ) {
   const repository: IPasskeyAuthenticationRepository = {
     prepareAuthentication: vi.fn(),
+    prepareIdentifiedAuthentication: vi.fn(),
     consumeVerificationRateLimit: vi.fn(),
     findActiveCredential: vi.fn(),
+    findActiveIdentifiedCredential: vi.fn(),
     recordFailedVerificationAttempt: vi.fn(),
     completeAuthentication: vi.fn(),
+    completeIdentifiedAuthentication: vi.fn(),
     ...overrides.repository,
   };
   const webAuthn: IWebAuthnAuthenticationPort = {
@@ -60,6 +63,112 @@ function createService(
 }
 
 describe("PasskeyAuthenticationServiceImpl", () => {
+  it("creates identified options bound to account access with every active credential", async () => {
+    const { service, repository } = createService({
+      repository: {
+        prepareIdentifiedAuthentication: vi.fn().mockImplementation(async (input) => ({
+          rawChallenge: input.rawChallenge,
+          challengeExpiresAt: new Date("2026-08-01T12:05:00.000Z"),
+          allowCredentials: [{ id: "credential-a", transports: ["internal"] }],
+        })),
+      } as Partial<IPasskeyAuthenticationRepository>,
+      webAuthn: {
+        createAuthenticationOptions: vi
+          .fn()
+          .mockImplementation(async ({ rawChallenge, allowCredentials }) => ({
+            challenge: rawChallenge,
+            rpId: "localhost",
+            timeout: 300_000,
+            userVerification: "required",
+            allowCredentials: allowCredentials.map((credential: { id: string; transports: string[] }) => ({
+              ...credential,
+              type: "public-key" as const,
+            })),
+          })),
+      },
+    });
+
+    await expect(
+      service.createIdentifiedAuthenticationOptions({
+        origin: expectedOrigin,
+        requestingIp: "203.0.113.4",
+        accountAccessToken: "account-access-token",
+      }),
+    ).resolves.toMatchObject({
+      options: { allowCredentials: [{ id: "credential-a", transports: ["internal"] }] },
+    });
+    expect(repository.prepareIdentifiedAuthentication).toHaveBeenCalledWith(
+      expect.objectContaining({ accountAccessTokenDigest: expect.any(String) }),
+    );
+  });
+
+  it("consumes account access only when its bound assertion completes", async () => {
+    const challenge = "identified-challenge";
+    const user = User.reconstitute({
+      id: "user-id",
+      email: "person@example.com",
+      passwordHash: null,
+      emailVerifiedAt: now,
+      webauthnUserHandle: "user-handle",
+      tier: "FREE",
+      createdAt: now,
+      updatedAt: now,
+    });
+    const { service, repository } = createService({
+      repository: {
+        findActiveIdentifiedCredential: vi.fn().mockResolvedValue({
+          challengeId: "challenge-id",
+          userHandle: "user-handle",
+          credentialId: "credential-id",
+          publicKey: new Uint8Array([1]),
+          signatureCounter: 1,
+          transports: [],
+          backupEligible: false,
+          backupState: false,
+        }),
+        completeIdentifiedAuthentication: vi.fn().mockResolvedValue({ userId: user.id }),
+      } as Partial<IPasskeyAuthenticationRepository>,
+      webAuthn: {
+        verifyAuthenticationResponse: vi.fn().mockResolvedValue({
+          newCounter: 2,
+          backupEligible: false,
+          backupState: false,
+        }),
+      },
+      opaqueTokenService: {
+        create: vi
+          .fn()
+          .mockReturnValueOnce({ token: "raw-access-token", digest: "access-digest" })
+          .mockReturnValueOnce({ token: "raw-refresh-token", digest: "refresh-digest" }),
+      },
+      userRepository: { findById: vi.fn().mockResolvedValue(user) },
+    });
+
+    await expect(
+      service.verifyIdentifiedAuthentication({
+        origin: expectedOrigin,
+        requestingIp: "203.0.113.4",
+        accountAccessToken: "account-access-token",
+        assertion: {
+          credentialId: "credential-id",
+          rawCredentialId: "credential-id",
+          authenticatorData: "data",
+          clientDataJSON: Buffer.from(JSON.stringify({ challenge })).toString("base64url"),
+          signature: "signature",
+          userHandle: "user-handle",
+        },
+        rememberDevice: true,
+      }),
+    ).resolves.toMatchObject({ user, accessToken: "raw-access-token" });
+
+    expect(repository.completeIdentifiedAuthentication).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountAccessTokenDigest: expect.any(String),
+        credentialId: "credential-id",
+      }),
+    );
+  });
+
   it("rejects a missing user handle without calling the WebAuthn verifier", async () => {
     const challenge = "challenge";
     const { service, repository, webAuthn } = createService({

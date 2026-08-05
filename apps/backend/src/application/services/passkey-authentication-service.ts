@@ -37,9 +37,28 @@ export interface IPasskeyAuthenticationService {
     input: CreatePasskeyAuthenticationOptionsInput,
   ): Promise<{ options: WebAuthnAuthenticationOptions; expiresAt: Date }>;
 
+  createIdentifiedAuthenticationOptions(input: {
+    origin: string;
+    requestingIp: string;
+    accountAccessToken: string;
+  }): Promise<{
+    options: WebAuthnAuthenticationOptions & {
+      allowCredentials: NonNullable<WebAuthnAuthenticationOptions["allowCredentials"]>;
+    };
+    expiresAt: Date;
+  }>;
+
   verifyAuthentication(input: {
     origin: string;
     requestingIp: string;
+    assertion: WebAuthnAuthenticationAssertion;
+    rememberDevice: boolean;
+  }): Promise<VerifyPasskeyAuthenticationResult>;
+
+  verifyIdentifiedAuthentication(input: {
+    origin: string;
+    requestingIp: string;
+    accountAccessToken: string;
     assertion: WebAuthnAuthenticationAssertion;
     rememberDevice: boolean;
   }): Promise<VerifyPasskeyAuthenticationResult>;
@@ -91,12 +110,67 @@ export class PasskeyAuthenticationServiceImpl implements IPasskeyAuthenticationS
     };
   }
 
+  async createIdentifiedAuthenticationOptions(input: {
+    origin: string;
+    requestingIp: string;
+    accountAccessToken: string;
+  }): Promise<{
+    options: WebAuthnAuthenticationOptions & {
+      allowCredentials: NonNullable<WebAuthnAuthenticationOptions["allowCredentials"]>;
+    };
+    expiresAt: Date;
+  }> {
+    if (input.origin !== this.config.expectedOrigin) throw new OriginNotAllowedError();
+
+    const rawChallenge = randomBytes(32).toString("base64url");
+    const prepared = await this.repository.prepareIdentifiedAuthentication({
+      rawChallenge,
+      challengeDigest: createHash("sha256").update(rawChallenge).digest("base64url"),
+      accountAccessTokenDigest: createHash("sha256").update(input.accountAccessToken).digest("base64url"),
+      clientBinding: "cookie",
+      requestingIp: input.requestingIp,
+      now: this.clock.now(),
+      maxOptionsRequestsPerIp: MAX_OPTIONS_REQUESTS_PER_IP,
+      globalHourlyLimit: GLOBAL_HOURLY_LIMIT,
+      maxVerificationAttempts: MAX_VERIFICATION_ATTEMPTS,
+    });
+    const options = await this.webAuthnAuthentication.createAuthenticationOptions({
+      rawChallenge: prepared.rawChallenge,
+      allowCredentials: prepared.allowCredentials,
+    });
+    const allowCredentials = options.allowCredentials;
+    if (!allowCredentials?.length) throw new PasskeyAuthenticationStateConflictError();
+    return { options: { ...options, allowCredentials }, expiresAt: prepared.challengeExpiresAt };
+  }
+
   async verifyAuthentication(input: {
     origin: string;
     requestingIp: string;
     assertion: WebAuthnAuthenticationAssertion;
     rememberDevice: boolean;
   }): Promise<VerifyPasskeyAuthenticationResult> {
+    return this.verify(input);
+  }
+
+  async verifyIdentifiedAuthentication(input: {
+    origin: string;
+    requestingIp: string;
+    accountAccessToken: string;
+    assertion: WebAuthnAuthenticationAssertion;
+    rememberDevice: boolean;
+  }): Promise<VerifyPasskeyAuthenticationResult> {
+    return this.verify(input, input.accountAccessToken);
+  }
+
+  private async verify(
+    input: {
+      origin: string;
+      requestingIp: string;
+      assertion: WebAuthnAuthenticationAssertion;
+      rememberDevice: boolean;
+    },
+    accountAccessToken?: string,
+  ): Promise<VerifyPasskeyAuthenticationResult> {
     if (input.origin !== this.config.expectedOrigin) throw new OriginNotAllowedError();
     const now = this.clock.now();
     await this.repository.consumeVerificationRateLimit({
@@ -107,19 +181,29 @@ export class PasskeyAuthenticationServiceImpl implements IPasskeyAuthenticationS
     });
     let challenge: string;
     try {
-      const parsed = JSON.parse(
-        Buffer.from(input.assertion.clientDataJSON, "base64url").toString("utf8"),
-      );
+      const parsed = JSON.parse(Buffer.from(input.assertion.clientDataJSON, "base64url").toString("utf8"));
       if (typeof parsed.challenge !== "string") throw new Error();
       challenge = parsed.challenge;
     } catch {
       throw new PasskeyAuthenticationFailedError();
     }
-    const active = await this.repository.findActiveCredential({
-      credentialId: input.assertion.credentialId,
-      challengeDigest: createHash("sha256").update(challenge).digest("base64url"),
-      now,
-    });
+    const challengeDigest = createHash("sha256").update(challenge).digest("base64url");
+    const accountAccessTokenDigest = accountAccessToken
+      ? createHash("sha256").update(accountAccessToken).digest("base64url")
+      : undefined;
+    const active = accountAccessTokenDigest
+      ? await this.repository.findActiveIdentifiedCredential({
+          credentialId: input.assertion.credentialId,
+          challengeDigest,
+          accountAccessTokenDigest,
+          clientBinding: "cookie",
+          now,
+        })
+      : await this.repository.findActiveCredential({
+          credentialId: input.assertion.credentialId,
+          challengeDigest,
+          now,
+        });
     if (!active || input.assertion.userHandle !== active.userHandle) {
       if (active)
         await this.repository.recordFailedVerificationAttempt({ challengeId: active.challengeId, now });
@@ -151,8 +235,8 @@ export class PasskeyAuthenticationServiceImpl implements IPasskeyAuthenticationS
     const lifetimes = calculateSessionLifetimes(now);
     let completed: { userId: string };
     try {
-      completed = await this.repository.completeAuthentication({
-        challengeDigest: createHash("sha256").update(challenge).digest("base64url"),
+      const completion = {
+        challengeDigest,
         credentialId: active.credentialId,
         now,
         newCounter: Math.max(active.signatureCounter, verified.newCounter),
@@ -161,7 +245,14 @@ export class PasskeyAuthenticationServiceImpl implements IPasskeyAuthenticationS
         accessTokenDigest: accessToken.digest,
         refreshTokenDigest: refreshToken.digest,
         ...lifetimes,
-      });
+      };
+      completed = accountAccessTokenDigest
+        ? await this.repository.completeIdentifiedAuthentication({
+            ...completion,
+            accountAccessTokenDigest,
+            clientBinding: "cookie",
+          })
+        : await this.repository.completeAuthentication(completion);
     } catch (error) {
       if (error instanceof PasskeyAuthenticationStateConflictError) throw error;
       throw new PasskeyAuthenticationUnavailableError();
@@ -190,7 +281,20 @@ export class UnavailablePasskeyAuthenticationService implements IPasskeyAuthenti
     throw new PasskeyAuthenticationUnavailableError();
   }
 
+  createIdentifiedAuthenticationOptions(): Promise<{
+    options: WebAuthnAuthenticationOptions & {
+      allowCredentials: NonNullable<WebAuthnAuthenticationOptions["allowCredentials"]>;
+    };
+    expiresAt: Date;
+  }> {
+    throw new PasskeyAuthenticationUnavailableError();
+  }
+
   verifyAuthentication(): Promise<VerifyPasskeyAuthenticationResult> {
+    throw new PasskeyAuthenticationUnavailableError();
+  }
+
+  verifyIdentifiedAuthentication(): Promise<VerifyPasskeyAuthenticationResult> {
     throw new PasskeyAuthenticationUnavailableError();
   }
 }

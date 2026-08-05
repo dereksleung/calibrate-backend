@@ -22,6 +22,12 @@ export function createAuthRoutes(authController: AuthController): Router {
   router.post("/auth/passkeys/authentication/verify", (req, res) =>
     authController.verifyPasskeyAuthentication(req, res),
   );
+  router.post("/auth/account-access/passkeys/authentication/options", (req, res) =>
+    authController.createIdentifiedPasskeyAuthenticationOptions(req, res),
+  );
+  router.post("/auth/account-access/passkeys/authentication/verify", (req, res) =>
+    authController.verifyIdentifiedPasskeyAuthentication(req, res),
+  );
   router.get("/auth/session", (req, res) => authController.getCurrentSession(req, res));
   router.post("/auth/session/refresh", (req, res) => authController.refreshSession(req, res));
   router.delete("/auth/session", (req, res) => authController.logout(req, res));

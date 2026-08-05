@@ -1,5 +1,6 @@
 export interface AuthenticationOptionsInput {
   rawChallenge: string;
+  allowCredentials?: Array<{ id: string; transports: string[] }>;
 }
 
 /** Protocol fields the authentication use case needs from a WebAuthn assertion. */
@@ -17,6 +18,7 @@ export interface WebAuthnAuthenticationOptions {
   rpId: string;
   timeout: 300_000;
   userVerification: "required";
+  allowCredentials?: Array<{ id: string; type: "public-key"; transports?: string[] }>;
 }
 
 export interface PersistedAuthenticationCredential {

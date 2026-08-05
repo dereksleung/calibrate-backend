@@ -22,12 +22,25 @@ export class SimpleWebAuthnAuthenticationAdapter implements IWebAuthnAuthenticat
       challenge: Buffer.from(input.rawChallenge, "base64url"),
       timeout: 300_000,
       userVerification: "required",
+      allowCredentials: input.allowCredentials?.map((credential) => ({
+        id: credential.id,
+        transports: credential.transports as never,
+      })),
     });
     return {
       challenge: options.challenge,
       rpId: options.rpId ?? this.config.rpId,
       timeout: 300_000,
       userVerification: "required",
+      ...(options.allowCredentials
+        ? {
+            allowCredentials: options.allowCredentials.map((credential) => ({
+              id: credential.id,
+              type: "public-key" as const,
+              ...(credential.transports ? { transports: [...credential.transports] } : {}),
+            })),
+          }
+        : {}),
     };
   }
 

@@ -15,13 +15,13 @@ import {
 } from "@application/errors/passkey-registration-errors.js";
 import { RateLimitError } from "@application/errors/rate-limit-error.js";
 import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
+import { IAccountEmailVerificationService } from "@application/services/account-email-verification-service.js";
 import { IAuthService } from "@application/services/auth-service.js";
-import { ISessionRestorationService } from "@application/services/session-restoration-service.js";
 import {
   IPasskeyAuthenticationService,
   UnavailablePasskeyAuthenticationService,
 } from "@application/services/passkey-authentication-service.js";
-import { IAccountEmailVerificationService } from "@application/services/account-email-verification-service.js";
+import { ISessionRestorationService } from "@application/services/session-restoration-service.js";
 import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import {
   AppPlatformHeaderValueSchema,
@@ -195,6 +195,80 @@ export class AuthController {
         sessionTransport: "cookie",
       };
       res.status(200).json(response);
+    } catch (error) {
+      this.handlePasskeyAuthenticationError(res, error);
+    }
+  }
+
+  async createIdentifiedPasskeyAuthenticationOptions(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const origin = readRequestOrigin(req.get("Origin"));
+    const accountAccess = extractCookieValue(req.get("Cookie"), getAccountAccessCookieConfiguration().name);
+    if (!origin || origin !== getExpectedWebAuthnOrigin()) {
+      res.status(403).json({ error: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    if (!accountAccess) {
+      res.status(401).json({ error: "ACCOUNT_ACCESS_AUTHORIZATION_REQUIRED" });
+      return;
+    }
+    if (!req.ip) {
+      res.status(503).json({ error: "ACCOUNT_RECOVERY_UNAVAILABLE" });
+      return;
+    }
+    try {
+      const result = await this.passkeyAuthenticationService.createIdentifiedAuthenticationOptions({
+        origin,
+        requestingIp: req.ip,
+        accountAccessToken: accountAccess,
+      });
+      res.status(200).json({ options: result.options, expiresAt: result.expiresAt.toISOString() });
+    } catch (error) {
+      this.handlePasskeyAuthenticationError(res, error);
+    }
+  }
+
+  async verifyIdentifiedPasskeyAuthentication(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const origin = readRequestOrigin(req.get("Origin"));
+    const accountAccessCookie = getAccountAccessCookieConfiguration();
+    const accountAccess = extractCookieValue(req.get("Cookie"), accountAccessCookie.name);
+    if (!origin || origin !== getExpectedWebAuthnOrigin()) {
+      res.status(403).json({ error: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    if (!accountAccess) {
+      res.status(401).json({ error: "ACCOUNT_ACCESS_AUTHORIZATION_REQUIRED" });
+      return;
+    }
+    if (!req.ip) {
+      res.status(503).json({ error: "ACCOUNT_RECOVERY_UNAVAILABLE" });
+      return;
+    }
+    const validatedBody = validate(VerifyPasskeyAuthenticationRequestBodySchema, req.body);
+    if (!validatedBody.isValid) {
+      res.status(400).json({ error: "IDENTIFIED_PASSKEY_AUTHENTICATION_FAILED" });
+      return;
+    }
+    try {
+      const now = new Date();
+      const result = await this.passkeyAuthenticationService.verifyIdentifiedAuthentication({
+        origin,
+        requestingIp: req.ip,
+        accountAccessToken: accountAccess,
+        assertion: {
+          credentialId: validatedBody.data.credential.id,
+          rawCredentialId: validatedBody.data.credential.rawId,
+          authenticatorData: validatedBody.data.credential.response.authenticatorData,
+          clientDataJSON: validatedBody.data.credential.response.clientDataJSON,
+          signature: validatedBody.data.credential.response.signature,
+          userHandle: validatedBody.data.credential.response.userHandle,
+        },
+        rememberDevice: validatedBody.data.rememberDevice,
+      });
+      this.setSessionCookies(res, result, now);
+      res.clearCookie(accountAccessCookie.name, accountAccessCookie.options);
+      res.status(200).json({ user: UserResponseMapper.toResponse(result.user), sessionTransport: "cookie" });
     } catch (error) {
       this.handlePasskeyAuthenticationError(res, error);
     }
