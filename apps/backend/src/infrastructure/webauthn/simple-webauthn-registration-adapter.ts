@@ -35,6 +35,14 @@ export class SimpleWebAuthnRegistrationAdapter implements IWebAuthnRegistrationP
         residentKey: "required",
         userVerification: "required",
       },
+      ...(input.excludeCredentials
+        ? {
+            excludeCredentials: input.excludeCredentials.map((credential) => ({
+              id: credential.id,
+              transports: credential.transports as never,
+            })),
+          }
+        : {}),
     });
   }
 

@@ -2,6 +2,7 @@ export interface RegistrationOptionsInput {
   userHandle: string;
   email: string;
   rawChallenge: string;
+  excludeCredentials?: Array<{ id: string; transports: string[] }>;
 }
 
 /** Protocol fields required to verify a WebAuthn registration attestation. */

@@ -65,6 +65,28 @@ describe("SimpleWebAuthnRegistrationAdapter", () => {
     });
   });
 
+  it("passes every active credential as an exclusion descriptor", async () => {
+    vi.mocked(generateRegistrationOptions).mockResolvedValue({
+      challenge: "challenge",
+      rp: { name: "Calibrate", id: "localhost" },
+      user: { id: "handle", name: "person@example.com", displayName: "person@example.com" },
+      pubKeyCredParams: [],
+    });
+
+    await adapter.createRegistrationOptions({
+      userHandle: randomBytes(32).toString("base64url"),
+      email: "person@example.com",
+      rawChallenge: randomBytes(32).toString("base64url"),
+      excludeCredentials: [{ id: "existing-credential", transports: ["internal"] }],
+    });
+
+    expect(generateRegistrationOptions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        excludeCredentials: [{ id: "existing-credential", transports: ["internal"] }],
+      }),
+    );
+  });
+
   it("maps a verified registration response to persisted credential fields", async () => {
     const publicKey = new Uint8Array([9, 9, 9]);
     vi.mocked(verifyRegistrationResponse).mockResolvedValue({
