@@ -7,6 +7,7 @@ import { IAuthService } from "@application/services/auth-service.js";
 import { IPasskeyAuthenticationService } from "@application/services/passkey-authentication-service.js";
 import { ISessionRestorationService } from "@application/services/session-restoration-service.js";
 import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
+import { IRecoveryPasskeyRegistrationService } from "@application/services/recovery-passkey-registration-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
 import { User } from "@domain/entities/user.js";
 import { Request } from "express";
@@ -19,6 +20,7 @@ describe("AuthController", () => {
   let mockSignupPasskeyRegistrationService: MockedObject<ISignupPasskeyRegistrationService>;
   let mockPasskeyAuthenticationService: MockedObject<IPasskeyAuthenticationService>;
   let mockSessionRestorationService: MockedObject<ISessionRestorationService>;
+  let mockRecoveryPasskeyRegistrationService: MockedObject<IRecoveryPasskeyRegistrationService>;
 
   const user = User.reconstitute({
     id: "user-1",
@@ -50,12 +52,15 @@ describe("AuthController", () => {
       logout: vi.fn(),
       refresh: vi.fn(),
     };
+    mockRecoveryPasskeyRegistrationService = { createRegistrationOptions: vi.fn() };
     authController = new AuthController(
       mockAuthService,
       mockAccountEmailVerificationService,
       mockSignupPasskeyRegistrationService,
       mockPasskeyAuthenticationService,
       mockSessionRestorationService,
+      undefined,
+      mockRecoveryPasskeyRegistrationService,
     );
   });
 
@@ -543,6 +548,48 @@ describe("AuthController", () => {
     expect(mockSignupPasskeyRegistrationService.createRegistrationOptions).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({ error: "ORIGIN_NOT_ALLOWED" });
+  });
+
+  it("returns recovery registration options only for the recovery-registration cookie", async () => {
+    mockRecoveryPasskeyRegistrationService.createRegistrationOptions.mockResolvedValue({
+      options: {
+        challenge: "challenge",
+        rp: { id: "localhost", name: "Calibrate" },
+        user: { id: "stable-handle", name: "person@example.com", displayName: "person@example.com" },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+      },
+    });
+    const req = {
+      get: vi.fn((name: string) => {
+        if (name === "Origin") return "http://localhost:3000";
+        if (name === "Cookie") return "recovery-registration=short-lived-token";
+        return undefined;
+      }),
+    } as unknown as Request;
+    const res = { set: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+
+    await authController.createRecoveryPasskeyRegistrationOptions(req, res);
+
+    expect(mockRecoveryPasskeyRegistrationService.createRegistrationOptions).toHaveBeenCalledWith(
+      "short-lived-token",
+      "http://localhost:3000",
+    );
+    expect(res.set).toHaveBeenCalledWith("Cache-Control", "no-store");
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ challenge: "challenge" }));
+  });
+
+  it("does not invoke recovery registration when its authorization cookie is absent", async () => {
+    const req = {
+      get: vi.fn((name: string) => (name === "Origin" ? "http://localhost:3000" : undefined)),
+    } as unknown as Request;
+    const res = { set: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+
+    await authController.createRecoveryPasskeyRegistrationOptions(req, res);
+
+    expect(mockRecoveryPasskeyRegistrationService.createRegistrationOptions).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: "RECOVERY_REGISTRATION_AUTHORIZATION_REQUIRED" });
   });
 
   it("returns registration options with no-store when enrollment and origin are valid", async () => {

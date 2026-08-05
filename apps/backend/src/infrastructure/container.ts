@@ -27,6 +27,10 @@ import {
   IRecoveryRegistrationAuthorizationService,
   RecoveryRegistrationAuthorizationServiceImpl,
 } from "@application/services/recovery-registration-authorization-service.js";
+import {
+  IRecoveryPasskeyRegistrationService,
+  RecoveryPasskeyRegistrationServiceImpl,
+} from "@application/services/recovery-passkey-registration-service.js";
 import { IUserService, UserServiceImpl } from "@application/services/user-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
 import { DayLogController } from "@controllers/day-log-controller.js";
@@ -43,6 +47,7 @@ import { PostgresPasskeyAuthenticationRepository } from "./persistence/repositor
 import { PostgresSignupEnrollmentAuthorizationRepository } from "./persistence/repositories/postgres-signup-enrollment-authorization-repository.js";
 import { PostgresSignupPasskeyRegistrationRepository } from "./persistence/repositories/postgres-signup-passkey-registration-repository.js";
 import { PostgresRecoveryRegistrationAuthorizationRepository } from "./persistence/repositories/postgres-recovery-registration-authorization-repository.js";
+import { PostgresRecoveryPasskeyRegistrationRepository } from "./persistence/repositories/postgres-recovery-passkey-registration-repository.js";
 import { PostgresUserRepository } from "./persistence/repositories/postgres-user-repository.js";
 import { Argon2PasswordHasher } from "./security/argon2-password-hasher.js";
 import { JoseAccessTokenService } from "./security/jose-access-token-service.js";
@@ -107,6 +112,7 @@ export class Container {
   private readonly signupPasskeyRegistrationService: ISignupPasskeyRegistrationService;
   private readonly passkeyAuthenticationService: IPasskeyAuthenticationService;
   private readonly recoveryRegistrationAuthorizationService: IRecoveryRegistrationAuthorizationService;
+  private readonly recoveryPasskeyRegistrationService: IRecoveryPasskeyRegistrationService;
   private readonly sessionRestorationService: ISessionRestorationService;
   private readonly dayLogRepository: IDayLogRepository;
   private readonly dayLogService: IDayLogService;
@@ -125,6 +131,7 @@ export class Container {
     signupPasskeyRegistrationService,
     passkeyAuthenticationService,
     recoveryRegistrationAuthorizationService,
+    recoveryPasskeyRegistrationService,
     emailSender,
     clock,
     dayLogRepository,
@@ -143,6 +150,7 @@ export class Container {
     signupPasskeyRegistrationService?: ISignupPasskeyRegistrationService;
     passkeyAuthenticationService?: IPasskeyAuthenticationService;
     recoveryRegistrationAuthorizationService?: IRecoveryRegistrationAuthorizationService;
+    recoveryPasskeyRegistrationService?: IRecoveryPasskeyRegistrationService;
     emailSender?: IEmailSender;
     clock?: IClock;
     dayLogRepository?: IDayLogRepository;
@@ -224,6 +232,19 @@ export class Container {
         this.clock,
       );
 
+    this.recoveryPasskeyRegistrationService =
+      recoveryPasskeyRegistrationService ??
+      new RecoveryPasskeyRegistrationServiceImpl(
+        new PostgresRecoveryPasskeyRegistrationRepository(databaseClient),
+        new SimpleWebAuthnRegistrationAdapter({
+          rpId: webAuthnRpId,
+          rpName: webAuthnRpName,
+          origin: webAuthnOrigin,
+        }),
+        this.clock,
+        { expectedOrigin: webAuthnOrigin },
+      );
+
     this.sessionRestorationService = new SessionRestorationServiceImpl(
       this.accessSessionRepository,
       new NodeOpaqueTokenService(),
@@ -240,6 +261,7 @@ export class Container {
         this.passkeyAuthenticationService,
         this.sessionRestorationService,
         this.recoveryRegistrationAuthorizationService,
+        this.recoveryPasskeyRegistrationService,
       );
     this.userService = userService ?? new UserServiceImpl(this.passwordHasher, this.userRepository);
     this.userController = userController ?? new UserController(this.userService);

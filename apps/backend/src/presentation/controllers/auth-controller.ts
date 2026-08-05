@@ -24,6 +24,7 @@ import {
 import { ISessionRestorationService } from "@application/services/session-restoration-service.js";
 import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import { IRecoveryRegistrationAuthorizationService } from "@application/services/recovery-registration-authorization-service.js";
+import { IRecoveryPasskeyRegistrationService } from "@application/services/recovery-passkey-registration-service.js";
 import {
   AppPlatformHeaderValueSchema,
   AuthorizeRecoveryRegistrationRequestBodySchema,
@@ -61,6 +62,7 @@ export class AuthController {
     private readonly passkeyAuthenticationService: IPasskeyAuthenticationService = new UnavailablePasskeyAuthenticationService(),
     private readonly sessionRestorationService?: ISessionRestorationService,
     private readonly recoveryRegistrationAuthorizationService?: IRecoveryRegistrationAuthorizationService,
+    private readonly recoveryPasskeyRegistrationService?: IRecoveryPasskeyRegistrationService,
   ) {}
 
   async getCurrentSession(req: Request, res: Response): Promise<void> {
@@ -310,6 +312,38 @@ export class AuthController {
       res.status(200).json(response);
     } catch (error) {
       res.status(error instanceof PasskeyRegistrationStateConflictError ? 409 : 503).json({ error: error instanceof PasskeyRegistrationStateConflictError ? "RECOVERY_STATE_CONFLICT" : "ACCOUNT_RECOVERY_UNAVAILABLE" });
+    }
+  }
+
+  async createRecoveryPasskeyRegistrationOptions(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const origin = readRequestOrigin(req.get("Origin"));
+    if (!origin || origin !== getExpectedWebAuthnOrigin()) {
+      res.status(403).json({ error: "ORIGIN_NOT_ALLOWED" });
+      return;
+    }
+    const token = extractCookieValue(req.get("Cookie"), getRecoveryRegistrationCookieConfiguration().name);
+    if (!token) {
+      res.status(401).json({ error: "RECOVERY_REGISTRATION_AUTHORIZATION_REQUIRED" });
+      return;
+    }
+    if (!this.recoveryPasskeyRegistrationService) {
+      res.status(503).json({ error: "ACCOUNT_RECOVERY_UNAVAILABLE" });
+      return;
+    }
+    try {
+      const result = await this.recoveryPasskeyRegistrationService.createRegistrationOptions(token, origin);
+      res.status(200).json(result.options);
+    } catch (error) {
+      if (error instanceof EnrollmentAuthorizationRequiredError) {
+        res.status(401).json({ error: "RECOVERY_REGISTRATION_AUTHORIZATION_REQUIRED" });
+        return;
+      }
+      if (error instanceof OriginNotAllowedError) {
+        res.status(403).json({ error: "ORIGIN_NOT_ALLOWED" });
+        return;
+      }
+      res.status(503).json({ error: "ACCOUNT_RECOVERY_UNAVAILABLE" });
     }
   }
 

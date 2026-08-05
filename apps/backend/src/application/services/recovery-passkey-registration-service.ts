@@ -13,7 +13,11 @@ export interface IRecoveryPasskeyRegistrationRepository {
   }>;
 }
 
-export class RecoveryPasskeyRegistrationServiceImpl {
+export interface IRecoveryPasskeyRegistrationService {
+  createRegistrationOptions(token: string, origin: string): Promise<{ options: WebAuthnRegistrationOptions }>;
+}
+
+export class RecoveryPasskeyRegistrationServiceImpl implements IRecoveryPasskeyRegistrationService {
   constructor(
     private readonly repository: IRecoveryPasskeyRegistrationRepository,
     private readonly webAuthn: Pick<IWebAuthnRegistrationPort, "createRegistrationOptions">,
