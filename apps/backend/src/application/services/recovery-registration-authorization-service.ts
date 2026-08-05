@@ -1,0 +1,54 @@
+import type { IClock } from "@application/ports/clock.js";
+import type { IOpaqueTokenService } from "@application/ports/session-token-service.js";
+
+import { createHash } from "node:crypto";
+
+const AUTHORIZATION_LIFETIME_MS = 15 * 60_000;
+
+export type RecoveryRegistrationMode = "create" | "replace-provisional";
+
+export interface IRecoveryRegistrationAuthorizationRepository {
+  authorize(input: {
+    accountAccessTokenDigest: string;
+    recoveryRegistrationTokenDigest: string;
+    mode: RecoveryRegistrationMode;
+    clientBinding: "cookie";
+    now: Date;
+    expiresAt: Date;
+  }): Promise<void>;
+}
+
+export interface IRecoveryRegistrationAuthorizationService {
+  authorize(input: {
+    accountAccessToken: string;
+    mode: RecoveryRegistrationMode;
+  }): Promise<{ recoveryRegistrationToken: string; expiresAt: Date }>;
+}
+
+export class RecoveryRegistrationAuthorizationServiceImpl
+  implements IRecoveryRegistrationAuthorizationService
+{
+  constructor(
+    private readonly repository: IRecoveryRegistrationAuthorizationRepository,
+    private readonly tokenService: IOpaqueTokenService,
+    private readonly clock: IClock,
+  ) {}
+
+  async authorize(input: {
+    accountAccessToken: string;
+    mode: RecoveryRegistrationMode;
+  }): Promise<{ recoveryRegistrationToken: string; expiresAt: Date }> {
+    const now = this.clock.now();
+    const expiresAt = new Date(now.getTime() + AUTHORIZATION_LIFETIME_MS);
+    const authorization = this.tokenService.create();
+    await this.repository.authorize({
+      accountAccessTokenDigest: createHash("sha256").update(input.accountAccessToken).digest("base64url"),
+      recoveryRegistrationTokenDigest: authorization.digest,
+      mode: input.mode,
+      clientBinding: "cookie",
+      now,
+      expiresAt,
+    });
+    return { recoveryRegistrationToken: authorization.token, expiresAt };
+  }
+}
