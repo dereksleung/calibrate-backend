@@ -626,7 +626,12 @@ export class AuthController {
       });
       this.setSessionCookies(res, result, now);
       res.clearCookie(recoveryCookie.name, recoveryCookie.options);
-      res.status(200).json({ user: UserResponseMapper.toResponse(result.user), sessionTransport: "cookie" });
+      const security = await this.sessionRestorationService?.getSecurityState(result.accessToken);
+      res.status(200).json({
+        user: UserResponseMapper.toResponse(result.user),
+        sessionTransport: "cookie",
+        ...(security ? { security } : {}),
+      });
     } catch (error) {
       if (error instanceof EnrollmentAuthorizationRequiredError) {
         res.status(401).json({ error: "RECOVERY_REGISTRATION_AUTHORIZATION_REQUIRED" });
