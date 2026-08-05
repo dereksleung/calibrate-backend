@@ -31,7 +31,10 @@ global revocation, and a central sensitive-operation policy.
 ## Prerequisites
 
 - Complete plan 007 through the login-or-recovery branch and placeholder route.
-- Preserve usernameless passkey login from plan 004 and session creation/restoration from plan 005.
+- Preserve usernameless passkey login from
+  [`004-passkey-login-existing-credential.md`](./004-passkey-login-existing-credential.md).
+- Preserve session creation/restoration from
+  [`005-session-restoration.md`](./005-session-restoration.md).
 - Reuse the existing WebAuthn adapters, opaque token service, session lifetime calculator, cookie
   helpers, PostgreSQL transaction conventions, and injected trusted clock. Add no dependency.
 
@@ -68,13 +71,13 @@ timestamp, never recovery, credential, family, session, or token IDs.
 
 ## Locked authority model
 
-| Authority/state | Lifetime | May do | Must not do |
-| --- | --- | --- | --- |
-| Account-access authorization | 15 minutes, fixed | Read post-OTP status, do account-bound passkey login, or authorize one recovery registration | Call ordinary APIs, create a session without WebAuthn, register multiple passkeys, or change account data |
-| Recovery-registration authorization | 15 minutes, fixed and single-purpose | Request and verify one new passkey for the bound account | Authenticate, call ordinary APIs, remove credentials, or survive successful registration |
-| Provisional recovery passkey | Until replaced, cancelled, or promoted | Authenticate and create recovery-derived restricted sessions | Claim trusted status or erase its provenance |
-| Recovery-derived family/session | Normal family/session lifetime caps | Call ordinary authenticated APIs and expose restriction state | Lose provenance through refresh, restoration, or access-session replacement |
-| Existing trusted passkey | Normal credential lifecycle | Authenticate and create an unrestricted family/session | Implicitly cancel recovery in this slice |
+| Authority/state                     | Lifetime                               | May do                                                                                       | Must not do                                                                                               |
+| ----------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Account-access authorization        | 15 minutes, fixed                      | Read post-OTP status, do account-bound passkey login, or authorize one recovery registration | Call ordinary APIs, create a session without WebAuthn, register multiple passkeys, or change account data |
+| Recovery-registration authorization | 15 minutes, fixed and single-purpose   | Request and verify one new passkey for the bound account                                     | Authenticate, call ordinary APIs, remove credentials, or survive successful registration                  |
+| Provisional recovery passkey        | Until replaced, cancelled, or promoted | Authenticate and create recovery-derived restricted sessions                                 | Claim trusted status or erase its provenance                                                              |
+| Recovery-derived family/session     | Normal family/session lifetime caps    | Call ordinary authenticated APIs and expose restriction state                                | Lose provenance through refresh, restoration, or access-session replacement                               |
+| Existing trusted passkey            | Normal credential lifecycle            | Authenticate and create an unrestricted family/session                                       | Implicitly cancel recovery in this slice                                                                  |
 
 All account-access and recovery-registration authorities are opaque secrets of at least 256 bits.
 Persist only SHA-256 digests. Web delivery uses HttpOnly, Secure, SameSite=Strict, host-only,
@@ -85,25 +88,31 @@ never receive the secrets.
 
 ### 1. OTP verification issues account access
 
-Extend plan 007's existing-account transaction to create a 15-minute account-access authorization
-bound to the user, OTP challenge, and client transport; invalidate older unconsumed authorizations
-for that binding; set a path-scoped account-access cookie; return login-or-recovery and its expiry;
-and create no session or recovery credential.
+Extend plan 007's existing-account transaction:
+
+- create a 15-minute account-access authorization bound to the resolved user, OTP challenge, and
+  client transport;
+- invalidate older unconsumed account-access authorizations for that user/binding;
+- set the account-access cookie scoped to `/api/v1/auth/account-access`;
+- return `next: "login-or-recovery"` and its expiry;
+- create no access session and no recovery credential yet.
 
 Successful account-bound login or recovery start consumes this authorization atomically.
 
 ### 2. Identifier-first passkey login remains preferred
 
-Account-access status may reveal whether the verified account has active passkeys. Identified
-options return all and only the account's active credential IDs and transports in a required,
-non-empty allowCredentials list.
+The account-access status may reveal whether the verified account has active passkeys. The options
+endpoint returns all and only that account's active credential IDs and transports in a required,
+non-empty `allowCredentials` list.
 
-- Never omit allowCredentials from the identified endpoint; omission becomes usernameless discovery.
-- Bind the challenge to account access, user, purpose, and expiry.
+- Never omit `allowCredentials` from the identified endpoint; omission would change it to
+  usernameless discovery.
+- Bind the challenge to the account-access authorization, user ID, purpose, and expiry.
 - Accept only an active credential owned by that user.
-- Preserve exact origin, RP ID, challenge, signature, user-presence, user-verification, one-time
-  use, counter, attempt-limit, and shared-rate-limit policy.
-- Browser cancellation or no local match leaves recovery explicit; it never starts automatically.
+- Require exact origin, RP ID, challenge, signature, user presence, user verification, one-time
+  challenge use, counter policy, attempt limits, and shared rate limits.
+- Browser cancellation or no local match leaves recovery as an explicit choice; it never starts
+  recovery automatically.
 
 A trusted credential creates an ordinary unrestricted family/session. A provisional credential
 creates only a family/session with its recovery_id. Plan 009 later adds trusted cancellation of an
@@ -111,17 +120,23 @@ active recovery.
 
 ### 3. Recovery registration is explicit and immediate
 
-I can't use a passkey opens a confirmation screen. Only Create a recovery passkey consumes account
-access and issues a 15-minute recovery-registration authorization.
+**I can't use a passkey** opens a confirmation screen. Only **Create a recovery passkey** consumes
+account access and issues a 15-minute recovery-registration authorization.
 
-The ceremony uses the stable opaque WebAuthn user handle; requires discoverable credentials and user
-verification; uses attestation none; excludes every active credential; caps option requests and
-verification attempts; rejects globally duplicate credential IDs; and requests a fresh challenge for
-each retry.
+The registration ceremony:
 
-The five-day clock starts only after server verification and persistence succeeds. Email
-verification, page display, options requests, or a browser credential whose verification fails do
-not age the restriction.
+- uses the account's stable opaque WebAuthn user handle;
+- requires a discoverable credential with `residentKey: "required"` and
+  `userVerification: "required"`;
+- uses attestation `none`;
+- includes every active existing credential in `excludeCredentials`;
+- caps options requests and verification attempts;
+- rejects a credential ID already registered to any user;
+- requires a fresh challenge for every retry.
+
+The five-day clock starts only after successful server verification and persistence of the new
+passkey. Merely verifying email, opening recovery, requesting options, or creating a browser-side
+credential whose server verification fails does not age the restriction.
 
 ### 4. Provisional registration creates restricted access without displacing the owner
 
@@ -135,7 +150,9 @@ One successful registration transaction:
 6. records recovery-started, passkey-added-provisional, and family-created events; and
 7. enqueues a security notification.
 
-Set the new access/refresh cookies and clear limited authorization cookies only after commit.
+Retaining existing sessions and passkeys prevents the email claimant from immediately ejecting the
+legitimate owner and gives trusted authenticators a chance to cancel recovery. Presentation sets the
+new access/refresh cookies and clears account-access/recovery-registration cookies only after commit.
 
 ### 5. The restriction is server-authoritative
 
@@ -203,36 +220,55 @@ Cancellation and Finish account recovery are plan 009 controls.
 
 ### Login/recovery chooser
 
-Load server status from the account-access cookie; router handoff is display metadata only. Show the
-verified email, primary Use a passkey when credentials exist, device/security-key guidance, Keep me
-signed in on this device, and secondary I can't use a passkey. Do not reveal credential IDs,
-passkey names, transports, backup state, or device history.
+Load server status from the account-access cookie; router handoff is display metadata only.
+
+Show:
+
+- verified email;
+- primary **Use a passkey** when active credentials exist;
+- “this device, another device, or a security key” guidance;
+- **Keep me signed in on this device**;
+- secondary **I can't use a passkey**.
+
+If no active passkeys exist, explain that creating a recovery passkey is required. Do not list
+credential IDs, passkey names, transports, backup state, or device history.
 
 ### Recovery confirmation and registration
 
-Explain that the new passkey grants ordinary account access immediately, shows restricted recovery
-state for five days, and leaves existing passkeys/sessions active. Require explicit Create a recovery
-passkey and offer Back to passkey login. Registration retries always request fresh options.
+Before starting WebAuthn registration, explain:
+
+- the new passkey grants ordinary account access immediately;
+- for five days it cannot add/remove passkeys, change recovery email, revoke other devices, export
+  all data, delete the account, or finish takeover-sensitive actions;
+- existing passkeys/sessions remain active during protection;
+- a login with an existing trusted passkey cancels and revokes the provisional recovery access;
+- after five days, a fresh assertion is required to finish recovery and sign out other devices.
+
+Require **Create a recovery passkey** and offer **Back to passkey login**. OTP verification or page
+rendering alone must not start recovery. Registration retries always request fresh options.
 
 ### Authenticated provisional state
 
 Extend session state:
 
-    interface AuthSecurityState {
-      activeRecovery: null | {
-        state: "provisional";
-        restrictionEndsAt: string;
-      };
-      sessionRestriction: null | {
-        state: "restricted";
-        restrictionEndsAt: string;
-      };
-    }
+```ts
+interface AuthSecurityState {
+  activeRecovery: null | {
+    state: "provisional";
+    restrictionEndsAt: string;
+  };
+  sessionRestriction: null | {
+    state: "restricted";
+    restrictionEndsAt: string;
+  };
+}
+```
 
 Show a persistent accessible banner for a restricted session: Recovery protection is active until
 the displayed server timestamp. The banner accurately explains server-recorded restriction state;
 it does not claim to enforce operations that have not been implemented. Unavailable status retains
-the session and offers retry.
+the session and offers retry; do not infer promotion/cancellation when the server is unavailable
+for GET /auth/session.
 
 ## Public API contracts
 
@@ -244,33 +280,38 @@ account-access, registration, access, or refresh secrets.
 
 POST /api/v1/auth/email-verification/verify returns:
 
-    type ExistingAccountContinuation = {
-      next: "login-or-recovery";
-      expiresAt: string;
-    };
+```ts
+type ExistingAccountContinuation = {
+  next: "login-or-recovery";
+  expiresAt: string;
+};
+```
 
-Set the account-access cookie and clear stale signup-enrollment/recovery-registration cookies with
-their exact attributes.
+Presentation sets the account-access cookie and clears stale signup-enrollment and recovery-
+registration cookies with their exact attributes.
 
 ### Account-access status
 
 GET /api/v1/auth/account-access returns:
 
-    interface AccountAccessStatusResponse {
-      email: string;
-      hasRegisteredPasskeys: boolean;
-      activeRecovery:
-        | { state: "none" }
-        | { state: "provisional"; restrictionEndsAt: string };
-      authorizationExpiresAt: string;
-    }
+```ts
+interface AccountAccessStatusResponse {
+  email: string;
+  hasRegisteredPasskeys: boolean;
+  activeRecovery: { state: "none" } | { state: "provisional"; restrictionEndsAt: string };
+  authorizationExpiresAt: string;
+}
+```
 
 ### Identified login
 
-POST /api/v1/auth/account-access/passkeys/authentication/options returns the existing options
-wrapper with required, non-empty allowCredentials.
+`POST /api/v1/auth/account-access/passkeys/authentication/options`
 
-POST /api/v1/auth/account-access/passkeys/authentication/verify reuses the assertion and
+- Empty body.
+- Returns the existing options
+  wrapper with required, non-empty allowCredentials.
+
+`POST /api/v1/auth/account-access/passkeys/authentication/verify` reuses the assertion and
 rememberDevice request, returns extended session state/cookies, and creates a recovery-derived
 family only when the asserting credential has recovery_id.
 
@@ -278,13 +319,20 @@ family only when the asserting credential has recovery_id.
 
 POST /api/v1/auth/account-access/recovery accepts:
 
-    interface AuthorizeRecoveryRegistrationRequest {
-      mode: "create" | "replace-provisional";
-    }
+```ts
+interface AuthorizeRecoveryRegistrationRequest {
+  mode: "create" | "replace-provisional";
+}
 
-It consumes account access, sets the 15-minute recovery-registration cookie, and returns its expiry.
-Create conflicts with an active recovery; replace-provisional retains the current one until the
-replacement commits.
+interface AuthorizeRecoveryRegistrationResponse {
+  next: "recovery-passkey-registration";
+  expiresAt: string;
+}
+```
+
+This consumes account access and sets the 15-minute recovery-registration cookie. `create` conflicts
+when an active provisional recovery exists; `replace-provisional` requires one and does not revoke it
+until replacement registration commits.
 
 POST /api/v1/auth/recovery/passkeys/registration/options requires that cookie and returns
 registration options using the stable user handle and all active credentials in excludeCredentials.
@@ -298,19 +346,19 @@ limited authorization cookie after commit.
 GET /api/v1/auth/recovery/status requires an authenticated session and returns AuthSecurityState
 derived from family and recovery provenance.
 
-| Status | Code | Client behavior |
-| --- | --- | --- |
-| 401 | ACCOUNT_ACCESS_AUTHORIZATION_REQUIRED | Verify email again; do not infer account changes. |
-| 401 | RECOVERY_REGISTRATION_AUTHORIZATION_REQUIRED | Return to verified-email entry. |
-| 400 | IDENTIFIED_PASSKEY_AUTHENTICATION_FAILED | Request fresh options; keep recovery explicit. |
-| 400 | RECOVERY_PASSKEY_REGISTRATION_FAILED | Start a fresh registration ceremony. |
-| 403 | RECOVERY_SECURITY_RESTRICTION_ACTIVE | Preserve known restriction state; do not perform a route once it adopts the policy. |
-| 409 | NO_REGISTERED_PASSKEYS | Offer recovery only behind account access. |
-| 409 | ACCOUNT_ACCESS_STATE_CONFLICT | Authorization/challenge changed; never replay. |
-| 409 | RECOVERY_ALREADY_ACTIVE | Offer provisional login or explicit replacement. |
-| 409 | RECOVERY_STATE_CONFLICT | Refresh session/status; never replay assertion or attestation. |
-| 429 | ACCOUNT_RECOVERY_RATE_LIMITED | Honor Retry-After and preserve valid state. |
-| 503 | ACCOUNT_RECOVERY_UNAVAILABLE | Preserve cookies/session and offer explicit retry. |
+| Status | Code                                         | Client behavior                                                                     |
+| ------ | -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 401    | ACCOUNT_ACCESS_AUTHORIZATION_REQUIRED        | Verify email again; do not infer account changes.                                   |
+| 401    | RECOVERY_REGISTRATION_AUTHORIZATION_REQUIRED | Return to verified-email entry.                                                     |
+| 400    | IDENTIFIED_PASSKEY_AUTHENTICATION_FAILED     | Request fresh options; keep recovery explicit.                                      |
+| 400    | RECOVERY_PASSKEY_REGISTRATION_FAILED         | Start a fresh registration ceremony.                                                |
+| 403    | RECOVERY_SECURITY_RESTRICTION_ACTIVE         | Preserve known restriction state; do not perform a route once it adopts the policy. |
+| 409    | NO_REGISTERED_PASSKEYS                       | Offer recovery only behind account access.                                          |
+| 409    | ACCOUNT_ACCESS_STATE_CONFLICT                | Authorization/challenge changed; never replay.                                      |
+| 409    | RECOVERY_ALREADY_ACTIVE                      | Offer provisional login or explicit replacement.                                    |
+| 409    | RECOVERY_STATE_CONFLICT                      | Refresh session/status; never replay assertion or attestation.                      |
+| 429    | ACCOUNT_RECOVERY_RATE_LIMITED                | Honor Retry-After and preserve valid state.                                         |
+| 503    | ACCOUNT_RECOVERY_UNAVAILABLE                 | Preserve cookies/session and offer explicit retry.                                  |
 
 ## Persistence and transaction design
 
@@ -348,19 +396,7 @@ Create the story integration branch:
 
     codex/immediate-passkey-email-recovery
 
-Create subtask branches:
-
-    codex/immediate-passkey-email-recovery/contracts
-    codex/immediate-passkey-email-recovery/persistence
-    codex/immediate-passkey-email-recovery/account-access
-    codex/immediate-passkey-email-recovery/identified-login
-    codex/immediate-passkey-email-recovery/provisional-registration
-    codex/immediate-passkey-email-recovery/api-client
-    codex/immediate-passkey-email-recovery/frontend
-    codex/immediate-passkey-email-recovery/integration-docs
-
-Commit and verify each task. Open PRs to the story branch after Task 1, after Tasks 2–5, after
-Task 7, and after Task 8.
+Commit and verify each task.
 
 ## Implementation tasks
 
@@ -375,7 +411,7 @@ Task 7, and after Task 8.
 **Test plan:**
 
 - [ ] Contract tests accept exact states and reject mixed states, invalid timestamps, empty
-  allowCredentials, IDs, tokens, and extra fields.
+      allowCredentials, IDs, tokens, and extra fields.
 - [ ] Compatibility tests preserve signup, usernameless login, and ordinary-session contracts.
 
 **Verification:**
@@ -391,14 +427,14 @@ Task 7, and after Task 8.
 - [ ] Only digests of limited credentials/challenges are stored.
 - [ ] One active provisional recovery exists per user and the fixed timestamp cannot slide.
 - [ ] Every family/session/refresh generation from a provisional credential retains family-derived
-  recovery provenance.
+      recovery provenance.
 - [ ] Existing signup and usernameless challenge constraints continue to hold.
 
 **Test plan:**
 
 - [ ] Migration tests cover foreign keys, partial uniqueness, checks, indexes, and up/down behavior.
 - [ ] Repository tests prove authorization expiry, exact restriction timing, provenance inheritance,
-  concurrency safety, and non-secret outbox rows.
+      concurrency safety, and non-secret outbox rows.
 
 **Verification:**
 
@@ -418,7 +454,7 @@ Task 7, and after Task 8.
 **Test plan:**
 
 - [ ] Unit/integration tests cover existing/new branches, invalidation, rollback, and provisional
-  recovery status.
+      recovery status.
 - [ ] HTTP tests assert exact cookies, no-store, schema, secret absence, and non-enumeration.
 
 **Verification:**
@@ -436,14 +472,14 @@ Task 7, and after Task 8.
 - [ ] Options contain every and only active credentials owned by the verified account.
 - [ ] Verification preserves existing origin/RP/UV/counter/rate-limit protections.
 - [ ] Trusted credentials create unrestricted families; provisional credentials create only
-  recovery-derived families.
+      recovery-derived families.
 
 **Test plan:**
 
 - [ ] Adapter/service tests cover descriptors, ownership, no credentials, trusted/provisional
-  selection, counter policy, conflicts, and unchanged usernameless options.
+      selection, counter policy, conflicts, and unchanged usernameless options.
 - [ ] Repository/HTTP tests prove atomic session creation, provenance inheritance, safe errors,
-  cookies, and account-access clearing.
+      cookies, and account-access clearing.
 
 **Verification:**
 
@@ -460,15 +496,15 @@ Task 7, and after Task 8.
 - [ ] Recovery starts only after confirmation and verified registration.
 - [ ] Options require discoverability/UV and exclude every active credential.
 - [ ] Registration fixes restrictionEndsAt, retains existing passkeys/families/sessions, and creates
-  only a recovery-derived family/session.
+      only a recovery-derived family/session.
 - [ ] Replacement revokes the prior provisional lineage only after the replacement commits.
 
 **Test plan:**
 
 - [ ] Service/adapter tests cover options, duplicate credentials, browser cancellation, fresh
-  retries, create/replace conflicts, and ambiguous registration outcomes.
+      retries, create/replace conflicts, and ambiguous registration outcomes.
 - [ ] Clock/repository/transaction tests prove timing, provenance, replacement safety, events,
-  outbox, one-time state, and rollback.
+      outbox, one-time state, and rollback.
 - [ ] HTTP tests assert cookies, no-store, security metadata, and no secrets in JSON/logs.
 
 **Verification:**
@@ -484,13 +520,13 @@ Task 7, and after Task 8.
 **Acceptance criteria:**
 
 - [ ] Clients for account access, identified login, registration, and status use credentialed fetch
-  and strict schemas.
+      and strict schemas.
 - [ ] State-changing calls and WebAuthn verification use retry: false.
 
 **Test plan:**
 
 - [ ] Client tests assert method/path/body, credentials, parsing, Retry-After, stable errors, and
-  no automatic replay.
+      no automatic replay.
 
 **Verification:**
 
@@ -505,16 +541,16 @@ Task 7, and after Task 8.
 
 - [ ] Reload uses server cookies/session status rather than router handoff.
 - [ ] The chooser, confirmation, registration, replacement, and restricted banner show locked
-  copy/actions.
+      copy/actions.
 - [ ] Browser cancellation never starts recovery or discards a working provisional credential.
 - [ ] The UI reports restriction state without claiming to enforce unimplemented operations.
 
 **Test plan:**
 
 - [ ] Component/browser-adapter tests cover chooser, confirmation, cancellation, replacement,
-  restricted state, retries, allowlists, exclusion, and fresh ceremonies.
+      restricted state, retries, allowlists, exclusion, and fresh ceremonies.
 - [ ] Routing/session/accessibility tests cover reload, expired cookies, restricted restoration,
-  keyboard flow, focus, announcements, timestamp text, and no color-only state.
+      keyboard flow, focus, announcements, timestamp text, and no color-only state.
 
 **Verification:**
 
@@ -532,16 +568,16 @@ Task 7, and after Task 8.
 - [ ] OTP to recovery registration creates an immediate recovery-derived restricted session.
 - [ ] Replacement never creates multiple provisional credentials or shortens the new five-day period.
 - [ ] Documentation clearly defers cancellation, promotion, global revocation, and broad
-  sensitive-operation enforcement to plan 009 or later work.
+      sensitive-operation enforcement to plan 009 or later work.
 
 **Test plan:**
 
 - [ ] Backend/web integration tests use fake email, injected time, and fake WebAuthn for login,
-  registration, reload, restriction state, replacement, and lost responses.
+      registration, reload, restriction state, replacement, and lost responses.
 - [ ] Security regression tests cover enumeration resistance, cross-account credentials, raw-secret
-  absence, exact origin, replay, rate limits, outbox idempotency, and rollback.
+      absence, exact origin, replay, rate limits, outbox idempotency, and rollback.
 - [ ] Manual two-browser check verifies a recovery-derived session and an existing trusted session
-  coexist without revocation.
+      coexist without revocation.
 
 **Verification:**
 
@@ -566,7 +602,7 @@ Task 7, and after Task 8.
 - [ ] Ordinary access works immediately and its recovery-derived lineage is recorded server-side.
 - [ ] The fixed five-day timestamp never slides through login, refresh, polling, resend, or reload.
 - [ ] Every recovery-derived access session and refresh token remains connected through its
-  remembered-device family.
+      remembered-device family.
 - [ ] Replacement is atomic and preserves the working credential until the replacement commits.
 - [ ] Security notifications use a durable outbox and contain no bearer secret.
 - [ ] Contract, client, backend, frontend, integration, typecheck, and formatting checks pass.
@@ -583,14 +619,14 @@ Task 7, and after Task 8.
 
 ## Risks and mitigations
 
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
-| Compromised email gains immediate data access | Critical | Explicitly accept for the current threat model and revisit before higher-impact features. |
-| Provisional session loses provenance through login/refresh | Critical | Recovery ID on credential and every derived family; sessions/tokens derive through that family. |
-| Attacker pre-ages recovery without a credential | High | Start the period only when registration verifies and commits. |
-| Lost provisional passkey causes lockout | Medium | Verified email may atomically replace only the provisional credential after successful registration. |
-| Notification send is lost after commit | High | Transactional outbox with idempotent post-commit delivery and observable retry state. |
-| A future sensitive endpoint omits enforcement | High | Persist authoritative provenance now; require a later shared policy before exposing it. |
+| Risk                                                       | Impact   | Mitigation                                                                                           |
+| ---------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| Compromised email gains immediate data access              | Critical | Explicitly accept for the current threat model and revisit before higher-impact features.            |
+| Provisional session loses provenance through login/refresh | Critical | Recovery ID on credential and every derived family; sessions/tokens derive through that family.      |
+| Attacker pre-ages recovery without a credential            | High     | Start the period only when registration verifies and commits.                                        |
+| Lost provisional passkey causes lockout                    | Medium   | Verified email may atomically replace only the provisional credential after successful registration. |
+| Notification send is lost after commit                     | High     | Transactional outbox with idempotent post-commit delivery and observable retry state.                |
+| A future sensitive endpoint omits enforcement              | High     | Persist authoritative provenance now; require a later shared policy before exposing it.              |
 
 ## References
 
