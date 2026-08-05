@@ -98,6 +98,19 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-white bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
+      {session?.security?.sessionRestriction ? (
+        <p role="status" className="border-b border-primary/20 bg-primary/10 px-4 py-2 text-center text-sm text-on-surface-variant">
+          Recovery protection is active until {new Date(session.security.sessionRestriction.restrictionEndsAt).toLocaleString()}. Sensitive account changes are unavailable during this period.
+        </p>
+      ) : session?.security?.activeRecovery.state === "provisional" ? (
+        <p role="status" className="border-b border-primary/20 bg-primary/10 px-4 py-2 text-center text-sm text-on-surface-variant">
+          A recovery passkey is active for this account. Verify a trusted passkey to cancel it.
+        </p>
+      ) : session?.security?.activeRecovery.state === "promotion-eligible" ? (
+        <p role="status" className="border-b border-primary/20 bg-primary/10 px-4 py-2 text-center text-sm text-on-surface-variant">
+          Recovery protection has ended. Finish account recovery with a fresh passkey assertion.
+        </p>
+      ) : null}
       <nav className="mx-auto flex w-full flex-wrap items-center gap-x-8 gap-y-2 px-4 py-3 md:px-10">
         <Link
           to="/"
