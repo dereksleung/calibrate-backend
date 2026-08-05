@@ -90,6 +90,7 @@ Use the repo commit message convention in `docs/agents/commit-messages.md`.
   - Implement only that subtask's logical change.
   - Run the smallest relevant verification for that subtask.
   - Commit before starting the next subtask.
+  - A commit is a checkpoint, not a stopping point; continue directly to the next planned task unless blocked or explicitly asked to stop.
   - Do not let unrelated or future-subtask changes accumulate in the same commit.
   - Unless blocked or the user asks to stop, continue immediately with the next planned subtask after
     the checkpoint; do not wait for additional confirmation.
