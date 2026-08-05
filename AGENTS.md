@@ -75,6 +75,7 @@ Use the repo commit message convention in `docs/agents/commit-messages.md`.
 - Keep edits focused to requested scope.
 - Do not run destructive git/file commands without explicit approval.
 - If unexpected unrelated changes are detected, stop and ask.
+  - Exception: when a formatter creates changes only in files outside the agent's task scope, restore those exact formatter-only changes and continue; do not pause for confirmation. But report that you did that, I need to know because it wastes tokens.
 - Never store secrets, keys, or sensitive info in version control.
 
 ## Story Branch And PR Gates
@@ -99,7 +100,6 @@ Use the repo commit message convention in `docs/agents/commit-messages.md`.
   - After the frontend/backend wiring subtasks finish.
 - Before switching branches or opening a PR, inspect the diff and confirm the branch contains only the intended subtask or gate scope.
 
-
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->
 
@@ -121,6 +121,5 @@ Use the repo commit message convention in `docs/agents/commit-messages.md`.
 - USE for: advanced config options, unfamiliar flags, migration guides, plugin configuration, edge cases
 - DON'T USE for: basic generator syntax (`nx g @nx/react:app`), standard commands, things you already know
 - The `nx-generate` skill handles generator discovery internally - don't call nx_docs just to look up generator syntax
-
 
 <!-- nx configuration end-->
