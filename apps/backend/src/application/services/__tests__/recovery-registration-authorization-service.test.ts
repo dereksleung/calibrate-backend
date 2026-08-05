@@ -12,6 +12,7 @@ describe("RecoveryRegistrationAuthorizationServiceImpl", () => {
   it("creates a digest-only recovery-registration authorization after explicit confirmation", async () => {
     const repository: IRecoveryRegistrationAuthorizationRepository = {
       authorize: vi.fn().mockResolvedValue(undefined),
+      getAccountAccessStatus: vi.fn(),
     };
     const tokenService: IOpaqueTokenService = {
       create: vi.fn().mockReturnValue({ token: "recovery-registration-token", digest: "token-digest" }),

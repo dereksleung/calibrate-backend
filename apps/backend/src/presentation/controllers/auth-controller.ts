@@ -341,6 +341,25 @@ export class AuthController {
     }
   }
 
+  async getAccountAccessStatus(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const token = extractCookieValue(req.get("Cookie"), getAccountAccessCookieConfiguration().name);
+    if (!token || !this.recoveryRegistrationAuthorizationService) {
+      res.status(401).json({ error: "ACCOUNT_ACCESS_AUTHORIZATION_REQUIRED" });
+      return;
+    }
+    try {
+      const status = await this.recoveryRegistrationAuthorizationService.getAccountAccessStatus(token);
+      if (!status) {
+        res.status(401).json({ error: "ACCOUNT_ACCESS_AUTHORIZATION_REQUIRED" });
+        return;
+      }
+      res.status(200).json(status);
+    } catch {
+      res.status(503).json({ error: "ACCOUNT_RECOVERY_UNAVAILABLE" });
+    }
+  }
+
   async createRecoveryPasskeyRegistrationOptions(req: Request, res: Response): Promise<void> {
     res.set("Cache-Control", "no-store");
     const origin = readRequestOrigin(req.get("Origin"));

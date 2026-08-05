@@ -78,4 +78,45 @@ export class PostgresRecoveryRegistrationAuthorizationRepository
         .execute();
     });
   }
+
+  async getAccountAccessStatus(input: { accountAccessTokenDigest: string; now: Date }): Promise<{
+    email: string;
+    hasRegisteredPasskeys: boolean;
+    activeRecovery: null | { restrictionEndsAt: Date };
+    authorizationExpiresAt: Date;
+  } | null> {
+    const authorization = await this.databaseClient
+      .selectFrom("account_access_authorizations as authorization")
+      .innerJoin("users as user", "user.id", "authorization.user_id")
+      .select(["authorization.user_id", "authorization.expires_at", "user.email"])
+      .where("authorization.token_digest", "=", input.accountAccessTokenDigest)
+      .where("authorization.client_binding", "=", "cookie")
+      .where("authorization.consumed_at", "is", null)
+      .where("authorization.invalidated_at", "is", null)
+      .where("authorization.expires_at", ">", input.now)
+      .executeTakeFirst();
+    if (!authorization) return null;
+    const [credential, recovery] = await Promise.all([
+      this.databaseClient
+        .selectFrom("passkey_credentials")
+        .select("id")
+        .where("user_id", "=", authorization.user_id)
+        .where("revoked_at", "is", null)
+        .executeTakeFirst(),
+      this.databaseClient
+        .selectFrom("account_recoveries")
+        .select("restriction_ends_at")
+        .where("user_id", "=", authorization.user_id)
+        .where("promoted_at", "is", null)
+        .where("cancelled_at", "is", null)
+        .where("replaced_at", "is", null)
+        .executeTakeFirst(),
+    ]);
+    return {
+      email: authorization.email,
+      hasRegisteredPasskeys: Boolean(credential),
+      activeRecovery: recovery ? { restrictionEndsAt: recovery.restriction_ends_at } : null,
+      authorizationExpiresAt: authorization.expires_at,
+    };
+  }
 }

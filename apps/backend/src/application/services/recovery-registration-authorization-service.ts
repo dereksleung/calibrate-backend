@@ -16,6 +16,12 @@ export interface IRecoveryRegistrationAuthorizationRepository {
     now: Date;
     expiresAt: Date;
   }): Promise<void>;
+  getAccountAccessStatus(input: { accountAccessTokenDigest: string; now: Date }): Promise<{
+    email: string;
+    hasRegisteredPasskeys: boolean;
+    activeRecovery: null | { restrictionEndsAt: Date };
+    authorizationExpiresAt: Date;
+  } | null>;
 }
 
 export interface IRecoveryRegistrationAuthorizationService {
@@ -23,6 +29,12 @@ export interface IRecoveryRegistrationAuthorizationService {
     accountAccessToken: string;
     mode: RecoveryRegistrationMode;
   }): Promise<{ recoveryRegistrationToken: string; expiresAt: Date }>;
+  getAccountAccessStatus(accountAccessToken: string): Promise<{
+    email: string;
+    hasRegisteredPasskeys: boolean;
+    activeRecovery: { state: "none" } | { state: "provisional" | "promotion-eligible"; restrictionEndsAt: string };
+    authorizationExpiresAt: string;
+  } | null>;
 }
 
 export class RecoveryRegistrationAuthorizationServiceImpl
@@ -50,5 +62,30 @@ export class RecoveryRegistrationAuthorizationServiceImpl
       expiresAt,
     });
     return { recoveryRegistrationToken: authorization.token, expiresAt };
+  }
+
+  async getAccountAccessStatus(accountAccessToken: string): Promise<{
+    email: string;
+    hasRegisteredPasskeys: boolean;
+    activeRecovery: { state: "none" } | { state: "provisional" | "promotion-eligible"; restrictionEndsAt: string };
+    authorizationExpiresAt: string;
+  } | null> {
+    const now = this.clock.now();
+    const status = await this.repository.getAccountAccessStatus({
+      accountAccessTokenDigest: createHash("sha256").update(accountAccessToken).digest("base64url"),
+      now,
+    });
+    if (!status) return null;
+    return {
+      email: status.email,
+      hasRegisteredPasskeys: status.hasRegisteredPasskeys,
+      activeRecovery: status.activeRecovery
+        ? {
+            state: status.activeRecovery.restrictionEndsAt.getTime() <= now.getTime() ? "promotion-eligible" : "provisional",
+            restrictionEndsAt: status.activeRecovery.restrictionEndsAt.toISOString(),
+          }
+        : { state: "none" as const },
+      authorizationExpiresAt: status.authorizationExpiresAt.toISOString(),
+    };
   }
 }

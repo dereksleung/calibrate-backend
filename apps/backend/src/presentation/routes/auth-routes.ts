@@ -29,6 +29,7 @@ export function createAuthRoutes(authController: AuthController): Router {
     authController.verifyIdentifiedPasskeyAuthentication(req, res),
   );
   router.post("/auth/account-access/recovery", (req, res) => authController.authorizeRecoveryRegistration(req, res));
+  router.get("/auth/account-access", (req, res) => authController.getAccountAccessStatus(req, res));
   router.post("/auth/recovery/passkeys/registration/options", (req, res) =>
     authController.createRecoveryPasskeyRegistrationOptions(req, res),
   );
