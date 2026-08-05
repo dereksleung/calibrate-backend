@@ -1,5 +1,9 @@
 export interface IAccessSessionRepository {
   findActiveUserIdByTokenDigest(tokenDigest: string, now: Date): Promise<string | null>;
+  findSecurityStateByTokenDigest(tokenDigest: string, now: Date): Promise<{
+    activeRecovery: null | { restrictionEndsAt: Date };
+    sessionRestriction: null | { restrictionEndsAt: Date };
+  } | null>;
 }
 
 export interface IRefreshSessionRepository extends IAccessSessionRepository {

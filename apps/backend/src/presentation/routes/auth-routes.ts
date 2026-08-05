@@ -36,6 +36,7 @@ export function createAuthRoutes(authController: AuthController): Router {
     authController.verifyRecoveryPasskeyRegistration(req, res),
   );
   router.get("/auth/session", (req, res) => authController.getCurrentSession(req, res));
+  router.get("/auth/recovery/status", (req, res) => authController.getRecoveryStatus(req, res));
   router.post("/auth/session/refresh", (req, res) => authController.refreshSession(req, res));
   router.delete("/auth/session", (req, res) => authController.logout(req, res));
   router.post("/auth/login", (req, res) => authController.login(req, res));

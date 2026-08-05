@@ -38,6 +38,38 @@ export class PostgresAccessSessionRepository implements IRefreshSessionRepositor
     return session?.user_id ?? null;
   }
 
+  async findSecurityStateByTokenDigest(tokenDigest: string, now: Date): Promise<{
+    activeRecovery: null | { restrictionEndsAt: Date };
+    sessionRestriction: null | { restrictionEndsAt: Date };
+  } | null> {
+    const session = await this.databaseClient
+      .selectFrom("sessions as session")
+      .leftJoin("remembered_device_families as family", "family.id", "session.remembered_device_family_id")
+      .select(["session.user_id", "family.recovery_restriction_ends_at"])
+      .where("session.token_digest", "=", tokenDigest)
+      .where("session.inactivity_expires_at", ">", now)
+      .where("session.absolute_expires_at", ">", now)
+      .where("session.revoked_at", "is", null)
+      .where("session.replaced_by_session_id", "is", null)
+      .where((eb) => eb.or([eb("session.remembered_device_family_id", "is", null), eb.and([eb("family.revoked_at", "is", null), eb("family.inactivity_expires_at", ">", now), eb("family.absolute_expires_at", ">", now)])]))
+      .executeTakeFirst();
+    if (!session) return null;
+    const recovery = await this.databaseClient
+      .selectFrom("account_recoveries")
+      .select("restriction_ends_at")
+      .where("user_id", "=", session.user_id)
+      .where("promoted_at", "is", null)
+      .where("cancelled_at", "is", null)
+      .where("replaced_at", "is", null)
+      .executeTakeFirst();
+    return {
+      activeRecovery: recovery ? { restrictionEndsAt: recovery.restriction_ends_at } : null,
+      sessionRestriction: session.recovery_restriction_ends_at
+        ? { restrictionEndsAt: session.recovery_restriction_ends_at }
+        : null,
+    };
+  }
+
   async refresh(input: {
     refreshTokenDigest: string;
     accessTokenDigest: string;

@@ -17,6 +17,7 @@ describe("createAuthenticationMiddleware", () => {
     } as any;
     mockAccessSessionRepository = {
       findActiveUserIdByTokenDigest: vi.fn(),
+      findSecurityStateByTokenDigest: vi.fn(),
     };
     mockClock = { now: () => new Date("2026-07-31T12:00:00.000Z") };
   });

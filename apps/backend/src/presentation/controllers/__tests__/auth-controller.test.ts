@@ -49,6 +49,7 @@ describe("AuthController", () => {
     };
     mockSessionRestorationService = {
       getCurrentSession: vi.fn(),
+      getSecurityState: vi.fn(),
       logout: vi.fn(),
       refresh: vi.fn(),
     };

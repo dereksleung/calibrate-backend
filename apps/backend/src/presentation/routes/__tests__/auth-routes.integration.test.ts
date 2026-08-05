@@ -206,7 +206,7 @@ describe("current-session logout HTTP route", () => {
     emailService,
     new UnavailableSignupPasskeyRegistrationService(),
     undefined,
-    { getCurrentSession: vi.fn(), refresh: vi.fn(), logout },
+    { getCurrentSession: vi.fn(), getSecurityState: vi.fn(), refresh: vi.fn(), logout },
   )));
   let server: Server;
   let baseUrl: string;

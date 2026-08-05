@@ -7,6 +7,10 @@ import { createHash } from "node:crypto";
 
 export interface ISessionRestorationService {
   getCurrentSession(accessToken: string): Promise<User | null>;
+  getSecurityState(accessToken: string): Promise<{
+    activeRecovery: { state: "none" } | { state: "provisional" | "promotion-eligible"; restrictionEndsAt: string };
+    sessionRestriction: null | { state: "restricted"; restrictionEndsAt: string };
+  } | null>;
   logout(credentials: { accessToken?: string; refreshToken?: string }): Promise<void>;
   refresh(refreshToken: string): Promise<{
     user: User;
@@ -29,6 +33,25 @@ export class SessionRestorationServiceImpl implements ISessionRestorationService
   async getCurrentSession(accessToken: string): Promise<User | null> {
     const userId = await this.sessions.findActiveUserIdByTokenDigest(digest(accessToken), this.clock.now());
     return userId ? this.users.findById(userId) : null;
+  }
+
+  async getSecurityState(accessToken: string): Promise<{
+    activeRecovery: { state: "none" } | { state: "provisional" | "promotion-eligible"; restrictionEndsAt: string };
+    sessionRestriction: null | { state: "restricted"; restrictionEndsAt: string };
+  } | null> {
+    const state = await this.sessions.findSecurityStateByTokenDigest(digest(accessToken), this.clock.now());
+    if (!state) return null;
+    return {
+      activeRecovery: state.activeRecovery
+        ? {
+            state: state.activeRecovery.restrictionEndsAt.getTime() <= this.clock.now().getTime() ? "promotion-eligible" : "provisional",
+            restrictionEndsAt: state.activeRecovery.restrictionEndsAt.toISOString(),
+          }
+        : { state: "none" as const },
+      sessionRestriction: state.sessionRestriction
+        ? { state: "restricted" as const, restrictionEndsAt: state.sessionRestriction.restrictionEndsAt.toISOString() }
+        : null,
+    };
   }
 
   async logout(credentials: { accessToken?: string; refreshToken?: string }): Promise<void> {

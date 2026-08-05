@@ -78,7 +78,32 @@ export class AuthController {
       res.status(401).json({ error: "ACCESS_SESSION_REQUIRED" });
       return;
     }
-    res.status(200).json({ user: UserResponseMapper.toResponse(user), sessionTransport: "cookie" });
+    const security = await this.sessionRestorationService.getSecurityState(token);
+    if (!security) {
+      res.status(401).json({ error: "ACCESS_SESSION_REQUIRED" });
+      return;
+    }
+    res.status(200).json({ user: UserResponseMapper.toResponse(user), sessionTransport: "cookie", security });
+  }
+
+  async getRecoveryStatus(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const accessCookie = getAccessCookieConfiguration();
+    const token = extractCookieValue(req.get("Cookie"), accessCookie.name);
+    if (!token || !this.sessionRestorationService) {
+      res.status(401).json({ error: "ACCESS_SESSION_REQUIRED" });
+      return;
+    }
+    try {
+      const security = await this.sessionRestorationService.getSecurityState(token);
+      if (!security) {
+        res.status(401).json({ error: "ACCESS_SESSION_REQUIRED" });
+        return;
+      }
+      res.status(200).json(security);
+    } catch {
+      res.status(503).json({ error: "ACCOUNT_RECOVERY_UNAVAILABLE" });
+    }
   }
 
   async refreshSession(req: Request, res: Response): Promise<void> {
@@ -101,7 +126,8 @@ export class AuthController {
         return;
       }
       this.setSessionCookies(res, { ...result, rememberDevice: true }, new Date());
-      res.status(200).json({ user: UserResponseMapper.toResponse(result.user), sessionTransport: "cookie" });
+      const security = await this.sessionRestorationService.getSecurityState(result.accessToken);
+      res.status(200).json({ user: UserResponseMapper.toResponse(result.user), sessionTransport: "cookie", ...(security ? { security } : {}) });
     } catch {
       res.status(503).json({ error: "SESSION_UNAVAILABLE" });
     }
