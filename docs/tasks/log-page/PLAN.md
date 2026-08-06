@@ -68,39 +68,27 @@ Dependencies:
 
 ### Backend Food Search And Recents
 
-- Backend food search returns the full display-ordered result list for the search UI:
-  - Matching recent foods from the past 2 weeks first.
-  - USDA FoodData Central results second.
-  - Frontend renders the returned order without re-ranking.
-- Add a FoodData Central infrastructure adapter responsible for:
-  - Building FoodData Central requests.
-  - Referencing the temporarily committed FoodData Central OpenAPI spec at `references/fdc_api.yaml` while implementing USDA request/response parsing.
-  - Receiving a startup-loaded `FOODDATA_CENTRAL_API_KEY` value from backend configuration.
-  - Decrypting/reading `FOODDATA_CENTRAL_API_KEY` with `dotenvx.get` during backend startup, then caching the resolved value in memory rather than reading env per request.
-  - Parsing external responses.
-  - Mapping provider-specific fields to app-owned DTOs.
-  - Ranking USDA results after recent foods when the provider data supports it; branded-versus-generic handling is optional and can be skipped if USDA results do not expose reliable branded data.
-- Add an application port such as `FoodSearchProvider`.
-- Keep the application service/query handler intentionally thin unless it owns app-level policy such as trimming, minimum query length, result limit, or auth context.
-- Add a recent-food read path used by backend search based on existing food entries:
-  - Query current user's food entries from the past 2 weeks only.
-  - Match recent foods against the search query.
-  - Deduplicate recent-food entries against other recent-food entries by exact normalized name, brand, serving unit, and nutrition values.
-  - Preserve entries with different serving units or nutrition values because they can represent useful repeatable serving sizes and habits.
-  - Do not deduplicate recent-food entries against USDA results in this cut.
-  - Include last-used date metadata for labels such as `Thur` or `Mar 31`.
+- Store shared, trusted/provider-backed items in `food_catalog`; do not put user-specific meal, selected quantity, day-log, or ownership fields in this table. A catalog result contains the reusable name, optional brand, servings, and nutrition fields needed to begin food confirmation.
+- Preserve `food_entries` as immutable historical snapshots of the selected catalog nutrition and serving data. An optional `food_catalog_id` records provenance, but catalog corrections must not rewrite prior logs.
+- Populate the catalog through trusted provider imports and controlled provider lookup/upsert, keyed by provider/source identity. A future barcode scan may promote a publicly identified product into the catalog only after GTIN normalization/check-digit validation and trusted provider verification. Manually created foods remain user-private rather than entering the shared catalog.
+- Make `GET /foods/search?query=<text>` a staged search. First, in parallel, query the local catalog and the authenticated user's matching food entries from the prior two weeks. Return the backend-ordered combined local result set when either has a hit. Only when both local sources return no hit may it call FoodData Central, upsert trusted mapped results into `food_catalog`, and return those catalog-shaped results. It should require a trimmed 3-character minimum, cap query length/tokens and results, return cursor-based pages, and parameterize all database operations.
+- Store an order-independent full-text vector using the `simple` dictionary over food name and optional brand, weighting name above brand. A GIN index on this vector handles the normal all-token search and validated prefix-token typeahead query.
+- Store a normalized concatenated `search_text` representation and add a `pg_trgm` GIN index. Use it only as a typo/partial-match fallback or ranking signal after the full-text path, not as the main relevance mechanism.
+- Rank exact and prefix name matches above full-text rank, then fuzzy similarity and bounded catalog popularity. The frontend renders this backend order without re-ranking.
+- Keep the three-day recent-food endpoint separate from the typed-search recent query. `GET /foods/recent` reads only the authenticated user's last three calendar days; the staged typed-search query may read matching entries from the prior two weeks. Neither path may leak private/custom foods into another user's results or the shared catalog.
+- Debounce/cancel client requests and use the database indexes for the local stage. Protect the FoodData Central fallback with a short timeout, bounded result size, in-flight request coalescing, and a short-TTL normalized-query result/negative cache; use the existing/general request limit and obtain approval before changing rate-limit policy. Measure query rate, fallback rate, p95 latency, database time, and result counts. A broader Redis cache for local catalog results remains deferred until those metrics justify it.
 
 Dependencies:
 
-- Food search endpoint depends on contracts, the recent-food read query, and FoodData Central adapter.
-- Recent-food reads depend on a bounded query across user's day logs and food entries from the past 2 weeks.
-- No new recent-food persistence table is planned for the MVP.
+- Catalog search endpoint depends on shared contracts, the catalog schema/index migration, local catalog/recent query ports, and the guarded provider fallback.
+- Provider ingestion depends on the catalog schema and runs only for a zero-local-hit fallback or an explicit import/barcode flow.
+- Recent-food reads need two bounded paths: three calendar days for page entry and two weeks for matching typed search.
 
 ### Backend Presentation And Container Wiring
 
 - Add or extend routes:
   - `GET /foods/search?query=<text>`
-  - `GET /foods/recent` only if a standalone recent-food endpoint is still useful outside search; the MVP search UI should not require a separate frontend merge.
+  - `GET /foods/recent`
   - `PATCH /daylogs/:date/weight`
 - Validate query params, route params, and bodies with shared Zod schemas.
 - Preserve auth middleware on all user-specific routes.
@@ -165,8 +153,9 @@ Sequential:
 
 - Contracts before controller/frontend integration.
 - Day-log repository/service changes before weight UI integration.
-- FoodData Central adapter contract before search UI can be wired to live data.
-- Backend search result ordering before frontend live-data search display assertions.
+- Catalog schema and search indexes before local catalog-query implementation and live search wiring.
+- Local catalog-query ordering before frontend live-data search display assertions.
+- Provider ingestion can follow the catalog schema independently; it must not sit in the ordinary typeahead request path.
 - Shared API client package before live web data wrappers and live page integration.
 - TanStack Query dependency setup before implementing optimistic cache behavior.
 - Confirmation route/context design before wiring search result selection.
@@ -178,7 +167,7 @@ Parallelizable after contracts:
 - Backend weight persistence and backend food search can proceed independently.
 - Frontend normal, empty, loading, and error state UI can proceed against contract-shaped mock data while backend endpoints are being finished.
 - Shared API client package and frontend mock-state UI can proceed in parallel after contracts define expected shapes.
-- Recent-food backend query and search UI result-row design can proceed independently if the shared result shape is stable; live ordering assertions wait for the backend merge behavior.
+- Three-day recent-food backend query and search UI result-card design can proceed independently once their shared result shape is stable.
 - Backend controller tests and frontend pure helper tests can be written alongside implementation.
 
 ## Risks And Mitigations
@@ -196,19 +185,22 @@ Parallelizable after contracts:
   - Mitigation: use the `nx-generate` workflow in Phase 3, dry-run first, and compare against `packages/api-contracts` before committing generated files.
 
 - Risk: FoodData Central response shape is noisy and provider-specific.
-  - Mitigation: keep parsing/ranking inside infrastructure and return app-owned DTOs to the frontend.
+  - Mitigation: keep provider parsing and catalog upsert mapping inside infrastructure; the search endpoint returns only app-owned catalog results.
 
-- Risk: Brand-name detection is ambiguous or USDA results do not expose reliable branded data.
-  - Mitigation: implement branded-versus-generic ranking only if the provider data has usable brand fields. If not, skip branded-specific handling for the MVP and keep generic USDA ordering isolated for later tuning.
+- Risk: Shared catalog data is duplicated, unverified, or accidentally polluted by a user's manual food.
+  - Mitigation: upsert provider data by stable source identity, use a validated normalized barcode only for trusted barcode/provider data, record verification status, and keep manual foods in a user-private store.
 
-- Risk: Recent-food and USDA results are merged inconsistently between clients.
-  - Mitigation: merge and order results in the backend search response, then require clients to render the returned order without re-ranking.
+- Risk: Catalog typeahead regresses as the catalog grows or receives frequent queries.
+  - Mitigation: use GIN full-text and trigram indexes, enforce bounded input/results and cursor pagination, debounce/cancel client requests, and measure database/end-to-end latency; only the zero-local-hit provider fallback receives a short-TTL result/negative cache in this story.
 
-- Risk: Recent-food dedupe accidentally collapses useful serving-size variants.
-  - Mitigation: keep dedupe intentionally simple and exact: normalize name and brand text, then compare serving unit and nutrition values exactly. Entries with different serving units or nutrition values remain distinct because the user may want to repeat that serving size again and build a habit around it. Do not attempt cross-deduplication against USDA results in this cut.
+- Risk: Fuzzy matching obscures exact or prefix food-name matches.
+  - Mitigation: rank exact/prefix name matches before full-text rank and use trigram similarity only as a fallback/ranking signal.
 
 - Risk: Recent-food reads become expensive as a user's history grows.
-  - Mitigation: restrict the query to food entries from the past 2 weeks for the MVP and ensure the query filters by authenticated user and date range before dedupe.
+  - Mitigation: keep separate bounded paths: last three calendar days for page-entry recents and the authenticated user's prior two weeks for typed matching; index each user/date join and filter before adding a shared cache.
+
+- Risk: No-result typeahead queries cause FoodData Central latency, cost, or rate-limit pressure.
+  - Mitigation: call the provider only after both local sources miss, enforce timeout and bounded response size, coalesce identical in-flight queries, cache short-lived positive and negative normalized-query outcomes, and use the existing/general request limit unless a separately approved rate-policy change is made.
 
 - Risk: Empty selected days fail on save because current repository find-or-create behavior throws.
   - Mitigation: fix find-or-create early and cover it in service/repository-level tests where practical.
@@ -434,50 +426,51 @@ As a user, I want to see a food search page, so that I can browse foods I logged
     - `apps/web-frontend/src/pages/logs/food-search-live.integration.test.tsx`
     - `apps/web-frontend/src/pages/logs/food-confirmation-state.ts`
 
-### Story 4: Type to search for foods to add to the day
+### Story 4: Search the shared food catalog to add a food
 
 As a calorie tracking person, I want to be able to type to search for foods to add to the day, so that I can quickly add food entry logs in my busy day.
 
-- [ ] Subtask: Add shared food search contracts
-  - Acceptance: `GET /foods/search?query=<text>` and optional recent-food response shapes have Zod schemas and exported TypeScript types. Food search returns one ordered `FoodSearchResult` discriminated union with recent-food and USDA variants. All variants share display metadata, calories/macros needed for confirmation, `quantityServing`, `servingLabel`, optional `quantityMass`/`massUnit`, and optional `quantityVolume`/`volumeUnit`; only `quantityServing` and `servingLabel` default to `1` and `"serving"`. Mass and volume fields have no defaults and are omitted unless the result provides a real mass or volume serving basis for the same nutrition values. Source-specific recency and provider metadata stay on their own variants. The food search query enforces the 3-character minimum decided in Phase 2.
+- [ ] Subtask: Add food-catalog schema, provenance, and staged-search contracts
+  - Acceptance: A `food_catalog` migration and Kysely schema hold reusable food name, optional brand, serving and nutrition fields, source/provider identity, optional normalized GTIN barcode, provenance/verification state, normalized `search_text`, weighted `search_vector`, popularity, and timestamps. `food_entries` retain their immutable nutrition/serving snapshot and gain only an optional catalog provenance reference. `GET /foods/search?query=<text>&cursor=<cursor>` has Zod schemas with a trimmed 3-character minimum, bounded query length/token count, result limit, and opaque cursor. Its result shape distinguishes a private recent-entry result (including last-used metadata) from a catalog result; a FoodData Central fallback is mapped/upserted and returned as a catalog result rather than exposing provider payloads.
   - Verify: `npx nx run backend:typecheck`
   - Suggested files:
+    - `apps/backend/src/infrastructure/persistence/migrations/<timestamp>_create_food_catalog.ts`
+    - `apps/backend/src/infrastructure/persistence/schemas/food-catalog-table.ts`
+    - `apps/backend/src/infrastructure/persistence/schemas/food-entries-table.ts`
+    - `apps/backend/src/infrastructure/persistence/database-client.ts`
     - `packages/api-contracts/src/food-search-requests.ts`
     - `packages/api-contracts/src/food-search-responses.ts`
     - `packages/api-contracts/src/index.ts`
 
-- [ ] Subtask: Add food-search application orchestration
-  - Acceptance: The application layer has DTOs, a `FoodSearchProvider` port, a recent-food read port, and a small service/query handler that trims input, applies the result limit and 3-character minimum, requests matching recent foods, requests USDA foods, and returns one ordered app-owned result list with recent foods first.
-  - Verify: `npx nx run backend:test -- src/application/services/food-search-service.test.ts`
+- [ ] Subtask: Add the guarded FoodData Central zero-hit fallback and catalog ingestion
+  - Acceptance: A provider adapter maps trusted FoodData Central records into catalog inputs and upserts them by stable `(source, source_food_id)` identity. Configuration reads `FOODDATA_CENTRAL_API_KEY` once at startup through `dotenvx.get`; it is not exposed in API responses or logs. The adapter is called only after both local catalog and two-week recent queries return no match, uses a strict timeout and bounded result size, coalesces concurrent identical normalized queries, and caches both normalized-query results and no-result outcomes briefly. Future barcode ingestion validates and normalizes GTIN/check digits before a provider-verified catalog upsert; manually created foods remain user-private.
+  - Implementation note: Reference the temporarily committed FoodData Central OpenAPI spec at `references/fdc_api.yaml` for provider request/response details.
+  - Verify: `npx nx run backend:test -- src/infrastructure/food-data-central/food-catalog-importer.test.ts`
   - Suggested files:
-    - `apps/backend/src/application/dtos/food-search-dtos.ts`
-    - `apps/backend/src/application/ports/food-search-provider.ts`
-    - `apps/backend/src/application/ports/recent-food-query.ts`
-    - `apps/backend/src/application/services/food-search-service.ts`
-    - `apps/backend/src/application/services/food-search-service.test.ts`
-
-- [ ] Subtask: Implement the FoodData Central infrastructure adapter
-  - Acceptance: Backend startup reads/decrypts `FOODDATA_CENTRAL_API_KEY` with `dotenvx.get`, caches the resolved value in memory, and passes it to the adapter through configuration or constructor injection. The adapter builds FoodData Central requests, maps provider responses into app-owned DTOs, handles provider errors without leaking internals, and keeps USDA ranking logic isolated behind unit-tested functions. Branded-versus-generic ranking is optional; if FoodData Central results do not expose reliable branded data, skip branded-specific handling and use generic USDA ordering for the MVP.
-  - Implementation note: Reference the temporarily committed FoodData Central OpenAPI spec at `references/fdc_api.yaml` for USDA endpoint, query, and response-shape details.
-  - Verify: `npx nx run backend:test -- src/infrastructure/food-data-central/food-data-central-food-search-provider.test.ts`
-  - Suggested files:
-    - `apps/backend/src/infrastructure/food-data-central/food-data-central-food-search-provider.ts`
+    - `apps/backend/src/application/ports/food-catalog-writer.ts`
+    - `apps/backend/src/infrastructure/food-data-central/food-data-central-catalog-importer.ts`
     - `apps/backend/src/infrastructure/food-data-central/food-data-central-mappers.ts`
-    - `apps/backend/src/infrastructure/food-data-central/food-data-central-ranking.ts`
-    - `apps/backend/src/infrastructure/food-data-central/food-data-central-food-search-provider.test.ts`
+    - `apps/backend/src/infrastructure/food-data-central/food-catalog-importer.test.ts`
+    - `apps/backend/src/infrastructure/persistence/repositories/postgres-food-catalog-writer.ts`
     - `apps/backend/src/infrastructure/index.ts`
 
-- [ ] Subtask: Implement recent-food read query and dedupe
-  - Acceptance: Recent foods are read from the authenticated user's food entries from the past 2 weeks, matched against the search query, deduplicated only against other recent foods by normalized name, brand, serving unit, and nutrition values, and returned with last-used metadata for labels such as `Thur` or `Mar 31`.
-  - Verify: `npx nx run backend:test:integration`
+- [ ] Subtask: Implement indexed local catalog and two-week recent search
+  - Acceptance: The migration enables `pg_trgm`; creates a GIN index over the weighted `simple`-dictionary `search_vector`; creates a GIN `gin_trgm_ops` index over normalized `search_text`; and adds unique provider and barcode constraints where values exist. Catalog search uses parameterized, validated all-token full-text matching with safe prefix-token typeahead, handles name/brand tokens in either order, ranks exact/prefix name matches ahead of full-text rank, and uses trigram similarity only as a fuzzy fallback/ranking signal. In parallel, a private recent-query reads matching entries from only the authenticated user's prior two weeks. The service combines local results with recent entries first, dedupes catalog-linked duplicates while retaining meaningful user-specific serving variants, and returns a stable, cursor-paginated maximum page without table scans for ordinary queries.
+  - Verify: `npx nx run backend:test -- src/infrastructure/persistence/repositories/postgres-food-catalog-search-query.test.ts`, then `npx nx run backend:test:integration`
   - Suggested files:
+    - `apps/backend/src/application/ports/food-catalog-search-query.ts`
+    - `apps/backend/src/application/ports/recent-food-query.ts`
+    - `apps/backend/src/application/services/food-catalog-search-service.ts`
+    - `apps/backend/src/application/services/food-catalog-search-service.test.ts`
+    - `apps/backend/src/infrastructure/persistence/repositories/postgres-food-catalog-search-query.ts`
+    - `apps/backend/src/infrastructure/persistence/repositories/postgres-food-catalog-search-query.test.ts`
+    - `apps/backend/src/infrastructure/persistence/repositories/postgres-food-catalog-search-query.integration.test.ts`
     - `apps/backend/src/infrastructure/persistence/repositories/postgres-recent-food-query.ts`
     - `apps/backend/src/infrastructure/persistence/repositories/postgres-recent-food-query.integration.test.ts`
     - `apps/backend/src/infrastructure/persistence/repositories/index.ts`
-    - `apps/backend/src/application/dtos/food-search-dtos.ts`
 
-- [ ] Subtask: Expose backend food search route and container wiring
-  - Acceptance: `GET /foods/search?query=<text>` is authenticated, validates query params with the shared schema, returns backend-ordered results, maps service/provider errors into safe HTTP responses, and is wired through the backend container and route index. No response includes the FoodData Central API key or provider-specific private fields.
+- [ ] Subtask: Expose the protected staged-search endpoint and measure its performance
+  - Acceptance: `GET /foods/search` is authenticated, validates query params with the shared schema, runs catalog and authenticated two-week recent queries in parallel, returns their stable combined order/cursor when either hits, and invokes the bounded FoodData Central fallback only for a zero-local-hit result. It maps failures to safe HTTP responses, uses the existing/general request limit without changing rate-limit policy, and records query count, local-hit/fallback rate, result count, database duration, provider duration, and end-to-end latency without logging raw search text, secrets, or provider internals. A broader local-catalog Redis cache requires measured evidence and a separate decision.
   - Verify: `npx nx run backend:test -- src/presentation/controllers/food-search-controller.test.ts`, then `npx nx run backend:test:integration`
   - Suggested files:
     - `apps/backend/src/presentation/controllers/food-search-controller.ts`
@@ -488,30 +481,29 @@ As a calorie tracking person, I want to be able to type to search for foods to a
     - `apps/backend/src/infrastructure/container.ts`
 
 - [ ] Subtask: Add portable food search client helpers
-  - Acceptance: `@calibrate/api-client` exposes a food search operation and portable query options/hooks that accept an `ApiTransport`, parse responses through shared schemas where practical, enforce the shared query contract, and avoid client-side re-ranking.
+  - Acceptance: `@calibrate/api-client` exposes cursor-aware staged-search operations and portable query options/hooks that accept an `ApiTransport`, parse responses through shared schemas where practical, enforce the shared query contract, cancel superseded requests, and avoid client-side re-ranking.
   - Verify: `npx nx run @calibrate/api-client:typecheck` if a target exists; otherwise `npx nx run web:typecheck`
   - Suggested files:
     - `packages/api-client/src/foods/search-foods.ts`
     - `packages/api-client/src/index.ts`
 
 - [ ] Subtask: Build food search UI against mock results
-  - Acceptance: Search can open from the FAB or a meal section, meal-specific add actions preselect the meal, results render in backend-provided order without client re-ranking, recent food entry results show compact recency labels, and loading/empty/error states are represented before live APIs are wired.
+  - Acceptance: Search can open from the FAB or a meal section, meal-specific add actions preselect the meal, results render in backend-provided order without client re-ranking, catalog result cards show name, optional brand, calories, and serving size, recent-entry cards include compact last-used metadata, and loading/empty/error states are represented before live APIs are wired.
   - Before implementation: ask the user for screenshots of any existing search, list, bottom-sheet/page transition, loading, empty, and error UI patterns. Explain that this task builds the mock food-search experience and result rows before live API wiring.
   - Verify: `npx nx run web:test -- src/pages/logs/food-search.test.tsx`, then `npx nx run web:test:integration`
   - Suggested files:
     - `apps/web-frontend/src/pages/logs/components/FoodSearchPage.tsx`
-    - `apps/web-frontend/src/pages/logs/components/FoodResultRow.tsx`
-    - `apps/web-frontend/src/pages/logs/components/RecentFoodLabel.tsx`
+    - `apps/web-frontend/src/pages/logs/components/FoodResultCard.tsx`
     - `apps/web-frontend/src/pages/logs/food-search.test.tsx`
     - `apps/web-frontend/src/pages/logs/food-search.integration.test.tsx`
     - `apps/web-frontend/src/pages/logs/Logs.tsx`
 
 - [ ] Subtask: Wire live food search into the log flow
-  - Acceptance: Food search calls `GET /foods/search` through the package-owned `@calibrate/api-client` food search query hook/options, passing the web app's configured `ApiTransport`. It enforces/debounces the 3-character minimum as needed, renders backend-ordered live results, preserves preselected meal context for the next story's confirmation route, and keeps loading, empty, and error states stable with live data. Do not add a web-local data-fetching hook for this operation.
+  - Acceptance: Food search calls `GET /foods/search` through the package-owned `@calibrate/api-client` staged-search query hook/options, passing the web app's configured `ApiTransport`. It debounces by roughly 250–350 ms, cancels superseded input requests, enforces the 3-character minimum, renders backend-ordered live results, preserves preselected meal context for Story 5's confirmation route, and keeps loading, empty, and error states stable. Do not add a web-local data-fetching hook or client-side result cache beyond the configured query cache for this operation.
   - Verify: `npx nx run web:test:integration`
   - Suggested files:
     - `packages/api-client/src/foods/search-foods.ts`
-    - `apps/web-frontend/src/pages/logs/components/FoodSearchSheet.tsx`
+    - `apps/web-frontend/src/pages/logs/components/FoodSearchPage.tsx`
     - `apps/web-frontend/src/pages/logs/food-search-live.integration.test.tsx`
     - `apps/web-frontend/src/pages/logs/Logs.tsx`
 
