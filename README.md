@@ -5,7 +5,7 @@ A calorie tracker application, because I've gotten into healthier eating, joggin
 Currently building out the backend as an Express.js app with clean architecture layering to decouple business logic from particular technology choices. Will use the backend to explore/practice various backend topics.
 
 ## Frontend Current State
-The current UI is a prototype built with mock data, most things are not actually functional, pages do not load live data yet. That is intentional. I'm working first on the product direction, information hierarchy, and interaction patterns.
+The current UI is a prototype built with mock data, many things are not actually functional, some pages do not load live data yet. That is intentional. I'm working first on the product direction, information hierarchy, and interaction patterns.
 
 The first goal right now is to use product judgment: take what could easily become dense, data-heavy areas in the Dashboard and Goals pages, and keep them simple enough to be useful. The target user is not an expert mathematician or nutrition analyst, rather they are people wanting to change themselves, who may need help building new habits, and need to understand what to do next, and what is working or not working. The most important product work is surfacing actions and actionable insights that help them keep momentum with new habits, while suggesting small tweaks they may not have realized they can do that will help them get results.
 
@@ -15,7 +15,7 @@ Charts and data stay at overview level by default. When a user chooses to drill 
 #### Dashboard page
 Initial page:
 <br></br>
-<img width="1291" height="827" alt="Screenshot 2026-06-25 at 8 52 29 PM" src="https://github.com/user-attachments/assets/d2c1dd68-4c20-4f66-832d-b57d9ec203f7" />
+<img width="1069" height="830" alt="Screenshot 2026-08-06 at 8 33 18 AM" src="https://github.com/user-attachments/assets/3136d5ef-6ad9-4a32-8011-b54b3f832ccd" />
 <br></br>
 On clicking the High Impact Swap card's Learn More link -> panel with actionable insights:
 <br></br>
@@ -31,7 +31,8 @@ Allows deeper drilling into stats and progress.
 
 Initial view - can see encouragement about journey, scrolling down you can see charts (weight and fats consumption only for now):
 <br></br>
-<img width="1247" height="936" alt="Screenshot 2026-07-09 at 3 31 44 PM" src="https://github.com/user-attachments/assets/f42692fe-ddc1-419d-b1cc-4d2b1bdb2b8e" />
+<img width="1067" height="908" alt="Screenshot 2026-08-06 at 8 34 05 AM" src="https://github.com/user-attachments/assets/9ca56e79-7b8f-45ba-bae8-7c78e8dbe670" />
+
 
 <br></br>
 
@@ -40,12 +41,22 @@ Clicking the Fats bar chart opens a panel with deeper data the user can find tre
 <br></br>
 Greatest sources of fats by food in the last month:
 <br></br>
-<img width="1226" height="933" alt="Screenshot 2026-07-09 at 3 51 04 PM" src="https://github.com/user-attachments/assets/2088d778-4ae3-46f1-897e-64c3a15a9b31" />
+<img width="1072" height="911" alt="Screenshot 2026-08-06 at 8 34 58 AM" src="https://github.com/user-attachments/assets/c5ec2173-62a7-4aa8-b7be-a7778005f236" />
+
 <br></br>
 Largest changes in fat contributions from food between last month to this month:
 <br></br>
-<img width="1224" height="933" alt="Screenshot 2026-07-09 at 3 55 49 PM" src="https://github.com/user-attachments/assets/59ceb1b6-9d9c-46b0-8cdf-a81dcde74315" />
+<img width="1076" height="904" alt="Screenshot 2026-08-06 at 8 35 08 AM" src="https://github.com/user-attachments/assets/4dfe83ae-75b3-4f83-bb6f-6e59b498ad06" />
+
 <br></br>
+
+#### Daily Logs Page
+<img width="1032" height="851" alt="Screenshot 2026-08-06 at 8 59 02 AM" src="https://github.com/user-attachments/assets/8551ae2f-2a4c-4004-b300-507664362af0" />
+<br></br>
+Each day starts with a compact summary of calories eaten, calories remaining, and macros with line graphs to give the user a quick sense of if their day is on the right track, and what they can still afford. As they are working on building new habits, it helps to know this information so they can quickly adjust in the same day.
+
+Logging can be done via the floating Plus button, or an Add Item button under the specific meal to quickly reach logging for it, which a user will frequently do.
+
 
 # Tech Stack
 
