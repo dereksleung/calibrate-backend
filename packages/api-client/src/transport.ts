@@ -19,6 +19,7 @@ export interface ApiRequestOptions<TSchema extends z.ZodTypeAny = z.ZodTypeAny> 
   query?: Record<string, string | number | boolean | null | undefined>;
   body?: unknown;
   headers?: HeadersInit;
+  signal?: AbortSignal;
   responseBodySchema: TSchema;
 }
 
@@ -81,6 +82,7 @@ export function createApiTransport(options: ApiTransportOptions): ApiTransport {
       query,
       body,
       headers: requestHeaders,
+      signal,
       responseBodySchema,
     }: ApiRequestOptions<TSchema>): Promise<z.infer<TSchema>> {
       const fetchImplementation = options.fetch ?? globalThis.fetch?.bind(globalThis);
@@ -94,6 +96,7 @@ export function createApiTransport(options: ApiTransportOptions): ApiTransport {
         credentials: "include",
         headers: await buildHeaders(options, requestHeaders, body),
         body: body === undefined ? undefined : JSON.stringify(body),
+        signal,
       });
       const responseBody = await readResponseBody(response);
 

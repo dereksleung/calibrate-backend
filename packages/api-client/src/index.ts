@@ -5,3 +5,4 @@ export * from "./auth/account-email-verification.js";
 export * from "./auth/signup-passkey-registration.js";
 export * from "./auth/passkey-authentication.js";
 export * from "./auth/session.js";
+export * from "./foods/search-foods.js";
