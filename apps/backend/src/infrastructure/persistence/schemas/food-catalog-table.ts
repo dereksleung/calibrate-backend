@@ -1,16 +1,9 @@
-import { MealNameEnumType } from "@domain/entities/food-entry.js";
-import { ColumnType, Generated, Selectable, Insertable, Updateable } from "kysely";
+import { ColumnType, Generated, Insertable, Selectable, Updateable } from "kysely";
 
-export interface FoodEntriesTable {
+export interface FoodCatalogTable {
   id: Generated<string>;
-  day_log_id: string;
-  food_catalog_id: string | null;
-  meal: MealNameEnumType;
   name: string;
   brand: string | null;
-  icon_name: string | null;
-  chosen_quantity: number;
-  chosen_unit: string;
   quantity_serving: number;
   serving_label: string;
   quantity_mass: number | null;
@@ -26,10 +19,17 @@ export interface FoodEntriesTable {
   fiber_grams: number | null;
   sugar_grams: number | null;
   protein_grams: number;
+  source: string;
+  source_food_id: string;
+  normalized_gtin: string | null;
+  verification_state: string;
+  search_text: string;
+  search_vector: unknown;
+  popularity: number;
   created_at: ColumnType<Date, string, never>;
   updated_at: ColumnType<Date, string, Date>;
 }
 
-export type SelectableFoodEntry = Selectable<FoodEntriesTable>;
-export type InsertableFoodEntry = Insertable<FoodEntriesTable>;
-export type UpdateableFoodEntry = Updateable<FoodEntriesTable>;
+export type SelectableFoodCatalog = Selectable<FoodCatalogTable>;
+export type InsertableFoodCatalog = Insertable<FoodCatalogTable>;
+export type UpdateableFoodCatalog = Updateable<FoodCatalogTable>;

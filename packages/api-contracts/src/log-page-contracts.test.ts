@@ -4,10 +4,11 @@ import {
   CreateFoodEntryRequestSchema,
   FoodSearchRequestQuerySchema,
   FoodSearchResponseSchema,
+  FoodSearchRequestQuerySchema,
   RecentFoodSearchResultSchema,
   UpdateDayLogWeightRequestBodySchema,
   UpdateDayLogWeightRequestRouteParamsSchema,
-  UsdaFoodSearchResultSchema,
+  CatalogFoodSearchResultSchema,
 } from "./index.js";
 
 const baseFoodResult = {
@@ -36,9 +37,16 @@ describe("log page request contracts", () => {
     expect(() => UpdateDayLogWeightRequestBodySchema.parse({ weight: 0 })).toThrow();
   });
 
-  it("trims and validates food search query params", () => {
-    expect(FoodSearchRequestQuerySchema.parse({ query: "  yogurt  " })).toEqual({ query: "yogurt" });
+  it("trims and bounds food search query params", () => {
+    expect(FoodSearchRequestQuerySchema.parse({ query: "  yogurt  " })).toEqual({ query: "yogurt", limit: 20 });
     expect(() => FoodSearchRequestQuerySchema.parse({ query: "   " })).toThrow();
+    expect(() => FoodSearchRequestQuerySchema.parse({ query: "yo" })).toThrow();
+    expect(() => FoodSearchRequestQuerySchema.parse({ query: "one two three four five six seven eight nine" })).toThrow();
+    expect(FoodSearchRequestQuerySchema.parse({ query: "greek yogurt", cursor: "offset:20", limit: "12" })).toEqual({
+      query: "greek yogurt",
+      cursor: "offset:20",
+      limit: 12,
+    });
   });
 
   it("uses the shared food entry base for create-food-entry requests", () => {
@@ -63,13 +71,13 @@ describe("log page request contracts", () => {
 });
 
 describe("log page response contracts", () => {
-  it("defaults only serving fields for USDA results", () => {
-    const result = UsdaFoodSearchResultSchema.parse({
+  it("defaults only serving fields for catalog results", () => {
+    const result = CatalogFoodSearchResultSchema.parse({
       ...baseFoodResult,
-      sourceLabel: "USDA",
+      sourceLabel: "USDA FoodData Central",
       brand: null,
-      source: "usda",
-      fdcId: 123456,
+      source: "catalog",
+      catalogFoodId: "2d38c136-5633-4b22-9553-b8a587dd6ba6",
     });
 
     expect(result.quantityServing).toBe(1);
@@ -111,14 +119,16 @@ describe("log page response contracts", () => {
         },
         {
           ...baseFoodResult,
-          sourceLabel: "USDA",
+          sourceLabel: "USDA FoodData Central",
           brand: null,
-          source: "usda",
-          fdcId: 123456,
+          source: "catalog",
+          catalogFoodId: "2d38c136-5633-4b22-9553-b8a587dd6ba6",
         },
       ],
+      nextCursor: null,
     });
 
-    expect(response.results.map((result) => result.source)).toEqual(["recent", "usda"]);
+    expect(response.results.map((result) => result.source)).toEqual(["recent", "catalog"]);
+    expect(response.nextCursor).toBeNull();
   });
 });

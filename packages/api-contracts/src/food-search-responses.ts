@@ -17,18 +17,19 @@ export const RecentFoodSearchResultSchema = FoodSearchResultBaseSchema.extend({
   recency: RecentFoodRecencyMetadataSchema,
 });
 
-export const UsdaFoodSearchResultSchema = FoodSearchResultBaseSchema.extend({
-  source: z.literal("usda"),
-  fdcId: z.number().int().positive(),
+export const CatalogFoodSearchResultSchema = FoodSearchResultBaseSchema.extend({
+  source: z.literal("catalog"),
+  catalogFoodId: z.string().uuid(),
 });
 
 export const FoodSearchResultSchema = z.discriminatedUnion("source", [
   RecentFoodSearchResultSchema,
-  UsdaFoodSearchResultSchema,
+  CatalogFoodSearchResultSchema,
 ]);
 
 export const FoodSearchResponseSchema = z.object({
   results: z.array(FoodSearchResultSchema),
+  nextCursor: z.string().min(1).max(256).nullable(),
 });
 
 export const RecentFoodsResponseSchema = z.object({
@@ -37,7 +38,7 @@ export const RecentFoodsResponseSchema = z.object({
 
 export type RecentFoodRecencyMetadata = z.infer<typeof RecentFoodRecencyMetadataSchema>;
 export type RecentFoodSearchResult = z.infer<typeof RecentFoodSearchResultSchema>;
-export type UsdaFoodSearchResult = z.infer<typeof UsdaFoodSearchResultSchema>;
+export type CatalogFoodSearchResult = z.infer<typeof CatalogFoodSearchResultSchema>;
 export type FoodSearchResult = z.infer<typeof FoodSearchResultSchema>;
 export type FoodSearchResponse = z.infer<typeof FoodSearchResponseSchema>;
 export type RecentFoodsResponse = z.infer<typeof RecentFoodsResponseSchema>;
