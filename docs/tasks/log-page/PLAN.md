@@ -521,8 +521,9 @@ As a calorie-tracking person, I want to see a confirmation screen after pressing
     - `apps/web-frontend/src/pages/logs/logs-routing.integration.test.tsx`
     - `apps/web-frontend/src/routeTree.gen.ts`
 
-- [ ] Subtask: Build confirmation page UI against selected-food state
+- [ ] Subtask: Build confirmation page UI against mock selected-food state
   - Acceptance: The confirmation page shows selected food details and nutrition info, allows quantity, serving unit, and meal edits, excludes direct calorie editing, handles missing/stale selected-food state safely, and keeps the route hidden from header/drawer navigation.
+    Quantity should be a text field, while serving unit is a dropdown of accepted options
   - Before implementation: ask the user for screenshots of any existing form, select/input, detail, save/cancel, and error-state patterns. Explain that this task builds the hidden food-confirmation route UI, including quantity, serving unit, meal selection, nutrition display, and missing-context handling.
   - Verify: `npx nx run web:test -- src/pages/logs/ConfirmFood.test.tsx`
   - Files:
