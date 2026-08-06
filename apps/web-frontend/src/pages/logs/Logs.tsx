@@ -1,24 +1,23 @@
-import { useEffect, useMemo } from 'react'
-import { toast } from 'sonner';
-import { useNavigate } from '@tanstack/react-router'
+import { apiTransport } from "#/shared/api/api-client.ts";
+import { useSelectedDayLog } from "@calibrate/api-client";
+import { useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo } from "react";
+import { toast } from "sonner";
 
-import { useSelectedDayLog } from '@calibrate/api-client'
-
-import { apiTransport } from '#/shared/api/api-client.ts'
-import { DateStepper } from './components/DateStepper.tsx'
-import { DailySummary } from './components/DailySummary.tsx'
-import { MealSection } from './components/MealSection.tsx'
-import { QuickLogDrawer } from './components/QuickLogDrawer.tsx'
+import { DailySummary } from "./components/DailySummary.tsx";
+import { DateStepper } from "./components/DateStepper.tsx";
+import { MealSection } from "./components/MealSection.tsx";
+import { QuickLogDrawer } from "./components/QuickLogDrawer.tsx";
 import {
   MEAL_SECTIONS,
   getDailyProgress,
   getDailyTotals,
   normalizeDayLogForRender,
-} from './log-page-helpers.ts'
+} from "./log-page-helpers.ts";
 
 type LogsProps = {
-  selectedDate: string
-}
+  selectedDate: string;
+};
 
 function LogsOverviewSkeleton() {
   return (
@@ -66,32 +65,29 @@ function LogsOverviewSkeleton() {
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 export function Logs({ selectedDate }: LogsProps) {
-  const headingDate = useMemo(() => new Date(`${selectedDate}T00:00:00`), [selectedDate])
-  const navigate = useNavigate()
+  const headingDate = useMemo(() => new Date(`${selectedDate}T00:00:00`), [selectedDate]);
+  const navigate = useNavigate();
 
-  const { data, isPending, error } = useSelectedDayLog(apiTransport, selectedDate)
+  const { data, isPending, error } = useSelectedDayLog(apiTransport, selectedDate);
 
   useEffect(() => {
     if (!isPending && error) {
       toast.error(error.message, {
-        closeButton: true
-      })
+        closeButton: true,
+      });
     }
-  }, [isPending, error])
+  }, [isPending, error]);
 
-  const dayLog = useMemo(
-    () => normalizeDayLogForRender(data ?? null, selectedDate),
-    [data, selectedDate]
-  )
-  const totals = getDailyTotals(dayLog)
-  const progress = getDailyProgress(totals)
+  const dayLog = useMemo(() => normalizeDayLogForRender(data ?? null, selectedDate), [data, selectedDate]);
+  const totals = getDailyTotals(dayLog);
+  const progress = getDailyProgress(totals);
 
   return (
-    <main className="min-h-screen bg-surface px-6 pb-24 pt-8 antialiased md:px-10 md:pb-20 md:pt-16">
+    <main className="min-h-screen bg-surface px-6 pb-24 pt-8 antialiased md:px-10 md:pb-20 md:pt-16 subtle-aurora-fade-page-background">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 md:gap-9">
         <DateStepper selectedDate={selectedDate} date={headingDate} />
 
@@ -108,21 +104,26 @@ export function Logs({ selectedDate }: LogsProps) {
                   meal={section.meal}
                   title={section.title}
                   entries={dayLog.meals[section.meal]}
-                  onAddFood={(meal) => navigate({
-                    to: "/logs/food-search",
-                    search: { date: selectedDate, meal },
-                  })}
+                  onAddFood={(meal) =>
+                    navigate({
+                      to: "/logs/food-search",
+                      search: { date: selectedDate, meal },
+                    })
+                  }
                 />
               ))}
             </div>
           </>
         ) : null}
-
       </div>
-      <QuickLogDrawer onSearchFood={() => navigate({
-        to: "/logs/food-search",
-        search: { date: selectedDate },
-      })} />
+      <QuickLogDrawer
+        onSearchFood={() =>
+          navigate({
+            to: "/logs/food-search",
+            search: { date: selectedDate },
+          })
+        }
+      />
     </main>
-  )
+  );
 }

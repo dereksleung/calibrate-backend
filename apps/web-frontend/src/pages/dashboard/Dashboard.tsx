@@ -1,14 +1,10 @@
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "#/shared/components/base/tooltip/Tooltip.tsx";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/shared/components/base/tooltip/Tooltip.tsx";
 import { Typography } from "#/shared/components/base/typography/Typography.tsx";
 import { useIsLgAndAbove } from "#/shared/hooks/use-media-query.ts";
 import { ConsistencyScore } from "#/verticals/dashboard/components/ConsistencyScore.tsx";
+import { HighImpactSwap } from "#/verticals/dashboard/components/HighImpactSwap.tsx";
 import { TodayAndWeekCalories } from "#/verticals/dashboard/components/TodayAndWeekCalories.tsx";
 import { TodayAndWeekStat } from "#/verticals/dashboard/components/TodayAndWeekStat.tsx";
-import { HighImpactSwap } from "#/verticals/dashboard/components/HighImpactSwap.tsx";
 import { YesterdayRecap } from "#/verticals/dashboard/components/YesterdayRecap.tsx";
 import { Link } from "@tanstack/react-router";
 
@@ -18,7 +14,7 @@ export const Dashboard = () => {
   const isLgAndAbove = useIsLgAndAbove();
 
   return (
-    <main className="px-4 md:px-10 pb-8 pt-14 antialiased">
+    <main className="px-4 md:px-10 pb-8 pt-14 antialiased subtle-aurora-fade-page-background">
       <section className="space-y-6">
         <Typography as="h1" variant="headline" color="onSurface">
           Daily Insights
