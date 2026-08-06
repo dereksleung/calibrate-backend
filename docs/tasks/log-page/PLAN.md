@@ -76,7 +76,7 @@ Dependencies:
 - Store a normalized concatenated `search_text` representation and add a `pg_trgm` GIN index. Use it only as a typo/partial-match fallback or ranking signal after the full-text path, not as the main relevance mechanism.
 - Rank exact and prefix name matches above full-text rank, then fuzzy similarity and bounded catalog popularity. The frontend renders this backend order without re-ranking.
 - Keep the three-day recent-food endpoint separate from the typed-search recent query. `GET /foods/recent` reads only the authenticated user's last three calendar days; the staged typed-search query may read matching entries from the prior two weeks. Neither path may leak private/custom foods into another user's results or the shared catalog.
-- Debounce/cancel client requests and use the database indexes for the local stage. Protect the FoodData Central fallback with a short timeout, bounded result size, in-flight request coalescing, and a short-TTL normalized-query result/negative cache; use the existing/general request limit and obtain approval before changing rate-limit policy. Measure query rate, fallback rate, p95 latency, database time, and result counts. A broader Redis cache for local catalog results remains deferred until those metrics justify it.
+- Debounce/cancel client requests and use the database indexes for the local stage. Protect the FoodData Central fallback with a short timeout, bounded result size, in-flight request coalescing, and a short-TTL normalized-query result/negative cache; use the existing/general request limit and obtain approval before changing rate-limit policy. Defer endpoint performance instrumentation and measurement, along with any broader Redis cache for local catalog results, to a later separately scoped decision.
 
 Dependencies:
 
@@ -191,7 +191,7 @@ Parallelizable after contracts:
   - Mitigation: upsert provider data by stable source identity, use a validated normalized barcode only for trusted barcode/provider data, record verification status, and keep manual foods in a user-private store.
 
 - Risk: Catalog typeahead regresses as the catalog grows or receives frequent queries.
-  - Mitigation: use GIN full-text and trigram indexes, enforce bounded input/results and cursor pagination, debounce/cancel client requests, and measure database/end-to-end latency; only the zero-local-hit provider fallback receives a short-TTL result/negative cache in this story.
+  - Mitigation: use GIN full-text and trigram indexes, enforce bounded input/results and cursor pagination, and debounce/cancel client requests; only the zero-local-hit provider fallback receives a short-TTL result/negative cache in this story. Defer performance measurement and any broader shared cache to a later separately scoped decision.
 
 - Risk: Fuzzy matching obscures exact or prefix food-name matches.
   - Mitigation: rank exact/prefix name matches before full-text rank and use trigram similarity only as a fallback/ranking signal.
@@ -469,8 +469,8 @@ As a calorie tracking person, I want to be able to type to search for foods to a
     - `apps/backend/src/infrastructure/persistence/repositories/postgres-recent-food-query.integration.test.ts`
     - `apps/backend/src/infrastructure/persistence/repositories/index.ts`
 
-- [ ] Subtask: Expose the protected staged-search endpoint and measure its performance
-  - Acceptance: `GET /foods/search` is authenticated, validates query params with the shared schema, runs catalog and authenticated two-week recent queries in parallel, returns their stable combined order/cursor when either hits, and invokes the bounded FoodData Central fallback only for a zero-local-hit result. It maps failures to safe HTTP responses, uses the existing/general request limit without changing rate-limit policy, and records query count, local-hit/fallback rate, result count, database duration, provider duration, and end-to-end latency without logging raw search text, secrets, or provider internals. A broader local-catalog Redis cache requires measured evidence and a separate decision.
+- [ ] Subtask: Expose the protected staged-search endpoint
+  - Acceptance: `GET /foods/search` is authenticated, validates query params with the shared schema, runs catalog and authenticated two-week recent queries in parallel, returns their stable combined order/cursor when either hits, and invokes the bounded FoodData Central fallback only for a zero-local-hit result. It maps failures to safe HTTP responses and uses the existing/general request limit without changing rate-limit policy. Endpoint performance instrumentation and measurement, plus any decision on a broader local-catalog Redis cache, are deferred to a later separately scoped decision.
   - Verify: `npx nx run backend:test -- src/presentation/controllers/food-search-controller.test.ts`, then `npx nx run backend:test:integration`
   - Suggested files:
     - `apps/backend/src/presentation/controllers/food-search-controller.ts`
