@@ -14,6 +14,7 @@ import { Route as LogsRouteImport } from './routes/logs'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LogsFoodSearchRouteImport } from './routes/logs/food-search'
 import { Route as AuthPasskeyEnrollmentRouteImport } from './routes/auth/passkey-enrollment'
 import { Route as AuthOtpRouteImport } from './routes/auth/otp'
 import { Route as AuthLoginRecoveryRouteImport } from './routes/auth/login-recovery'
@@ -43,6 +44,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LogsFoodSearchRoute = LogsFoodSearchRouteImport.update({
+  id: '/food-search',
+  path: '/food-search',
+  getParentRoute: () => LogsRoute,
+} as any)
 const AuthPasskeyEnrollmentRoute = AuthPasskeyEnrollmentRouteImport.update({
   id: '/auth/passkey-enrollment',
   path: '/auth/passkey-enrollment',
@@ -63,32 +69,35 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/goals': typeof GoalsRoute
-  '/logs': typeof LogsRoute
+  '/logs': typeof LogsRouteWithChildren
   '/signup-login': typeof SignupLoginRoute
   '/auth/login-recovery': typeof AuthLoginRecoveryRoute
   '/auth/otp': typeof AuthOtpRoute
   '/auth/passkey-enrollment': typeof AuthPasskeyEnrollmentRoute
+  '/logs/food-search': typeof LogsFoodSearchRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/goals': typeof GoalsRoute
-  '/logs': typeof LogsRoute
+  '/logs': typeof LogsRouteWithChildren
   '/signup-login': typeof SignupLoginRoute
   '/auth/login-recovery': typeof AuthLoginRecoveryRoute
   '/auth/otp': typeof AuthOtpRoute
   '/auth/passkey-enrollment': typeof AuthPasskeyEnrollmentRoute
+  '/logs/food-search': typeof LogsFoodSearchRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/goals': typeof GoalsRoute
-  '/logs': typeof LogsRoute
+  '/logs': typeof LogsRouteWithChildren
   '/signup-login': typeof SignupLoginRoute
   '/auth/login-recovery': typeof AuthLoginRecoveryRoute
   '/auth/otp': typeof AuthOtpRoute
   '/auth/passkey-enrollment': typeof AuthPasskeyEnrollmentRoute
+  '/logs/food-search': typeof LogsFoodSearchRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/auth/login-recovery'
     | '/auth/otp'
     | '/auth/passkey-enrollment'
+    | '/logs/food-search'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/auth/login-recovery'
     | '/auth/otp'
     | '/auth/passkey-enrollment'
+    | '/logs/food-search'
   id:
     | '__root__'
     | '/'
@@ -121,13 +132,14 @@ export interface FileRouteTypes {
     | '/auth/login-recovery'
     | '/auth/otp'
     | '/auth/passkey-enrollment'
+    | '/logs/food-search'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   GoalsRoute: typeof GoalsRoute
-  LogsRoute: typeof LogsRoute
+  LogsRoute: typeof LogsRouteWithChildren
   SignupLoginRoute: typeof SignupLoginRoute
   AuthLoginRecoveryRoute: typeof AuthLoginRecoveryRoute
   AuthOtpRoute: typeof AuthOtpRoute
@@ -171,6 +183,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/logs/food-search': {
+      id: '/logs/food-search'
+      path: '/food-search'
+      fullPath: '/logs/food-search'
+      preLoaderRoute: typeof LogsFoodSearchRouteImport
+      parentRoute: typeof LogsRoute
+    }
     '/auth/passkey-enrollment': {
       id: '/auth/passkey-enrollment'
       path: '/auth/passkey-enrollment'
@@ -195,11 +214,21 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface LogsRouteChildren {
+  LogsFoodSearchRoute: typeof LogsFoodSearchRoute
+}
+
+const LogsRouteChildren: LogsRouteChildren = {
+  LogsFoodSearchRoute: LogsFoodSearchRoute,
+}
+
+const LogsRouteWithChildren = LogsRoute._addFileChildren(LogsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   GoalsRoute: GoalsRoute,
-  LogsRoute: LogsRoute,
+  LogsRoute: LogsRouteWithChildren,
   SignupLoginRoute: SignupLoginRoute,
   AuthLoginRecoveryRoute: AuthLoginRecoveryRoute,
   AuthOtpRoute: AuthOtpRoute,

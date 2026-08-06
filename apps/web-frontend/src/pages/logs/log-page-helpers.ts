@@ -25,6 +25,10 @@ export type LogsSearch = {
   date: string;
 };
 
+export type FoodSearchRouteSearch = LogsSearch & {
+  meal?: MealNameEnumType;
+};
+
 export type NutritionTotals = {
   calories: number;
   proteinGrams: number;
@@ -94,6 +98,18 @@ export function isToday(selectedDate: string, now = new Date()): boolean {
 export function normalizeLogsSearch(search: Record<string, unknown>, now = new Date()): LogsSearch {
   return {
     date: isIsoDateOnly(search.date) ? search.date : getTodayDateString(now),
+  };
+}
+
+export function normalizeFoodSearchRouteSearch(
+  search: Record<string, unknown>,
+  now = new Date(),
+): FoodSearchRouteSearch {
+  const validMeal = MEAL_SECTIONS.find((section) => section.meal === search.meal)?.meal;
+
+  return {
+    date: isIsoDateOnly(search.date) ? search.date : getTodayDateString(now),
+    ...(validMeal ? { meal: validMeal } : {}),
   };
 }
 

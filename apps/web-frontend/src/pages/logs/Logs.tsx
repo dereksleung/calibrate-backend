@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { toast } from 'sonner';
+import { useNavigate } from '@tanstack/react-router'
 
 import { useSelectedDayLog } from '@calibrate/api-client'
 
@@ -69,8 +70,8 @@ function LogsOverviewSkeleton() {
 }
 
 export function Logs({ selectedDate }: LogsProps) {
-  const [quickLogMessage, setQuickLogMessage] = useState<string | null>(null)
   const headingDate = useMemo(() => new Date(`${selectedDate}T00:00:00`), [selectedDate])
+  const navigate = useNavigate()
 
   const { data, isPending, error } = useSelectedDayLog(apiTransport, selectedDate)
 
@@ -107,20 +108,21 @@ export function Logs({ selectedDate }: LogsProps) {
                   meal={section.meal}
                   title={section.title}
                   entries={dayLog.meals[section.meal]}
-                  onAddFood={() => setQuickLogMessage(`Search will open for ${section.title}.`)}
+                  onAddFood={(meal) => navigate({
+                    to: "/logs/food-search",
+                    search: { date: selectedDate, meal },
+                  })}
                 />
               ))}
             </div>
           </>
         ) : null}
 
-        {quickLogMessage ? (
-          <p role="status" className="sr-only">
-            {quickLogMessage}
-          </p>
-        ) : null}
       </div>
-      <QuickLogDrawer onSearchFood={() => setQuickLogMessage('Search food selected.')} />
+      <QuickLogDrawer onSearchFood={() => navigate({
+        to: "/logs/food-search",
+        search: { date: selectedDate },
+      })} />
     </main>
   )
 }

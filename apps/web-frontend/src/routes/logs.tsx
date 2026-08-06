@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { Outlet, createFileRoute, useMatchRoute } from '@tanstack/react-router'
 
 import { Logs } from '#/pages/logs/Logs.tsx'
 import { normalizeLogsSearch } from '#/pages/logs/log-page-helpers.ts'
@@ -10,6 +10,11 @@ export const Route = createFileRoute('/logs')({
 
 function LogsRoute() {
   const { date } = Route.useSearch()
+  const matchRoute = useMatchRoute()
+
+  if (matchRoute({ to: '/logs/food-search', fuzzy: false })) {
+    return <Outlet />
+  }
 
   return <Logs selectedDate={date} />
 }
