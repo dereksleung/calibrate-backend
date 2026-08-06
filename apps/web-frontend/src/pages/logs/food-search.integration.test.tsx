@@ -45,6 +45,34 @@ beforeEach(() => {
       }), { status: 200, headers: { "content-type": "application/json" } }));
     }
 
+    if (url.includes("/foods/search")) {
+      return Promise.resolve(new Response(JSON.stringify({
+        results: [{
+          source: "catalog",
+          catalogFoodId: "2d38c136-5633-4b22-9553-b8a587dd6ba6",
+          sourceLabel: "USDA FoodData Central",
+          name: "Greek yogurt",
+          brand: "Calibrate Kitchen",
+          calories: 150,
+          totalFatGrams: 4,
+          saturatedFatGrams: 2,
+          cholesterolMg: 10,
+          sodiumMg: 65,
+          totalCarbohydrateGrams: 8,
+          fiberGrams: 0,
+          sugarGrams: 6,
+          proteinGrams: 18,
+          quantityServing: 1,
+          servingLabel: "cup",
+          quantityMass: null,
+          massUnit: null,
+          quantityVolume: null,
+          volumeUnit: null,
+        }],
+        nextCursor: null,
+      }), { status: 200, headers: { "content-type": "application/json" } }));
+    }
+
     return Promise.resolve(new Response("not found", { status: 404 }));
   });
 });
@@ -79,5 +107,16 @@ describe("food search route", () => {
 
     expect(await screen.findByRole("status")).toBeTruthy();
     expect(screen.getByRole("status").textContent).toContain("Zero Sugar Oat selected for confirmation.");
+  });
+
+  it("debounces typed searches and renders the backend-provided result order", async () => {
+    renderFoodSearchRoute();
+
+    fireEvent.change(await screen.findByRole("searchbox", { name: "Search foods" }), {
+      target: { value: "greek yogurt" },
+    });
+
+    expect(await screen.findByRole("button", { name: /select Greek yogurt/i })).toBeTruthy();
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/foods/search?query=greek+yogurt"), expect.any(Object));
   });
 });

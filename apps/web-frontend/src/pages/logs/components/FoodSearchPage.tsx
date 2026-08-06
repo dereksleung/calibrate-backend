@@ -10,6 +10,8 @@ type FoodSearchState = "ready" | "loading" | "empty" | "error";
 type FoodSearchPageProps = {
   recentFoods?: SelectedFoodForConfirmation[];
   state?: FoodSearchState;
+  query?: string;
+  onQueryChange?: (query: string) => void;
   onSelectFood?: (state: FoodConfirmationState) => void;
 };
 
@@ -63,8 +65,12 @@ function RecentFoodSkeletons() {
 export function FoodSearchPage({
   recentFoods = mockRecentFoods,
   state = "ready",
+  query = "",
+  onQueryChange,
   onSelectFood,
 }: FoodSearchPageProps) {
+  const isSearching = query.trim().length >= 3;
+  const heading = isSearching ? "Search results" : "Recently logged";
   return (
     <main className="min-h-screen bg-surface subtle-aurora-fade-page-background px-6 pb-24 pt-8 antialiased md:px-10 md:pt-16">
       <div className="mx-auto w-full max-w-2xl">
@@ -77,6 +83,8 @@ export function FoodSearchPage({
           <input
             type="search"
             aria-label="Search foods"
+            value={query}
+            onChange={(event) => onQueryChange?.(event.target.value)}
             placeholder="Search foods, brands, flavors..."
             className="glass-card h-12 w-full rounded-full py-3 pl-12 pr-5 text-sm text-on-surface outline-none placeholder:text-secondary focus:ring-3 focus:ring-ring/30"
           />
@@ -87,7 +95,7 @@ export function FoodSearchPage({
             id="recently-logged-heading"
             className="font-heading text-2xl font-normal tracking-tight text-on-surface"
           >
-            Recently logged
+            {heading}
           </h1>
 
           <div className="mt-4">

@@ -13,6 +13,7 @@ export function FoodResultCard({ food, onSelect }: FoodResultCardProps) {
     `${Math.round(food.calories)} cal`,
     `${food.quantityServing} ${food.servingLabel}`,
     food.brand,
+    food.lastUsedLabel,
   ].filter(Boolean).join(" · ");
 
   return (

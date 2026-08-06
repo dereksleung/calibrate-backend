@@ -7,6 +7,7 @@ export type SelectedFoodForConfirmation = {
   calories: number;
   quantityServing: number;
   servingLabel: string;
+  lastUsedLabel?: string;
 };
 
 export type FoodConfirmationState = {

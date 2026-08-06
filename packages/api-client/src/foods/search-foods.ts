@@ -21,6 +21,14 @@ export function searchFoodsQueryOptions(transport: ApiTransport, input: SearchFo
 }
 
 /** Portable staged-search hook. React Query aborts superseded queries through the request signal. */
-export function useFoodSearch(transport: ApiTransport, input: SearchFoodsInput, enabled = true) {
-  return useQuery({ ...searchFoodsQueryOptions(transport, input), enabled });
+export function useFoodSearch(transport: ApiTransport, input: SearchFoodsInput | null) {
+  const enabled = input !== null;
+  return useQuery({
+    queryKey: foodSearchQueryKey(input ?? { query: "" }),
+    queryFn: ({ signal }) => {
+      if (!input) throw new Error("A search query is required");
+      return searchFoods(transport, input, signal);
+    },
+    enabled,
+  });
 }
