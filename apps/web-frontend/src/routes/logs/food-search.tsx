@@ -9,7 +9,7 @@ export const Route = createFileRoute("/logs/food-search")({
 });
 
 function FoodSearchRoute() {
-  const { meal } = Route.useSearch();
+  const { date, meal } = Route.useSearch();
 
-  return <FoodSearch preselectedMeal={meal} />;
+  return <FoodSearch selectedDate={date} preselectedMeal={meal} />;
 }

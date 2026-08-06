@@ -12,7 +12,10 @@ function LogsRoute() {
   const { date } = Route.useSearch()
   const matchRoute = useMatchRoute()
 
-  if (matchRoute({ to: '/logs/food-search', fuzzy: false })) {
+  if (
+    matchRoute({ to: '/logs/food-search', fuzzy: false }) ||
+    matchRoute({ to: '/logs/confirm-food', fuzzy: false })
+  ) {
     return <Outlet />
   }
 

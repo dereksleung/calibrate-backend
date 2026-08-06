@@ -92,21 +92,29 @@ function renderFoodSearchRoute() {
     scrollRestoration: false,
   });
 
-  return render(
+  return {
+    router,
+    ...render(
     <QueryClientProvider client={createQueryClient()}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
-  );
+    ),
+  };
 }
 
 describe("food search route", () => {
-  it("renders mock foods and records a selection for confirmation", async () => {
-    renderFoodSearchRoute();
+  it("carries the selected food and meal into the confirmation route", async () => {
+    const { router } = renderFoodSearchRoute();
 
     fireEvent.click(await screen.findByRole("button", { name: /select Zero Sugar Oat/i }));
 
-    expect(await screen.findByRole("status")).toBeTruthy();
-    expect(screen.getByRole("status").textContent).toContain("Zero Sugar Oat selected for confirmation.");
+    expect(await screen.findByRole("heading", { name: "Add Food" })).toBeTruthy();
+    expect(router.state.location.pathname).toBe("/logs/confirm-food");
+    expect(router.state.location.search).toMatchObject({ date: "2026-05-18" });
+    expect(router.state.location.state.foodConfirmation).toMatchObject({
+      food: { name: "Zero Sugar Oat" },
+      preselectedMeal: "BREAKFAST",
+    });
   });
 
   it("debounces typed searches and renders the backend-provided result order", async () => {

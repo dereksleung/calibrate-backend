@@ -15,6 +15,7 @@ import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LogsFoodSearchRouteImport } from './routes/logs/food-search'
+import { Route as LogsConfirmFoodRouteImport } from './routes/logs/confirm-food'
 import { Route as AuthPasskeyEnrollmentRouteImport } from './routes/auth/passkey-enrollment'
 import { Route as AuthOtpRouteImport } from './routes/auth/otp'
 import { Route as AuthLoginRecoveryRouteImport } from './routes/auth/login-recovery'
@@ -49,6 +50,11 @@ const LogsFoodSearchRoute = LogsFoodSearchRouteImport.update({
   path: '/food-search',
   getParentRoute: () => LogsRoute,
 } as any)
+const LogsConfirmFoodRoute = LogsConfirmFoodRouteImport.update({
+  id: '/confirm-food',
+  path: '/confirm-food',
+  getParentRoute: () => LogsRoute,
+} as any)
 const AuthPasskeyEnrollmentRoute = AuthPasskeyEnrollmentRouteImport.update({
   id: '/auth/passkey-enrollment',
   path: '/auth/passkey-enrollment',
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/auth/login-recovery': typeof AuthLoginRecoveryRoute
   '/auth/otp': typeof AuthOtpRoute
   '/auth/passkey-enrollment': typeof AuthPasskeyEnrollmentRoute
+  '/logs/confirm-food': typeof LogsConfirmFoodRoute
   '/logs/food-search': typeof LogsFoodSearchRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/auth/login-recovery': typeof AuthLoginRecoveryRoute
   '/auth/otp': typeof AuthOtpRoute
   '/auth/passkey-enrollment': typeof AuthPasskeyEnrollmentRoute
+  '/logs/confirm-food': typeof LogsConfirmFoodRoute
   '/logs/food-search': typeof LogsFoodSearchRoute
 }
 export interface FileRoutesById {
@@ -97,6 +105,7 @@ export interface FileRoutesById {
   '/auth/login-recovery': typeof AuthLoginRecoveryRoute
   '/auth/otp': typeof AuthOtpRoute
   '/auth/passkey-enrollment': typeof AuthPasskeyEnrollmentRoute
+  '/logs/confirm-food': typeof LogsConfirmFoodRoute
   '/logs/food-search': typeof LogsFoodSearchRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +119,7 @@ export interface FileRouteTypes {
     | '/auth/login-recovery'
     | '/auth/otp'
     | '/auth/passkey-enrollment'
+    | '/logs/confirm-food'
     | '/logs/food-search'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/auth/login-recovery'
     | '/auth/otp'
     | '/auth/passkey-enrollment'
+    | '/logs/confirm-food'
     | '/logs/food-search'
   id:
     | '__root__'
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '/auth/login-recovery'
     | '/auth/otp'
     | '/auth/passkey-enrollment'
+    | '/logs/confirm-food'
     | '/logs/food-search'
   fileRoutesById: FileRoutesById
 }
@@ -190,6 +202,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LogsFoodSearchRouteImport
       parentRoute: typeof LogsRoute
     }
+    '/logs/confirm-food': {
+      id: '/logs/confirm-food'
+      path: '/confirm-food'
+      fullPath: '/logs/confirm-food'
+      preLoaderRoute: typeof LogsConfirmFoodRouteImport
+      parentRoute: typeof LogsRoute
+    }
     '/auth/passkey-enrollment': {
       id: '/auth/passkey-enrollment'
       path: '/auth/passkey-enrollment'
@@ -215,10 +234,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface LogsRouteChildren {
+  LogsConfirmFoodRoute: typeof LogsConfirmFoodRoute
   LogsFoodSearchRoute: typeof LogsFoodSearchRoute
 }
 
 const LogsRouteChildren: LogsRouteChildren = {
+  LogsConfirmFoodRoute: LogsConfirmFoodRoute,
   LogsFoodSearchRoute: LogsFoodSearchRoute,
 }
 
