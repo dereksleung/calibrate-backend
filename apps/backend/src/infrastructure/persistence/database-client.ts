@@ -1,5 +1,5 @@
 import { Kysely, PostgresDialect } from "kysely";
-import { Pool } from "pg";
+import { Pool, types } from "pg";
 
 import { DayLogsTable } from "./schemas/day-logs-table.js";
 import { EmailOtpChallengesTable } from "./schemas/email-otp-challenges-table.js";
@@ -14,6 +14,8 @@ import { SessionsTable } from "./schemas/sessions-table.js";
 import { SignupEnrollmentAuthorizationsTable } from "./schemas/signup-enrollment-authorizations-table.js";
 import { UsersTable } from "./schemas/users-table.js";
 import { WebauthnChallengesTable } from "./schemas/webauthn-challenges-table.js";
+
+types.setTypeParser(types.builtins.DATE, (value: string) => value);
 
 export interface DatabaseSchema {
   email_otp_challenges: EmailOtpChallengesTable;
