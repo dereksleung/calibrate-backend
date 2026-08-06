@@ -1,10 +1,12 @@
+import type { FoodSearchResult } from "@calibrate/api-contracts";
+
 import { apiTransport } from "#/shared/api/api-client.ts";
 import { useFoodSearch } from "@calibrate/api-client";
-import type { FoodSearchResult } from "@calibrate/api-contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
 import type { FoodConfirmationState, SelectedFoodForConfirmation } from "./food-confirmation-state.ts";
+
 import { FoodSearchPage } from "./components/FoodSearchPage.tsx";
 
 type FoodSearchProps = {
@@ -49,14 +51,22 @@ export function FoodSearch({ selectedDate, preselectedMeal }: FoodSearchProps) {
   const activeSearch = debouncedQuery.length >= 3 ? { query: debouncedQuery } : null;
   const search = useFoodSearch(apiTransport, activeSearch);
   const foods = useMemo(() => search.data?.results.map(toConfirmationFood), [search.data]);
-  const state = activeSearch ? search.isPending ? "loading" : search.isError ? "error" : foods?.length === 0 ? "empty" : "ready" : "ready";
+  const state = activeSearch
+    ? search.isPending
+      ? "loading"
+      : search.isError
+        ? "error"
+        : foods?.length === 0
+          ? "empty"
+          : "ready"
+    : "ready";
 
   return (
     <>
       <FoodSearchPage
         query={query}
         onQueryChange={setQuery}
-        recentFoods={activeSearch ? foods ?? [] : undefined}
+        recentFoods={activeSearch ? (foods ?? []) : undefined}
         state={state}
         onSelectFood={(foodConfirmation) =>
           navigate({

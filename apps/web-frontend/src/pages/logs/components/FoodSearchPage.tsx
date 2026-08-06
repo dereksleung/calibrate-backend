@@ -134,7 +134,7 @@ export function FoodSearchPage({
             value={query}
             onChange={(event) => onQueryChange?.(event.target.value)}
             placeholder="Search foods, brands, flavors..."
-            className="glass-card h-12 w-full rounded-full py-3 pl-12 pr-5 text-sm text-on-surface outline-none placeholder:text-secondary focus:ring-3 focus:ring-ring/30"
+            className="glass-card h-12 w-full rounded-full py-3 px-5 text-sm text-on-surface outline-none placeholder:text-secondary focus:ring-3 focus:ring-ring/30"
           />
         </div>
 
