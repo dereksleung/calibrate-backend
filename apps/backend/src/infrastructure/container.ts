@@ -2,6 +2,7 @@ import { IAccessSessionRepository, IRefreshSessionRepository } from "@applicatio
 import { IAccessTokenService } from "@application/ports/access-token-service.js";
 import { IClock, SystemClock } from "@application/ports/clock.js";
 import { IDayLogRepository } from "@application/ports/day-log-repository.js";
+import type { IFoodCatalogImporter } from "@application/ports/food-catalog-importer.js";
 import { IEmailOtpCodeService } from "@application/ports/email-otp-code-service.js";
 import { IEmailSender } from "@application/ports/email-sender.js";
 import { IPasswordHasher } from "@application/ports/password-hasher.js";
@@ -24,16 +25,22 @@ import {
   UnavailableSignupPasskeyRegistrationService,
 } from "@application/services/signup-passkey-registration-service.js";
 import { IUserService, UserServiceImpl } from "@application/services/user-service.js";
+import { FoodCatalogSearchService } from "@application/services/food-catalog-search-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
 import { DayLogController } from "@controllers/day-log-controller.js";
+import { FoodSearchController } from "@controllers/food-search-controller.js";
 import { UserController } from "@controllers/user-controller.js";
 import dotenvx from "@dotenvx/dotenvx";
 import { createSecretKey } from "crypto";
 
 import { BrevoEmailSender } from "./email/brevo-email-sender.js";
+import { FoodDataCentralCatalogImporter } from "./food-data-central/food-data-central-catalog-importer.js";
 import { databaseClient } from "./persistence/database.js";
 import { PostgresAccessSessionRepository } from "./persistence/repositories/postgres-access-session-repository.js";
 import { PostgresDayLogRepository } from "./persistence/repositories/postgres-day-log-repository.js";
+import { PostgresFoodCatalogSearchQuery } from "./persistence/repositories/postgres-food-catalog-search-query.js";
+import { PostgresFoodCatalogWriter } from "./persistence/repositories/postgres-food-catalog-writer.js";
+import { PostgresRecentFoodQuery } from "./persistence/repositories/postgres-recent-food-query.js";
 import { PostgresEmailOtpChallengeRepository } from "./persistence/repositories/postgres-email-otp-challenge-repository.js";
 import { PostgresPasskeyAuthenticationRepository } from "./persistence/repositories/postgres-passkey-authentication-repository.js";
 import { PostgresSignupEnrollmentAuthorizationRepository } from "./persistence/repositories/postgres-signup-enrollment-authorization-repository.js";
@@ -90,6 +97,7 @@ const emailServiceCredential = dotenvx.get("EMAIL_SERVICE_CREDENTIAL");
 const webAuthnRpId = dotenvx.get("WEBAUTHN_RP_ID") ?? "localhost";
 const webAuthnOrigin = dotenvx.get("WEBAUTHN_ORIGIN") ?? "http://localhost:3000";
 const webAuthnRpName = dotenvx.get("WEBAUTHN_RP_NAME") ?? "Calibrate";
+const foodDataCentralApiKey = dotenvx.get("FOODDATA_CENTRAL_API_KEY");
 
 export class Container {
   private readonly accessSessionRepository: IRefreshSessionRepository;
@@ -105,6 +113,7 @@ export class Container {
   private readonly dayLogRepository: IDayLogRepository;
   private readonly dayLogService: IDayLogService;
   private readonly dayLogController: DayLogController;
+  private readonly foodSearchController: FoodSearchController;
   private readonly userRepository: IUserRepository;
   private readonly userService: IUserService;
   private readonly userController: UserController;
@@ -123,6 +132,7 @@ export class Container {
     dayLogRepository,
     dayLogService,
     dayLogController,
+    foodSearchController,
     userRepository,
     userService,
     userController,
@@ -140,6 +150,7 @@ export class Container {
     dayLogRepository?: IDayLogRepository;
     dayLogService?: IDayLogService;
     dayLogController?: DayLogController;
+    foodSearchController?: FoodSearchController;
     userRepository?: IUserRepository;
     userService?: IUserService;
     userController?: UserController;
@@ -151,6 +162,17 @@ export class Container {
     this.dayLogRepository = dayLogRepository ?? new PostgresDayLogRepository(databaseClient);
     this.dayLogService = dayLogService ?? new DayLogServiceImpl(this.dayLogRepository, this.userRepository);
     this.dayLogController = dayLogController ?? new DayLogController(this.dayLogService);
+    const catalogWriter = new PostgresFoodCatalogWriter(databaseClient);
+    const importer: IFoodCatalogImporter = foodDataCentralApiKey
+      ? new FoodDataCentralCatalogImporter({ apiKey: foodDataCentralApiKey, writer: catalogWriter })
+      : { searchAndImport: async () => { throw new Error("Food catalog provider is unavailable"); } };
+    this.foodSearchController = foodSearchController ?? new FoodSearchController(
+      new FoodCatalogSearchService(
+        new PostgresFoodCatalogSearchQuery(databaseClient),
+        new PostgresRecentFoodQuery(databaseClient),
+        importer,
+      ),
+    );
 
     this.passwordHasher = passwordHasher ?? new Argon2PasswordHasher();
     this.accessTokenService = accessTokenService ?? new JoseAccessTokenService();
@@ -260,6 +282,9 @@ export class Container {
   }
   getDayLogController(): DayLogController {
     return this.dayLogController;
+  }
+  getFoodSearchController(): FoodSearchController {
+    return this.foodSearchController;
   }
   getUserService(): IUserService {
     return this.userService;

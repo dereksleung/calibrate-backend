@@ -2,6 +2,7 @@ import { Container } from "@infrastructure/container.js";
 import { createAuthenticationMiddleware } from "@presentation/middleware/auth-middleware.js";
 import { createAuthRoutes } from "@routes/auth-routes.js";
 import { createDayLogRoutes } from "@routes/day-log-routes.js";
+import { createFoodSearchRoutes } from "@routes/food-search-routes.js";
 import { createUserRoutes } from "@routes/user-routes.js";
 import cors from "cors";
 import express from "express";
@@ -33,6 +34,7 @@ const authenticateRequest = createAuthenticationMiddleware(
 // Routes
 app.use("/api/v1", createAuthRoutes(container.getAuthController()));
 app.use("/api/v1", createDayLogRoutes(container.getDayLogController(), authenticateRequest));
+app.use("/api/v1", createFoodSearchRoutes(container.getFoodSearchController(), authenticateRequest));
 app.use("/api/v1", createUserRoutes(container.getUserController()));
 
 // Health check route
