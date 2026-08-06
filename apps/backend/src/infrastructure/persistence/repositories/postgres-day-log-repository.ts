@@ -1,40 +1,40 @@
 import { DayLog } from "@domain/entities/day-log.js";
 import { FoodEntry, MealNameEnum } from "@domain/entities/food-entry.js";
-
-import type { DatabaseClient } from "../../persistence/database-client.js";
+import { randomUUID } from "node:crypto";
 
 import type {
   FindDayLogByDateAndUserInput,
   FindOrCreateDayLogByDateAndUserInput,
   IDayLogRepository,
 } from "../../../application/ports/day-log-repository.js";
+import type { DatabaseClient } from "../../persistence/database-client.js";
+
 import { SelectableDayLog } from "../schemas/day-logs-table.js";
 import { InsertableFoodEntry, SelectableFoodEntry } from "../schemas/food-entries-table.js";
 
 export class PostgresDayLogRepository implements IDayLogRepository {
   constructor(private readonly databaseClient: DatabaseClient) {}
 
-  async findOrCreateByDateAndUserId({
-    date,
-    userId,
-  }: FindOrCreateDayLogByDateAndUserInput): Promise<DayLog> {
+  async findOrCreateByDateAndUserId({ date, userId }: FindOrCreateDayLogByDateAndUserInput): Promise<DayLog> {
     if (!date) throw new Error("Date is required");
+    const persistenceDate = Temporal.PlainDate.from(date).toString();
     let dayLogRow: SelectableDayLog;
-    if (date) {
-      const foundRow = await this.databaseClient
-        .selectFrom("day_logs")
-        .selectAll()
-        .where("user_id", "=", userId)
-        .where("date", "=", new Date(date))
-        .executeTakeFirst();
 
-      if (!foundRow) throw new Error("Day log not found");
+    const foundRow = await this.databaseClient
+      .selectFrom("day_logs")
+      .selectAll()
+      .where("user_id", "=", userId)
+      .where("date", "=", persistenceDate)
+      .executeTakeFirst();
+
+    if (foundRow) {
       dayLogRow = foundRow;
     } else {
       const newRow = await this.databaseClient
         .insertInto("day_logs")
         .values({
-          date: new Date().toDateString(),
+          id: randomUUID(),
+          date: persistenceDate,
           user_id: userId,
           weight: null,
         })
@@ -50,7 +50,7 @@ export class PostgresDayLogRepository implements IDayLogRepository {
 
     return DayLog.reconstitute({
       id: dayLogRow.id,
-      date: dayLogRow.date,
+      date: Temporal.PlainDate.from(dayLogRow.date),
       weight: dayLogRow.weight ?? null,
       breakfast,
       lunch,
@@ -90,11 +90,12 @@ export class PostgresDayLogRepository implements IDayLogRepository {
   }
 
   async findLogByDateAndUserId({ userId, date }: FindDayLogByDateAndUserInput): Promise<DayLog | null> {
+    const persistenceDate = Temporal.PlainDate.from(date).toString();
     const dayLogRow = await this.databaseClient
       .selectFrom("day_logs")
       .selectAll()
       .where("user_id", "=", userId)
-      .where("date", "=", new Date(date))
+      .where("date", "=", persistenceDate)
       .executeTakeFirst();
 
     if (!dayLogRow) return null;
@@ -103,7 +104,7 @@ export class PostgresDayLogRepository implements IDayLogRepository {
 
     return DayLog.reconstitute({
       id: dayLogRow.id,
-      date: dayLogRow.date,
+      date: Temporal.PlainDate.from(dayLogRow.date),
       weight: dayLogRow.weight ?? null,
       breakfast,
       lunch,

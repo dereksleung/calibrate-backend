@@ -2,7 +2,7 @@ import { ColumnType, Generated, Selectable, Insertable, Updateable } from "kysel
 
 export interface DayLogsTable {
   id: Generated<string>;
-  date: ColumnType<Date, string, never>;
+  date: ColumnType<string, string, never>;
   user_id: ColumnType<string, string, never>;
   weight: ColumnType<number | null, number | null, number | null>;
   created_at: ColumnType<Date, never, never>;
