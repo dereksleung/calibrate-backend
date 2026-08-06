@@ -155,8 +155,8 @@ Dependencies:
 - Frontend UI should cover normal, empty, loading, and error states against contract-shaped fixtures before live backend wiring is available.
 - Network-backed UI requires loading, empty, and error states.
 
-
 ## Implementation Order
+
 Once the shared request/response contracts are known in `@calibrate/api-contracts`, mock frontend UI tasks can start against contract-shaped fixtures while backend endpoints, infrastructure adapters, and API-client transport work continue in parallel. Treat this as Contract-First Slicing: contracts first, then backend and frontend slices can independently build against the same agreed shapes before live integration.
 
 ## Sequential Vs Parallel Work
@@ -271,7 +271,7 @@ Prefer colocating new tests in the same folder as the code under test. Use a `__
 
 As a calorie tracking person, I want to see a Logs overview screen opened to the current day, so that I can see what I've eaten today and what calorie budget is left.
 
-- [ ] Subtask: Generate the shared API client package foundation
+- [x] Subtask: Generate the shared API client package foundation
   - Acceptance: `packages/api-client` exists as package `@calibrate/api-client`, follows workspace package conventions, exports from `src/index.ts`, depends on `@calibrate/api-contracts`, and is visible to Nx/workspaces. Run the generator as a dry run first and compare the generated shape against `packages/api-contracts`.
   - Verify: `npx nx show project @calibrate/api-client --json`
   - Files:
@@ -281,7 +281,7 @@ As a calorie tracking person, I want to see a Logs overview screen opened to the
     - `package.json`
     - `package-lock.json`
 
-- [ ] Subtask: Add portable selected-day API access
+- [x] Subtask: Add portable selected-day API access
   - Acceptance: `@calibrate/api-client` exposes a small `ApiTransport` factory that accepts `baseUrl`, injected `fetch`, and auth/session options where needed. Selected day log fetch lives in a file-per-operation module that accepts `ApiTransport`, parses responses through shared schemas where practical, and has no React DOM, TanStack Router, browser global, React Native, or UI primitive dependency.
   - Verify: `npx nx run @calibrate/api-client:typecheck` if a target exists; otherwise `npx nx run web:typecheck`
   - Files:
@@ -290,7 +290,7 @@ As a calorie tracking person, I want to see a Logs overview screen opened to the
     - `packages/api-client/src/errors.ts`
     - `packages/api-client/src/index.ts`
 
-- [ ] Subtask: Add React Query provider and selected-day query helpers
+- [x] Subtask: Add React Query provider and selected-day query helpers
   - Acceptance: `@calibrate/api-client` declares `@tanstack/react-query` as peer and dev dependency, `web` declares it as an app dependency, the web app owns `QueryClientProvider`, devtools/provider wiring, and base API client configuration. The selected-day operation exports portable query options/hooks that accept an `ApiTransport` without owning platform provider setup. Before any package install during implementation, present the exact install command if the lockfile needs to change.
   - Verify: `npx nx run web:test:integration`, then `npx nx run web:typecheck`
   - Files:
@@ -303,7 +303,7 @@ As a calorie tracking person, I want to see a Logs overview screen opened to the
     - `apps/web-frontend/src/shared/api/api-client.ts`
     - `apps/web-frontend/src/shared/api/query-client.ts`
 
-- [ ] Subtask: Add selected-date routing and log-page render helpers
+- [x] Subtask: Add selected-date routing and log-page render helpers
   - Acceptance: `/logs` validates selected-date URL search params through TanStack Router if URL search is used, defaults to the current day when no date is selected, and pure helpers normalize `DayLogResponse | null` into renderable empty/loaded state, compute daily and meal totals, calculate placeholder target progress, and provide contract-shaped fixtures for normal, empty, loading, and error UI tests.
   - Verify: `npx nx run web:test -- src/pages/logs/log-page-helpers.test.ts`, then `npx nx run web:test:integration`
   - Files:
@@ -314,7 +314,7 @@ As a calorie tracking person, I want to see a Logs overview screen opened to the
     - `apps/web-frontend/src/pages/logs/logs-routing.integration.test.tsx`
     - `apps/web-frontend/src/routeTree.gen.ts`
 
-- [ ] Subtask: Build the daily log mobile-first overview with mock data
+- [x] Subtask: Build the daily log mobile-first overview with mock data
   - Acceptance: `/logs` renders date stepper opened to today, daily progress summary, calorie budget remaining, weight summary/empty state, meal sections in Breakfast/Lunch/Dinner/Snacks order, empty meal states, meal add actions, and a FAB bottom sheet shell using contract-shaped fixture data and existing UI primitives first.
   - Before implementation: ask the user for screenshots of the current `/logs` page and any nearby app screens that establish mobile layout, spacing, typography, navigation, empty states, and larger-viewport behavior. Explain that this task builds the daily overview shell, not live data wiring.
   - Verify: `npx nx run web:test -- src/pages/logs/Logs.test.tsx`
@@ -341,7 +341,7 @@ As a calorie tracking person, I want to update my weight in a single day's log, 
 - [ ] Subtask: Add shared weight update contract
   - Acceptance: `PATCH /daylogs/:date/weight` has Zod request/response schemas and exported TypeScript types, and the response shape returns the updated `DayLogResponse`.
   - Verify: `npx nx run backend:typecheck`
-  - Files:
+  - Suggested files:
     - `packages/api-contracts/src/day-log-requests.ts`
     - `packages/api-contracts/src/day-log-responses.ts`
     - `packages/api-contracts/src/index.ts`
@@ -349,7 +349,7 @@ As a calorie tracking person, I want to update my weight in a single day's log, 
 - [ ] Subtask: Add day-log weight behavior to the domain and service layer
   - Acceptance: `DayLog` owns weight mutation through an explicit behavior method, the application DTOs include an update-weight request, and `IDayLogService.updateWeight({ userId, date, weight })` returns the updated `DayLog`. Service tests cover successful update, missing user, empty selected day creation, and validation of the aggregate behavior.
   - Verify: `npx nx run backend:test -- src/domain/entities/__tests__/day-log.test.ts src/application/services/__tests__/day-log-service.test.ts`
-  - Files:
+  - Suggested files:
     - `apps/backend/src/domain/entities/day-log.ts`
     - `apps/backend/src/domain/entities/__tests__/day-log.test.ts`
     - `apps/backend/src/application/dtos/day-log-dtos.ts`
@@ -359,7 +359,7 @@ As a calorie tracking person, I want to update my weight in a single day's log, 
 - [ ] Subtask: Persist weight updates and fix day-log find-or-create
   - Acceptance: `IDayLogRepository` exposes a targeted `updateWeight(dayLogId, weight)` write, `PostgresDayLogRepository.findOrCreateByDateAndUserId()` creates the requested dated row when none exists, and weight updates persist against the authenticated user's selected day log without bypassing the aggregate boundary.
   - Verify: `npx nx run backend:test:integration`, then `npx nx run backend:typecheck`
-  - Files:
+  - Suggested files:
     - `apps/backend/src/application/ports/day-log-repository.ts`
     - `apps/backend/src/infrastructure/persistence/repositories/postgres-day-log-repository.ts`
     - `apps/backend/src/infrastructure/persistence/repositories/postgres-day-log-repository.integration.test.ts`
@@ -367,7 +367,7 @@ As a calorie tracking person, I want to update my weight in a single day's log, 
 - [ ] Subtask: Expose the day-log weight HTTP endpoint
   - Acceptance: `PATCH /daylogs/:date/weight` validates route params and body with shared schemas, requires authentication, calls `DayLogService.updateWeight`, and returns the updated `DayLogResponse`. Controller tests cover success, validation failure, unauthenticated access, and service error handling.
   - Verify: `npx nx run backend:test -- src/presentation/controllers/__tests__/day-log-controller.test.ts`, then `npx nx run backend:test:integration`
-  - Files:
+  - Suggested files:
     - `apps/backend/src/presentation/controllers/day-log-controller.ts`
     - `apps/backend/src/presentation/controllers/__tests__/day-log-controller.test.ts`
     - `apps/backend/src/presentation/controllers/day-log-controller.integration.test.ts`
@@ -377,20 +377,71 @@ As a calorie tracking person, I want to update my weight in a single day's log, 
 - [ ] Subtask: Add portable weight update client and mutation helpers
   - Acceptance: `@calibrate/api-client` exposes a weight update operation and package-owned portable mutation options/hooks that accept an `ApiTransport`. The web app uses those exported package helpers to optimistically update the selected day's weight, roll back on mutation failure, show an error state, and invalidate/refetch the selected day log after success. Do not add `apps/web-frontend/src/pages/logs/use-update-weight.ts`.
   - Verify: `npx nx run web:test:integration`, then `npx nx run web:typecheck`
-  - Files:
+  - Suggested files:
     - `packages/api-client/src/day-logs/update-weight.ts`
     - `packages/api-client/src/index.ts`
     - `apps/web-frontend/src/pages/logs/logs-live-day-log.integration.test.tsx`
     - `apps/web-frontend/src/pages/logs/Logs.tsx`
 
-### Story 3: Type to search for foods to add to the day
+### Story 3: Browse recent foods from the food search page
+
+As a user, I want to see a food search page, so that I can browse foods I logged recently and start searching for another food to add.
+
+- [ ] Subtask: Add shared recent-food contracts
+  - Acceptance: `GET /foods/recent` has shared Zod request/response schemas and exported TypeScript types. The endpoint returns authenticated-user food entries used in the last three calendar days, ordered most recently used first, with each result containing food name, calories, serving size, and optional brand name plus the data needed to begin the confirmation flow.
+  - Verify: `npx nx run backend:typecheck`
+  - Suggested files:
+    - `packages/api-contracts/src/recent-food-requests.ts`
+    - `packages/api-contracts/src/recent-food-responses.ts`
+    - `packages/api-contracts/src/index.ts`
+
+- [ ] Subtask: Add the three-day recent-food query and HTTP endpoint
+  - Acceptance: The application layer owns a recent-food read port/query handler, and the persistence adapter reads only the authenticated user's entries from the last three calendar days. `GET /foods/recent` requires authentication, returns the contract-shaped list in most-recent-first order, and handles repository failures without exposing persistence details. Tests cover no recent entries, the three-day boundary, user isolation, ordering, and optional brand data.
+  - Verify: `npx nx run backend:test -- src/application/services/recent-food-service.test.ts`, then `npx nx run backend:test:integration`
+  - Suggested files:
+    - `apps/backend/src/application/dtos/recent-food-dtos.ts`
+    - `apps/backend/src/application/ports/recent-food-query.ts`
+    - `apps/backend/src/application/services/recent-food-service.ts`
+    - `apps/backend/src/application/services/recent-food-service.test.ts`
+    - `apps/backend/src/infrastructure/persistence/repositories/postgres-recent-food-query.ts`
+    - `apps/backend/src/infrastructure/persistence/repositories/postgres-recent-food-query.integration.test.ts`
+    - `apps/backend/src/presentation/controllers/recent-food-controller.ts`
+    - `apps/backend/src/presentation/routes/recent-food-routes.ts`
+
+- [ ] Subtask: Add portable recent-food client helpers
+  - Acceptance: `@calibrate/api-client` exposes a `GET /foods/recent` operation and portable query options/hooks that accept an `ApiTransport`, parse responses through the shared schemas where practical, and contain no web-specific UI dependencies.
+  - Verify: `npx nx run @calibrate/api-client:typecheck` if a target exists; otherwise `npx nx run web:typecheck`
+  - Suggested files:
+    - `packages/api-client/src/foods/get-recent-foods.ts`
+    - `packages/api-client/src/index.ts`
+
+- [ ] Subtask: Build the food search page against mock recent-food results
+  - Acceptance: The page has a search bar at the top and displays mock recent-food results below it. Each result is a tappable card with food name, calories, serving size, and brand only when available; loading, empty, and error states are represented. Selecting a card carries the selected food into the confirmation-route state contract owned by Story 5.
+  - Before implementation: ask the user for screenshots of existing search, list/card, page transition, loading, empty, and error UI patterns. Explain that this task builds the food-search-page shell and recent-result cards with mock data before live wiring.
+  - Verify: `npx nx run web:test -- src/pages/logs/food-search.test.tsx`, then `npx nx run web:test:integration`
+  - Suggested files:
+    - `apps/web-frontend/src/pages/logs/components/FoodSearchPage.tsx`
+    - `apps/web-frontend/src/pages/logs/components/FoodResultCard.tsx`
+    - `apps/web-frontend/src/pages/logs/food-search.test.tsx`
+    - `apps/web-frontend/src/pages/logs/food-search.integration.test.tsx`
+
+- [ ] Subtask: Wire the food search page to recent foods
+  - Acceptance: Entering the page fetches `GET /foods/recent` through the package-owned client query helper and renders the server-provided order. The search bar remains available for Story 4's typed-search behavior, and choosing a recent result opens the confirmation route once Story 5's route shell is available.
+  - Verify: `npx nx run web:test:integration`, then `npx nx run web:typecheck`
+  - Suggested files:
+    - `packages/api-client/src/foods/get-recent-foods.ts`
+    - `apps/web-frontend/src/pages/logs/components/FoodSearchPage.tsx`
+    - `apps/web-frontend/src/pages/logs/food-search-live.integration.test.tsx`
+    - `apps/web-frontend/src/pages/logs/food-confirmation-state.ts`
+
+### Story 4: Type to search for foods to add to the day
 
 As a calorie tracking person, I want to be able to type to search for foods to add to the day, so that I can quickly add food entry logs in my busy day.
 
 - [ ] Subtask: Add shared food search contracts
   - Acceptance: `GET /foods/search?query=<text>` and optional recent-food response shapes have Zod schemas and exported TypeScript types. Food search returns one ordered `FoodSearchResult` discriminated union with recent-food and USDA variants. All variants share display metadata, calories/macros needed for confirmation, `quantityServing`, `servingLabel`, optional `quantityMass`/`massUnit`, and optional `quantityVolume`/`volumeUnit`; only `quantityServing` and `servingLabel` default to `1` and `"serving"`. Mass and volume fields have no defaults and are omitted unless the result provides a real mass or volume serving basis for the same nutrition values. Source-specific recency and provider metadata stay on their own variants. The food search query enforces the 3-character minimum decided in Phase 2.
   - Verify: `npx nx run backend:typecheck`
-  - Files:
+  - Suggested files:
     - `packages/api-contracts/src/food-search-requests.ts`
     - `packages/api-contracts/src/food-search-responses.ts`
     - `packages/api-contracts/src/index.ts`
@@ -398,7 +449,7 @@ As a calorie tracking person, I want to be able to type to search for foods to a
 - [ ] Subtask: Add food-search application orchestration
   - Acceptance: The application layer has DTOs, a `FoodSearchProvider` port, a recent-food read port, and a small service/query handler that trims input, applies the result limit and 3-character minimum, requests matching recent foods, requests USDA foods, and returns one ordered app-owned result list with recent foods first.
   - Verify: `npx nx run backend:test -- src/application/services/food-search-service.test.ts`
-  - Files:
+  - Suggested files:
     - `apps/backend/src/application/dtos/food-search-dtos.ts`
     - `apps/backend/src/application/ports/food-search-provider.ts`
     - `apps/backend/src/application/ports/recent-food-query.ts`
@@ -409,7 +460,7 @@ As a calorie tracking person, I want to be able to type to search for foods to a
   - Acceptance: Backend startup reads/decrypts `FOODDATA_CENTRAL_API_KEY` with `dotenvx.get`, caches the resolved value in memory, and passes it to the adapter through configuration or constructor injection. The adapter builds FoodData Central requests, maps provider responses into app-owned DTOs, handles provider errors without leaking internals, and keeps USDA ranking logic isolated behind unit-tested functions. Branded-versus-generic ranking is optional; if FoodData Central results do not expose reliable branded data, skip branded-specific handling and use generic USDA ordering for the MVP.
   - Implementation note: Reference the temporarily committed FoodData Central OpenAPI spec at `references/fdc_api.yaml` for USDA endpoint, query, and response-shape details.
   - Verify: `npx nx run backend:test -- src/infrastructure/food-data-central/food-data-central-food-search-provider.test.ts`
-  - Files:
+  - Suggested files:
     - `apps/backend/src/infrastructure/food-data-central/food-data-central-food-search-provider.ts`
     - `apps/backend/src/infrastructure/food-data-central/food-data-central-mappers.ts`
     - `apps/backend/src/infrastructure/food-data-central/food-data-central-ranking.ts`
@@ -419,7 +470,7 @@ As a calorie tracking person, I want to be able to type to search for foods to a
 - [ ] Subtask: Implement recent-food read query and dedupe
   - Acceptance: Recent foods are read from the authenticated user's food entries from the past 2 weeks, matched against the search query, deduplicated only against other recent foods by normalized name, brand, serving unit, and nutrition values, and returned with last-used metadata for labels such as `Thur` or `Mar 31`.
   - Verify: `npx nx run backend:test:integration`
-  - Files:
+  - Suggested files:
     - `apps/backend/src/infrastructure/persistence/repositories/postgres-recent-food-query.ts`
     - `apps/backend/src/infrastructure/persistence/repositories/postgres-recent-food-query.integration.test.ts`
     - `apps/backend/src/infrastructure/persistence/repositories/index.ts`
@@ -428,7 +479,7 @@ As a calorie tracking person, I want to be able to type to search for foods to a
 - [ ] Subtask: Expose backend food search route and container wiring
   - Acceptance: `GET /foods/search?query=<text>` is authenticated, validates query params with the shared schema, returns backend-ordered results, maps service/provider errors into safe HTTP responses, and is wired through the backend container and route index. No response includes the FoodData Central API key or provider-specific private fields.
   - Verify: `npx nx run backend:test -- src/presentation/controllers/food-search-controller.test.ts`, then `npx nx run backend:test:integration`
-  - Files:
+  - Suggested files:
     - `apps/backend/src/presentation/controllers/food-search-controller.ts`
     - `apps/backend/src/presentation/controllers/food-search-controller.test.ts`
     - `apps/backend/src/presentation/controllers/food-search-controller.integration.test.ts`
@@ -439,7 +490,7 @@ As a calorie tracking person, I want to be able to type to search for foods to a
 - [ ] Subtask: Add portable food search client helpers
   - Acceptance: `@calibrate/api-client` exposes a food search operation and portable query options/hooks that accept an `ApiTransport`, parse responses through shared schemas where practical, enforce the shared query contract, and avoid client-side re-ranking.
   - Verify: `npx nx run @calibrate/api-client:typecheck` if a target exists; otherwise `npx nx run web:typecheck`
-  - Files:
+  - Suggested files:
     - `packages/api-client/src/foods/search-foods.ts`
     - `packages/api-client/src/index.ts`
 
@@ -447,7 +498,7 @@ As a calorie tracking person, I want to be able to type to search for foods to a
   - Acceptance: Search can open from the FAB or a meal section, meal-specific add actions preselect the meal, results render in backend-provided order without client re-ranking, recent food entry results show compact recency labels, and loading/empty/error states are represented before live APIs are wired.
   - Before implementation: ask the user for screenshots of any existing search, list, bottom-sheet/page transition, loading, empty, and error UI patterns. Explain that this task builds the mock food-search experience and result rows before live API wiring.
   - Verify: `npx nx run web:test -- src/pages/logs/food-search.test.tsx`, then `npx nx run web:test:integration`
-  - Files:
+  - Suggested files:
     - `apps/web-frontend/src/pages/logs/components/FoodSearchPage.tsx`
     - `apps/web-frontend/src/pages/logs/components/FoodResultRow.tsx`
     - `apps/web-frontend/src/pages/logs/components/RecentFoodLabel.tsx`
@@ -458,13 +509,13 @@ As a calorie tracking person, I want to be able to type to search for foods to a
 - [ ] Subtask: Wire live food search into the log flow
   - Acceptance: Food search calls `GET /foods/search` through the package-owned `@calibrate/api-client` food search query hook/options, passing the web app's configured `ApiTransport`. It enforces/debounces the 3-character minimum as needed, renders backend-ordered live results, preserves preselected meal context for the next story's confirmation route, and keeps loading, empty, and error states stable with live data. Do not add a web-local data-fetching hook for this operation.
   - Verify: `npx nx run web:test:integration`
-  - Files:
+  - Suggested files:
     - `packages/api-client/src/foods/search-foods.ts`
     - `apps/web-frontend/src/pages/logs/components/FoodSearchSheet.tsx`
     - `apps/web-frontend/src/pages/logs/food-search-live.integration.test.tsx`
     - `apps/web-frontend/src/pages/logs/Logs.tsx`
 
-### Story 4: Confirm and save a selected food entry
+### Story 5: Confirm and save a selected food entry
 
 As a calorie-tracking person, I want to see a confirmation screen after pressing a food search result letting me change the serving unit, quantity, meal, see the nutrition info, and save my food entry, so that I can complete adding a food entry.
 
