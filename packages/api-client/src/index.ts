@@ -1,4 +1,5 @@
 export * from "./day-logs/get-day-log.js";
+export * from "./day-logs/save-food-entry.js";
 export * from "./errors.js";
 export * from "./transport.js";
 export * from "./auth/account-email-verification.js";

@@ -73,6 +73,19 @@ beforeEach(() => {
       }), { status: 200, headers: { "content-type": "application/json" } }));
     }
 
+    if (url.includes("/food-entries")) {
+      return Promise.resolve(new Response(JSON.stringify({
+        id: "created-entry", name: "Zero Sugar Oat", brand: "Earth's Own", meal: "BREAKFAST", chosenQuantity: 1, chosenUnit: "cup",
+        calories: 40, totalFatGrams: 1, saturatedFatGrams: 0, cholesterolMg: 0, sodiumMg: 120,
+        totalCarbohydrateGrams: 7, fiberGrams: 2, sugarGrams: 1, proteinGrams: 3,
+        quantityServing: 1, servingLabel: "cup", quantityMass: null, massUnit: null, quantityVolume: null, volumeUnit: null,
+      }), { status: 201, headers: { "content-type": "application/json" } }));
+    }
+
+    if (url.includes("/daylogs/")) {
+      return Promise.resolve(new Response(JSON.stringify(null), { status: 200, headers: { "content-type": "application/json" } }));
+    }
+
     return Promise.resolve(new Response("not found", { status: 404 }));
   });
 });
@@ -126,5 +139,15 @@ describe("food search route", () => {
 
     expect(await screen.findByRole("button", { name: /select Greek yogurt/i })).toBeTruthy();
     expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/foods/search?query=greek+yogurt"), expect.any(Object));
+  });
+
+  it("saves the confirmation and returns to the selected daily log", async () => {
+    const { router } = renderFoodSearchRoute();
+    fireEvent.click(await screen.findByRole("button", { name: /select Zero Sugar Oat/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Done" }));
+
+    await screen.findByRole("heading", { name: "Monday, May 18" });
+    expect(router.state.location.pathname).toBe("/logs");
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining("/daylogs/2026-05-18/food-entries"), expect.objectContaining({ method: "POST" }));
   });
 });
