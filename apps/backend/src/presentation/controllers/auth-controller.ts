@@ -15,13 +15,13 @@ import {
 } from "@application/errors/passkey-registration-errors.js";
 import { RateLimitError } from "@application/errors/rate-limit-error.js";
 import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
+import { IAccountEmailVerificationService } from "@application/services/account-email-verification-service.js";
 import { IAuthService } from "@application/services/auth-service.js";
-import { ISessionRestorationService } from "@application/services/session-restoration-service.js";
 import {
   IPasskeyAuthenticationService,
   UnavailablePasskeyAuthenticationService,
 } from "@application/services/passkey-authentication-service.js";
-import { IAccountEmailVerificationService } from "@application/services/account-email-verification-service.js";
+import { ISessionRestorationService } from "@application/services/session-restoration-service.js";
 import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import {
   AppPlatformHeaderValueSchema,
