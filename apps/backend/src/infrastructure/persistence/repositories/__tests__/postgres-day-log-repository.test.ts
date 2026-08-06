@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { types } from "pg";
+import { buildFoodEntry } from "@factories/food-entry.js";
 
 import "../../database-client.js";
 import { PostgresDayLogRepository } from "../postgres-day-log-repository.js";
@@ -46,5 +47,25 @@ describe("PostgresDayLogRepository", () => {
 describe("Postgres database date parsing", () => {
   it("keeps SQL date values as calendar-date strings", () => {
     expect(types.getTypeParser(types.builtins.DATE)("2026-05-18")).toBe("2026-05-18");
+  });
+});
+
+describe("PostgresDayLogRepository.addFoodEntry", () => {
+  it("persists the domain-generated food entry ID", async () => {
+    let insertedValues: Record<string, unknown> | undefined;
+    const databaseClient = {
+      insertInto: () => ({
+        values: (values: Record<string, unknown>) => {
+          insertedValues = values;
+          return { returningAll: () => ({ executeTakeFirst: async () => values }) };
+        },
+      }),
+    };
+    const repository = new PostgresDayLogRepository(databaseClient as never);
+    const foodEntry = buildFoodEntry({ id: "food-entry-1", dayLogId: "day-log-1" });
+
+    await repository.addFoodEntry("day-log-1", foodEntry);
+
+    expect(insertedValues).toMatchObject({ id: "food-entry-1", day_log_id: "day-log-1" });
   });
 });

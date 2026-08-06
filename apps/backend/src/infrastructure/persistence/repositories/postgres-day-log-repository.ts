@@ -143,6 +143,7 @@ export class PostgresDayLogRepository implements IDayLogRepository {
 
   private mapFoodEntryToRow(foodEntry: FoodEntry): InsertableFoodEntry {
     return {
+      id: foodEntry.id,
       day_log_id: foodEntry.dayLogId,
       meal: foodEntry.meal,
       name: foodEntry.name,
