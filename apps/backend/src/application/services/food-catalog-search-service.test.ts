@@ -58,4 +58,18 @@ describe("FoodCatalogSearchService", () => {
     expect(response.results).toHaveLength(1);
     expect(response.results[0]).toMatchObject({ source: "catalog", catalogFoodId: catalogResult.id });
   });
+
+  it("uses an opaque cursor to return a stable next page from the backend-ordered local results", async () => {
+    const catalogSearch = { search: vi.fn().mockResolvedValue([catalogResult, { ...catalogResult, id: "54ad5c41-c838-494c-9781-1f317ddb0c5e", name: "Skyr" }]) };
+    const recentSearch = { search: vi.fn().mockResolvedValue([]) };
+    const service = new FoodCatalogSearchService(catalogSearch, recentSearch, { searchAndImport: vi.fn() });
+
+    const first = await service.search({ userId: "user-1", query: "yogurt", limit: 1 });
+    const second = await service.search({ userId: "user-1", query: "yogurt", limit: 1, cursor: first.nextCursor! });
+
+    expect(first.results[0]).toMatchObject({ name: "Greek yogurt" });
+    expect(first.nextCursor).toBeTruthy();
+    expect(second.results[0]).toMatchObject({ name: "Skyr" });
+    expect(second.nextCursor).toBeNull();
+  });
 });

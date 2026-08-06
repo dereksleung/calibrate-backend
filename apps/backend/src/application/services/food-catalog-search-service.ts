@@ -4,12 +4,25 @@ import type { IFoodCatalogImporter } from "../ports/food-catalog-importer.js";
 import type { IFoodCatalogSearchQuery } from "../ports/food-catalog-search-query.js";
 import type { FoodCatalogRecord } from "../ports/food-catalog-writer.js";
 import type { IRecentFoodQuery, RecentFoodRecord } from "../ports/recent-food-query.js";
+import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 
 export interface FoodCatalogSearchInput {
   userId: string;
   query: string;
   limit: number;
+  cursor?: string;
 }
+
+function readOffset(cursor: string | undefined): number {
+  if (!cursor) return 0;
+  try {
+    const value: unknown = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+    if (typeof value === "object" && value !== null && "offset" in value && typeof value.offset === "number" && Number.isInteger(value.offset) && value.offset >= 0) return value.offset;
+  } catch { /* validation below maps malformed cursors to a safe 400 */ }
+  throw new BusinessLogicError("Invalid search cursor");
+}
+
+function writeCursor(offset: number): string { return Buffer.from(JSON.stringify({ offset }), "utf8").toString("base64url"); }
 
 function toCatalogResult(food: FoodCatalogRecord): FoodSearchResponse["results"][number] {
   return {
@@ -71,24 +84,28 @@ export class FoodCatalogSearchService {
   ) {}
 
   async search(input: FoodCatalogSearchInput): Promise<FoodSearchResponse> {
+    const offset = readOffset(input.cursor);
+    const fetchLimit = Math.min(input.limit + offset + 1, 100);
     const [catalogFoods, recentFoods] = await Promise.all([
-      this.catalogSearchQuery.search({ query: input.query, limit: input.limit }),
-      this.recentFoodQuery.search({ userId: input.userId, query: input.query, limit: input.limit }),
+      this.catalogSearchQuery.search({ query: input.query, limit: fetchLimit }),
+      this.recentFoodQuery.search({ userId: input.userId, query: input.query, limit: fetchLimit }),
     ]);
 
     if (catalogFoods.length === 0 && recentFoods.length === 0) {
       const importedFoods = await this.catalogImporter.searchAndImport(input.query, input.limit);
-      return { results: importedFoods.map(toCatalogResult).slice(0, input.limit), nextCursor: null };
+      const results = importedFoods.map(toCatalogResult);
+      return { results: results.slice(offset, offset + input.limit), nextCursor: results.length > offset + input.limit ? writeCursor(offset + input.limit) : null };
     }
 
     const catalogIdsAlreadyRepresented = new Set(
       recentFoods.flatMap((food) => (food.catalogFoodId ? [food.catalogFoodId] : [])),
     );
-    const results = [
+    const combinedResults = [
       ...recentFoods.map(toRecentResult),
       ...catalogFoods.filter((food) => !catalogIdsAlreadyRepresented.has(food.id)).map(toCatalogResult),
-    ].slice(0, input.limit);
+    ];
+    const results = combinedResults.slice(offset, offset + input.limit);
 
-    return { results, nextCursor: null };
+    return { results, nextCursor: combinedResults.length > offset + input.limit ? writeCursor(offset + input.limit) : null };
   }
 }
