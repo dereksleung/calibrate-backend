@@ -2,12 +2,10 @@
 
 A calorie tracker application, because I've gotten into healthier eating, jogging, and calisthenics.
 
-Currently building out the backend as an Express.js app with clean architecture layering to decouple business logic from particular technology choices. Will use the backend to explore/practice various backend topics.
-
 ## Frontend Current State
-The current UI is a prototype built with mock data, many things are not actually functional, some pages do not load live data yet. That is intentional. I'm working first on the product direction, information hierarchy, and interaction patterns.
+The current UI is partly a prototype built with mock data, with the Logs page able to load data for a day and add new food entries if you run the frontend and backend in development and sign up a user. Some pages do not load live data yet like the Dashboard or Goals pages. 
 
-The first goal right now is to use product judgment: take what could easily become dense, data-heavy areas in the Dashboard and Goals pages, and keep them simple enough to be useful. The target user is not an expert mathematician or nutrition analyst, rather they are people wanting to change themselves, who may need help building new habits, and need to understand what to do next, and what is working or not working. The most important product work is surfacing actions and actionable insights that help them keep momentum with new habits, while suggesting small tweaks they may not have realized they can do that will help them get results.
+One goal is to show product judgment: take what could easily become dense, data-heavy areas in the Dashboard and Goals pages, and keep them simple enough to be useful. The target user is not an expert mathematician or nutrition analyst, rather they are people wanting to change themselves, who may need help building new habits, and need to understand what to do next, and what is working or not working. The most important product work is surfacing actions and actionable insights that help them keep momentum with new habits, while suggesting small tweaks they may not have realized they can do that will help them get results.
 
 Charts and data stay at overview level by default. When a user chooses to drill deeper, the app should still be selective about what it shows. More data is only useful when it creates a clearer insight, a better decision, or a practical adjustment the user can actually make.
 
@@ -76,6 +74,8 @@ In short, Nx was chosen because it provides:
 - a smoother path toward future service extraction if the system grows in that direction
 
 ## Backend
+Currently building out the backend as an Express.js app drawing from clean architecture layering to decouple business logic from particular technology choices. 
+Will use the backend to explore/practice various backend topics.
 
 ### Node.js/Express.js, not NestJS
 
