@@ -18,6 +18,10 @@ import { ServiceUnavailableError } from "@application/errors/service-unavailable
 import { IAccountEmailVerificationService } from "@application/services/account-email-verification-service.js";
 import { IAuthService } from "@application/services/auth-service.js";
 import {
+  ILocalDevelopmentPasskeyEnrollmentService,
+  UnavailableLocalDevelopmentPasskeyEnrollmentService,
+} from "@application/services/local-development-passkey-enrollment-service.js";
+import {
   IPasskeyAuthenticationService,
   UnavailablePasskeyAuthenticationService,
 } from "@application/services/passkey-authentication-service.js";
@@ -43,6 +47,7 @@ import { Request, Response } from "express";
 import { getAccessCookieConfiguration, getAccessCookieMaxAgeMs } from "../auth/access-cookie.js";
 import { extractCookieValue } from "../auth/cookie-extractor.js";
 import { getEnrollmentCookieConfiguration } from "../auth/enrollment-cookie.js";
+import { isLocalDevelopmentRequest } from "../auth/local-development-auth.js";
 import { getRefreshCookieConfiguration, getRefreshCookieMaxAgeMs } from "../auth/refresh-cookie.js";
 import { getExpectedWebAuthnOrigin, readRequestOrigin } from "../auth/webauthn-origin.js";
 import { PasskeyRegistrationOptionsResponseMapper } from "../mappers/passkey-registration-options-response-mapper.js";
@@ -55,7 +60,39 @@ export class AuthController {
     private readonly signupPasskeyRegistrationService: ISignupPasskeyRegistrationService,
     private readonly passkeyAuthenticationService: IPasskeyAuthenticationService = new UnavailablePasskeyAuthenticationService(),
     private readonly sessionRestorationService?: ISessionRestorationService,
+    private readonly localDevelopmentPasskeyEnrollmentService: ILocalDevelopmentPasskeyEnrollmentService = new UnavailableLocalDevelopmentPasskeyEnrollmentService(),
   ) {}
+
+  async createLocalDevelopmentPasskeyEnrollment(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    const origin = readRequestOrigin(req.get("Origin"));
+    if (
+      !isLocalDevelopmentRequest({
+        environment: process.env.NODE_ENV,
+        origin: origin ?? undefined,
+        expectedOrigin: getExpectedWebAuthnOrigin(),
+        // Use the actual peer address instead of the trust-proxy-derived value so
+        // a forwarded header cannot make a remote request look loopback-local.
+        clientIp: req.socket.remoteAddress ?? req.ip,
+      })
+    ) {
+      res.status(404).end();
+      return;
+    }
+
+    try {
+      const result = await this.localDevelopmentPasskeyEnrollmentService.create();
+      const cookie = getEnrollmentCookieConfiguration();
+      res.cookie(cookie.name, result.token, cookie.options);
+      res.status(200).json({
+        email: result.email,
+        next: "passkey-registration",
+        expiresAt: result.expiresAt.toISOString(),
+      });
+    } catch {
+      res.status(503).json({ error: "LOCAL_DEVELOPMENT_ENROLLMENT_UNAVAILABLE" });
+    }
+  }
 
   async getCurrentSession(req: Request, res: Response): Promise<void> {
     res.set("Cache-Control", "no-store");

@@ -168,6 +168,15 @@ generated values for `OTP_HMAC_KEY` and `EMAIL_REQUEST_IP_HMAC_KEY`.
 9. Run `npx nx run backend:dev`.
 
 10. Other commands can be run like `npx nx run (project_name):(command_name) (args)`. Project names are found in `apps/app-folder/package.json`'s `name` field, the available command names comes from the `scripts` field.
+
+### Testing signup locally without Brevo
+
+When the web frontend and backend are running on their loopback development
+origins, the signup page shows a local-development-only section with an
+**Authorize create passkey** button. Use it to create a disposable
+`@example.test` account and continue directly to the existing passkey setup
+page. This bypass is denied in production and does not create a deliverable
+recovery email, so it is intended only for evaluating the local repository.
 Nx documentation [here](https://nx.dev/docs/getting-started/tutorials/running-tasks#running-a-single-task)
 
 ### Building the backend Docker image

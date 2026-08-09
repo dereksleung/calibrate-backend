@@ -18,10 +18,14 @@ import {
   isPasskeyAuthenticationCancellation,
   startPasskeyAuthentication,
 } from "#/verticals/auth/browser-passkey-authentication-adapter";
-import { createAccountEmailVerificationHandoff } from "#/verticals/auth/account-email-verification-handoff";
+import {
+  createAccountEmailVerificationHandoff,
+  createPasskeyEnrollmentHandoff,
+} from "#/verticals/auth/account-email-verification-handoff";
 import {
   ApiError,
   parsePasskeyAuthenticationError,
+  requestLocalDevelopmentPasskeyEnrollment,
   requestPasskeyAuthenticationOptions,
   useRequestAccountEmailVerification,
   verifyPasskeyAuthentication,
@@ -155,6 +159,76 @@ function SignUpLoginForm({ onSubmitStart = () => undefined }: { onSubmitStart?: 
         )}
       </form.Subscribe>
     </form>
+  );
+}
+
+const LOCAL_DEVELOPMENT_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+function isLocalDevelopmentUi(): boolean {
+  return (
+    import.meta.env.DEV &&
+    typeof window !== "undefined" &&
+    LOCAL_DEVELOPMENT_HOSTNAMES.has(window.location.hostname)
+  );
+}
+
+function LocalDevelopmentPasskeyEnrollment() {
+  const navigate = useNavigate();
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string>();
+
+  if (!isLocalDevelopmentUi()) return null;
+
+  async function authorizePasskeyCreation() {
+    setIsPending(true);
+    setError(undefined);
+    cancelPasskeyAuthentication();
+
+    try {
+      const response = await requestLocalDevelopmentPasskeyEnrollment(apiTransport);
+      const handoff = createPasskeyEnrollmentHandoff(response.email, {
+        next: response.next,
+        expiresAt: response.expiresAt,
+      });
+      await navigate({
+        to: "/auth/passkey-enrollment",
+        state: (previous) => ({ ...previous, passkeyEnrollment: handoff }),
+      });
+    } catch {
+      setError("We couldn't authorize local passkey setup. Please try again.");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  return (
+    <section
+      className="glass-card mb-lg rounded-4xl p-lg md:p-xl"
+      aria-labelledby="local-development-passkey-heading"
+      aria-busy={isPending}
+    >
+      <div className="text-center">
+        <h2
+          id="local-development-passkey-heading"
+          className="font-heading text-xl font-light tracking-[-0.01em] text-primary"
+        >
+          Local development signup
+        </h2>
+        <p className="mt-sm text-sm font-light text-on-surface-variant/80">
+          Local-environment-only - Authorize creating passkey for Sign Up - as you can&apos;t send
+          yourself an email first with my API key
+        </p>
+      </div>
+      {error && <WarningBanner className="mt-md">{error}</WarningBanner>}
+      <Button
+        className="mt-lg h-12 w-full"
+        disabled={isPending}
+        type="button"
+        onClick={() => void authorizePasskeyCreation()}
+      >
+        {isPending ? "Authorizing…" : "Authorize create passkey"}
+      </Button>
+    </section>
   );
 }
 
@@ -350,6 +424,8 @@ function SignupLoginPage() {
             Mindful nourishment for a balanced life.
           </p>
         </header>
+
+        <LocalDevelopmentPasskeyEnrollment />
 
         <section className="glass-card rounded-4xl p-lg md:p-xl" aria-labelledby="signup-heading">
           <div className="mb-xl text-center">

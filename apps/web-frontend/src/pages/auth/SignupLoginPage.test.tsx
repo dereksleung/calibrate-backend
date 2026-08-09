@@ -19,6 +19,7 @@ const {
   mockConditionalPasskeyAuthenticationSupported,
   mockNavigate,
   mockRequestPasskeyAuthenticationOptions,
+  mockRequestLocalDevelopmentPasskeyEnrollment,
   mockStartPasskeyAuthentication,
   mockVerifyPasskeyAuthentication,
 } = vi.hoisted(() => ({
@@ -26,6 +27,7 @@ const {
   mockConditionalPasskeyAuthenticationSupported: vi.fn(async () => false),
   mockNavigate: vi.fn(),
   mockRequestPasskeyAuthenticationOptions: vi.fn(),
+  mockRequestLocalDevelopmentPasskeyEnrollment: vi.fn(),
   mockStartPasskeyAuthentication: vi.fn(),
   mockVerifyPasskeyAuthentication: vi.fn(),
 }));
@@ -38,6 +40,7 @@ vi.mock("@calibrate/api-client", async (importOriginal) => {
       mutateAsync: mockMutateAsync,
     })),
     requestPasskeyAuthenticationOptions: mockRequestPasskeyAuthenticationOptions,
+    requestLocalDevelopmentPasskeyEnrollment: mockRequestLocalDevelopmentPasskeyEnrollment,
     verifyPasskeyAuthentication: mockVerifyPasskeyAuthentication,
   };
 });
@@ -71,6 +74,62 @@ describe("SignupLoginPage", () => {
     expect(
       screen.getByText(/Enter your email and we'll send a code to continue./i),
     ).toBeTruthy();
+  });
+
+  it("authorizes a local passkey signup and navigates to enrollment", async () => {
+    mockRequestLocalDevelopmentPasskeyEnrollment.mockResolvedValue({
+      email: "local-123@example.test",
+      next: "passkey-registration",
+      expiresAt: "2030-01-01T00:05:00.000Z",
+    });
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <SignupLoginPage />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      screen.getByText(
+        "Local-environment-only - Authorize creating passkey for Sign Up - as you can't send yourself an email first with my API key",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Authorize create passkey" }));
+
+    await waitFor(() => {
+      expect(mockRequestLocalDevelopmentPasskeyEnrollment).toHaveBeenCalledOnce();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith({
+      to: "/auth/passkey-enrollment",
+      state: expect.any(Function),
+    });
+
+    const stateUpdater = mockNavigate.mock.calls.at(-1)?.[0].state;
+    expect(stateUpdater({ __TSR_index: 0 })).toEqual({
+      __TSR_index: 0,
+      passkeyEnrollment: {
+        email: "local-123@example.test",
+        next: "passkey-registration",
+        expiresAt: "2030-01-01T00:05:00.000Z",
+      },
+    });
+  });
+
+  it("shows a safe error when local authorization cannot be created", async () => {
+    mockRequestLocalDevelopmentPasskeyEnrollment.mockRejectedValue(new Error("backend detail"));
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <SignupLoginPage />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Authorize create passkey" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "We couldn't authorize local passkey setup. Please try again.",
+    );
+    expect(screen.queryByText("backend detail")).toBeNull();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it("counts down before allowing another passkey request after rate limiting", async () => {

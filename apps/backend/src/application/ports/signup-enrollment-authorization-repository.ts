@@ -16,12 +16,20 @@ export interface ConsumeAndCreateEnrollmentAuthorizationProps {
   authorization: NewSignupEnrollmentAuthorization;
 }
 
+export interface CreateLocalDevelopmentEnrollmentAuthorizationProps {
+  authorization: NewSignupEnrollmentAuthorization;
+}
+
 export type EmailVerificationContinuation =
   | { next: "login-or-recovery" }
   | { next: "passkey-registration" };
 
 /** Owns the transaction that atomically consumes a verified OTP and resolves its continuation. */
 export interface ISignupEnrollmentAuthorizationRepository {
+  createLocalDevelopmentAuthorization(
+    props: CreateLocalDevelopmentEnrollmentAuthorizationProps,
+  ): Promise<void>;
+
   consumeAndResolveContinuation(
     props: ConsumeAndCreateEnrollmentAuthorizationProps,
   ): Promise<EmailVerificationContinuation | null>;

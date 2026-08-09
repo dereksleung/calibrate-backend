@@ -49,6 +49,8 @@ class InMemoryChallengeRepository implements IEmailOtpChallengeRepository {
 class InMemoryEnrollmentRepository implements ISignupEnrollmentAuthorizationRepository {
   readonly authorizations: unknown[] = [];
 
+  async createLocalDevelopmentAuthorization(): Promise<void> {}
+
   async consumeAndResolveContinuation({
     authorization,
   }: Parameters<ISignupEnrollmentAuthorizationRepository["consumeAndResolveContinuation"]>[0]): Promise<{ next: "passkey-registration" }> {
