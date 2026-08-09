@@ -141,14 +141,18 @@ OTP_HMAC_CURRENT_KEY_VERSION="1"
 EMAIL_REQUEST_IP_HMAC_KEY="<independent_base64url_encoded_random_key_of_at_least_32_bytes>"
 EMAIL_VERIFICATION_GLOBAL_HOURLY_LIMIT="1000"
 TRUST_PROXY_HOPS="0"
+WEBAUTHN_RP_ID="localhost"
+WEBAUTHN_ORIGIN="http://localhost:3000"
+WEBAUTHN_RP_NAME="Calibrate"
 EMAIL_SERVICE_CREDENTIAL="<brevo_api_key>"
 ```
 
 `TRUST_PROXY_HOPS` must match the number of trusted reverse-proxy hops in front
 of the backend (`0` for direct local development). It controls which address
-Express exposes as the requesting IP; it does not authenticate the client. Use
-independently generated values for `OTP_HMAC_KEY` and
-`EMAIL_REQUEST_IP_HMAC_KEY`.
+Express exposes as the requesting IP; it does not authenticate the client.
+`WEBAUTHN_ORIGIN` must match the frontend origin used for passkey ceremonies
+(`http://localhost:3000` when running the web app locally). Use independently
+generated values for `OTP_HMAC_KEY` and `EMAIL_REQUEST_IP_HMAC_KEY`.
 
 3. Generate an Ed25519 private key .pem file using `openssl genpkey -algorithm ED25519 -out jwt-ed25519-private.pem`.
 
