@@ -5,6 +5,7 @@ import {
   AccessSessionRequiredErrorResponseSchema,
   AuthenticatedSessionResponseSchema,
   DeleteCurrentSessionResponseSchema,
+  LocalDevelopmentPasskeyEnrollmentResponseSchema,
   RefreshSessionRequiredErrorResponseSchema,
   RequestAccountEmailVerificationRequestBodySchema,
   RequestAccountEmailVerificationResponseSchema,
@@ -74,6 +75,28 @@ describe("signup email verification request contracts", () => {
 });
 
 describe("account email verification contracts", () => {
+  it("accepts only the public local-development enrollment handoff", () => {
+    expect(
+      LocalDevelopmentPasskeyEnrollmentResponseSchema.parse({
+        email: "local-123@example.test",
+        next: "passkey-registration",
+        expiresAt: "2030-01-01T00:05:00.000Z",
+      }),
+    ).toEqual({
+      email: "local-123@example.test",
+      next: "passkey-registration",
+      expiresAt: "2030-01-01T00:05:00.000Z",
+    });
+    expect(() =>
+      LocalDevelopmentPasskeyEnrollmentResponseSchema.parse({
+        email: "local-123@example.test",
+        next: "passkey-registration",
+        expiresAt: "2030-01-01T00:05:00.000Z",
+        token: "secret",
+      }),
+    ).toThrow();
+  });
+
   it("accepts a public challenge ID and exactly six ASCII digits", () => {
     expect(
       VerifyAccountEmailVerificationRequestBodySchema.parse({

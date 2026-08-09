@@ -30,7 +30,10 @@ describe("AccountEmailVerificationServiceImpl", () => {
       sendAccountEmailVerificationCode: vi.fn(),
       sendPasskeyAddedNotification: vi.fn(),
     };
-    enrollmentRepository = { consumeAndResolveContinuation: vi.fn() };
+    enrollmentRepository = {
+      createLocalDevelopmentAuthorization: vi.fn(),
+      consumeAndResolveContinuation: vi.fn(),
+    };
     opaqueTokenService = { create: vi.fn() };
     service = new AccountEmailVerificationServiceImpl(
       challengeRepository,

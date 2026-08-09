@@ -1,31 +1,41 @@
-import { IAccessSessionRepository, IRefreshSessionRepository } from "@application/ports/access-session-repository.js";
+import type { IFoodCatalogImporter } from "@application/ports/food-catalog-importer.js";
+
+import {
+  IAccessSessionRepository,
+  IRefreshSessionRepository,
+} from "@application/ports/access-session-repository.js";
 import { IAccessTokenService } from "@application/ports/access-token-service.js";
 import { IClock, SystemClock } from "@application/ports/clock.js";
 import { IDayLogRepository } from "@application/ports/day-log-repository.js";
-import type { IFoodCatalogImporter } from "@application/ports/food-catalog-importer.js";
 import { IEmailOtpCodeService } from "@application/ports/email-otp-code-service.js";
 import { IEmailSender } from "@application/ports/email-sender.js";
 import { IPasswordHasher } from "@application/ports/password-hasher.js";
 import { IUserRepository } from "@application/ports/user-repository.js";
-import { IAuthService, AuthServiceImpl } from "@application/services/auth-service.js";
-import { ISessionRestorationService, SessionRestorationServiceImpl } from "@application/services/session-restoration-service.js";
-import { IDayLogService, DayLogServiceImpl } from "@application/services/day-log-service.js";
-import {
-  IPasskeyAuthenticationService,
-  PasskeyAuthenticationServiceImpl,
-} from "@application/services/passkey-authentication-service.js";
 import {
   IAccountEmailVerificationService,
   AccountEmailVerificationServiceImpl,
   UnavailableAccountEmailVerificationService,
 } from "@application/services/account-email-verification-service.js";
+import { IAuthService, AuthServiceImpl } from "@application/services/auth-service.js";
+import { IDayLogService, DayLogServiceImpl } from "@application/services/day-log-service.js";
+import { FoodCatalogSearchService } from "@application/services/food-catalog-search-service.js";
+import {
+  ILocalDevelopmentPasskeyEnrollmentService,
+  LocalDevelopmentPasskeyEnrollmentService,
+} from "@application/services/local-development-passkey-enrollment-service.js";
+import {
+  IPasskeyAuthenticationService,
+  PasskeyAuthenticationServiceImpl,
+} from "@application/services/passkey-authentication-service.js";
+import {
+  ISessionRestorationService,
+  SessionRestorationServiceImpl,
+} from "@application/services/session-restoration-service.js";
 import {
   ISignupPasskeyRegistrationService,
   SignupPasskeyRegistrationServiceImpl,
-  UnavailableSignupPasskeyRegistrationService,
 } from "@application/services/signup-passkey-registration-service.js";
 import { IUserService, UserServiceImpl } from "@application/services/user-service.js";
-import { FoodCatalogSearchService } from "@application/services/food-catalog-search-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
 import { DayLogController } from "@controllers/day-log-controller.js";
 import { FoodSearchController } from "@controllers/food-search-controller.js";
@@ -34,15 +44,16 @@ import dotenvx from "@dotenvx/dotenvx";
 import { createSecretKey } from "crypto";
 
 import { BrevoEmailSender } from "./email/brevo-email-sender.js";
+import { NoopEmailSender } from "./email/noop-email-sender.js";
 import { FoodDataCentralCatalogImporter } from "./food-data-central/food-data-central-catalog-importer.js";
 import { databaseClient } from "./persistence/database.js";
 import { PostgresAccessSessionRepository } from "./persistence/repositories/postgres-access-session-repository.js";
 import { PostgresDayLogRepository } from "./persistence/repositories/postgres-day-log-repository.js";
+import { PostgresEmailOtpChallengeRepository } from "./persistence/repositories/postgres-email-otp-challenge-repository.js";
 import { PostgresFoodCatalogSearchQuery } from "./persistence/repositories/postgres-food-catalog-search-query.js";
 import { PostgresFoodCatalogWriter } from "./persistence/repositories/postgres-food-catalog-writer.js";
-import { PostgresRecentFoodQuery } from "./persistence/repositories/postgres-recent-food-query.js";
-import { PostgresEmailOtpChallengeRepository } from "./persistence/repositories/postgres-email-otp-challenge-repository.js";
 import { PostgresPasskeyAuthenticationRepository } from "./persistence/repositories/postgres-passkey-authentication-repository.js";
+import { PostgresRecentFoodQuery } from "./persistence/repositories/postgres-recent-food-query.js";
 import { PostgresSignupEnrollmentAuthorizationRepository } from "./persistence/repositories/postgres-signup-enrollment-authorization-repository.js";
 import { PostgresSignupPasskeyRegistrationRepository } from "./persistence/repositories/postgres-signup-passkey-registration-repository.js";
 import { PostgresUserRepository } from "./persistence/repositories/postgres-user-repository.js";
@@ -107,6 +118,7 @@ export class Container {
   private readonly clock: IClock;
   private readonly emailOtpCodeService: IEmailOtpCodeService;
   private readonly accountEmailVerificationService: IAccountEmailVerificationService;
+  private readonly localDevelopmentPasskeyEnrollmentService: ILocalDevelopmentPasskeyEnrollmentService;
   private readonly signupPasskeyRegistrationService: ISignupPasskeyRegistrationService;
   private readonly passkeyAuthenticationService: IPasskeyAuthenticationService;
   private readonly sessionRestorationService: ISessionRestorationService;
@@ -125,6 +137,7 @@ export class Container {
     authService,
     emailOtpCodeService,
     accountEmailVerificationService,
+    localDevelopmentPasskeyEnrollmentService,
     signupPasskeyRegistrationService,
     passkeyAuthenticationService,
     emailSender,
@@ -143,6 +156,7 @@ export class Container {
     authService?: IAuthService;
     emailOtpCodeService?: IEmailOtpCodeService;
     accountEmailVerificationService?: IAccountEmailVerificationService;
+    localDevelopmentPasskeyEnrollmentService?: ILocalDevelopmentPasskeyEnrollmentService;
     signupPasskeyRegistrationService?: ISignupPasskeyRegistrationService;
     passkeyAuthenticationService?: IPasskeyAuthenticationService;
     emailSender?: IEmailSender;
@@ -165,14 +179,20 @@ export class Container {
     const catalogWriter = new PostgresFoodCatalogWriter(databaseClient);
     const importer: IFoodCatalogImporter = foodDataCentralApiKey
       ? new FoodDataCentralCatalogImporter({ apiKey: foodDataCentralApiKey, writer: catalogWriter })
-      : { searchAndImport: async () => { throw new Error("Food catalog provider is unavailable"); } };
-    this.foodSearchController = foodSearchController ?? new FoodSearchController(
-      new FoodCatalogSearchService(
-        new PostgresFoodCatalogSearchQuery(databaseClient),
-        new PostgresRecentFoodQuery(databaseClient),
-        importer,
-      ),
-    );
+      : {
+          searchAndImport: async () => {
+            throw new Error("Food catalog provider is unavailable");
+          },
+        };
+    this.foodSearchController =
+      foodSearchController ??
+      new FoodSearchController(
+        new FoodCatalogSearchService(
+          new PostgresFoodCatalogSearchQuery(databaseClient),
+          new PostgresRecentFoodQuery(databaseClient),
+          importer,
+        ),
+      );
 
     this.passwordHasher = passwordHasher ?? new Argon2PasswordHasher();
     this.accessTokenService = accessTokenService ?? new JoseAccessTokenService();
@@ -183,6 +203,7 @@ export class Container {
       emailOtpCodeService ?? new NodeEmailOtpCodeService({ key: otpHmacKey, keyVersion });
     const configuredEmailSender =
       emailSender ?? (emailServiceCredential ? new BrevoEmailSender(emailServiceCredential) : null);
+    const passkeyEmailSender = configuredEmailSender ?? new NoopEmailSender();
     this.accountEmailVerificationService =
       accountEmailVerificationService ??
       (configuredEmailSender
@@ -204,20 +225,26 @@ export class Container {
 
     this.signupPasskeyRegistrationService =
       signupPasskeyRegistrationService ??
-      (configuredEmailSender
-        ? new SignupPasskeyRegistrationServiceImpl(
-            new PostgresSignupPasskeyRegistrationRepository(databaseClient),
-            new SimpleWebAuthnRegistrationAdapter({
-              rpId: webAuthnRpId,
-              rpName: webAuthnRpName,
-              origin: webAuthnOrigin,
-            }),
-            new NodeOpaqueTokenService(),
-            configuredEmailSender,
-            this.clock,
-            { expectedOrigin: webAuthnOrigin },
-          )
-        : new UnavailableSignupPasskeyRegistrationService());
+      new SignupPasskeyRegistrationServiceImpl(
+        new PostgresSignupPasskeyRegistrationRepository(databaseClient),
+        new SimpleWebAuthnRegistrationAdapter({
+          rpId: webAuthnRpId,
+          rpName: webAuthnRpName,
+          origin: webAuthnOrigin,
+        }),
+        new NodeOpaqueTokenService(),
+        passkeyEmailSender,
+        this.clock,
+        { expectedOrigin: webAuthnOrigin },
+      );
+
+    this.localDevelopmentPasskeyEnrollmentService =
+      localDevelopmentPasskeyEnrollmentService ??
+      new LocalDevelopmentPasskeyEnrollmentService(
+        new PostgresSignupEnrollmentAuthorizationRepository(databaseClient),
+        new NodeOpaqueTokenService(),
+        this.clock,
+      );
 
     this.passkeyAuthenticationService =
       passkeyAuthenticationService ??
@@ -245,6 +272,7 @@ export class Container {
         this.signupPasskeyRegistrationService,
         this.passkeyAuthenticationService,
         this.sessionRestorationService,
+        this.localDevelopmentPasskeyEnrollmentService,
       );
     this.userService = userService ?? new UserServiceImpl(this.passwordHasher, this.userRepository);
     this.userController = userController ?? new UserController(this.userService);

@@ -24,6 +24,38 @@ export const VerifyAccountEmailVerificationResponseSchema = z.discriminatedUnion
   z.object({ next: z.literal("login-or-recovery") }).strict(),
 ]);
 
+export const LocalDevelopmentPasskeyEnrollmentResponseSchema = z
+  .object({
+    email: z.email(),
+    next: z.literal("passkey-registration"),
+    expiresAt: z.iso.datetime(),
+  })
+  .strict();
+
+export const ActiveRecoverySecurityStateSchema = z.discriminatedUnion("state", [
+  z.object({ state: z.literal("none") }).strict(),
+  z
+    .object({
+      state: z.enum(["provisional", "promotion-eligible"]),
+      restrictionEndsAt: z.iso.datetime(),
+    })
+    .strict(),
+]);
+
+export const SessionRestrictionSecurityStateSchema = z
+  .object({
+    state: z.literal("restricted"),
+    restrictionEndsAt: z.iso.datetime(),
+  })
+  .strict();
+
+export const AuthSecurityStateSchema = z
+  .object({
+    activeRecovery: ActiveRecoverySecurityStateSchema,
+    sessionRestriction: SessionRestrictionSecurityStateSchema.nullable(),
+  })
+  .strict();
+
 export const AuthenticatedSessionResponseSchema = z
   .object({
     user: UserResponseSchema,
@@ -48,6 +80,9 @@ export type RequestAccountEmailVerificationResponse = z.infer<
 >;
 export type VerifyAccountEmailVerificationResponse = z.infer<
   typeof VerifyAccountEmailVerificationResponseSchema
+>;
+export type LocalDevelopmentPasskeyEnrollmentResponse = z.infer<
+  typeof LocalDevelopmentPasskeyEnrollmentResponseSchema
 >;
 export type AuthenticatedSessionResponse = z.infer<typeof AuthenticatedSessionResponseSchema>;
 export type AccessSessionRequiredErrorResponse = z.infer<typeof AccessSessionRequiredErrorResponseSchema>;

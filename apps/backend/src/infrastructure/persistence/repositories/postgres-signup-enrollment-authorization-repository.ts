@@ -1,4 +1,5 @@
 import type {
+  CreateLocalDevelopmentEnrollmentAuthorizationProps,
   ConsumeAndCreateEnrollmentAuthorizationProps,
   EmailVerificationContinuation,
   ISignupEnrollmentAuthorizationRepository,
@@ -8,6 +9,27 @@ import type { DatabaseClient } from "../database-client.js";
 
 export class PostgresSignupEnrollmentAuthorizationRepository implements ISignupEnrollmentAuthorizationRepository {
   constructor(private readonly databaseClient: DatabaseClient) {}
+
+  async createLocalDevelopmentAuthorization(
+    props: CreateLocalDevelopmentEnrollmentAuthorizationProps,
+  ): Promise<void> {
+    const authorization = props.authorization;
+    await this.databaseClient
+      .insertInto("signup_enrollment_authorizations")
+      .values({
+        id: authorization.id,
+        email: authorization.email,
+        token_digest: authorization.tokenDigest,
+        session_transport: authorization.sessionTransport,
+        mobile_platform: authorization.mobilePlatform,
+        webauthn_user_handle: null,
+        created_at: authorization.createdAt,
+        expires_at: authorization.expiresAt,
+        consumed_at: null,
+        invalidated_at: null,
+      })
+      .execute();
+  }
 
   async consumeAndResolveContinuation(
     props: ConsumeAndCreateEnrollmentAuthorizationProps,
