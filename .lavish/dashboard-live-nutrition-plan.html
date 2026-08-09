@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Live dashboard nutrition charts — implementation plan</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --surface: #fcf8f7;
+        --surface-low: #f8f4f3;
+        --ink: #1a1c1c;
+        --muted: #5f5e5d;
+        --line: #ddd9d7;
+        --primary: #386a20;
+        --primary-soft: #d7f1c8;
+        --error: #b3261e;
+        --warning: #8a5000;
+        --white: #ffffff;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--surface); color: var(--ink); font: 16px/1.55 Inter, ui-sans-serif, system-ui, sans-serif; }
+      main { width: min(1160px, calc(100% - 32px)); margin: 0 auto; padding: 56px 0 72px; }
+      h1, h2, h3 { font-family: Georgia, 'Times New Roman', serif; line-height: 1.12; margin: 0; }
+      h1 { max-width: 760px; font-size: clamp(2.5rem, 6vw, 4.75rem); font-weight: 400; }
+      h2 { font-size: 1.7rem; font-weight: 400; margin-bottom: 16px; }
+      h3 { font-size: 1.18rem; font-weight: 500; }
+      p { max-width: 78ch; margin: 0; }
+      .eyebrow { color: var(--primary); font-size: .76rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+      .hero { border-bottom: 1px solid var(--line); padding-bottom: 42px; }
+      .hero p { margin-top: 24px; color: var(--muted); font-size: 1.13rem; }
+      .pill { display: inline-block; border-radius: 999px; background: var(--primary-soft); color: #174600; padding: 4px 10px; font-size: .82rem; font-weight: 700; }
+      .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; }
+      .section { margin-top: 48px; }
+      .card { min-width: 0; border: 1px solid var(--line); border-radius: 20px; background: var(--white); padding: 24px; box-shadow: 0 8px 28px rgba(26, 28, 28, .06); }
+      .card p { color: var(--muted); margin-top: 8px; }
+      .stat { grid-column: span 3; }
+      .stat strong { display: block; color: var(--primary); font-family: Georgia, 'Times New Roman', serif; font-size: 2.4rem; font-weight: 400; }
+      .stat span { color: var(--muted); font-size: .9rem; }
+      .wide { grid-column: span 12; }
+      .half { grid-column: span 6; }
+      .decision { grid-column: span 4; }
+      .decision ul { color: var(--muted); margin: 12px 0 0; padding-left: 20px; }
+      .callout { border-left: 4px solid var(--primary); border-radius: 0 14px 14px 0; background: #f0f8eb; padding: 18px 20px; }
+      .callout strong { color: #174600; }
+      .risk { border-left-color: var(--warning); background: #fff7e9; }
+      .risk strong { color: var(--warning); }
+      code { border-radius: 5px; background: var(--surface-low); padding: 2px 5px; font: .9em ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+      .route { padding: 18px 20px; border-radius: 12px; background: #1d211d; color: #e8f5df; font: 500 clamp(.85rem, 2vw, 1rem)/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { min-width: 0; overflow-wrap: anywhere; padding: 14px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+      th { color: var(--muted); font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; }
+      td:first-child { font-weight: 700; }
+      .table-wrap { overflow-x: auto; }
+      .phase { border-top: 1px solid var(--line); padding: 24px 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr); gap: 24px; }
+      .phase:first-of-type { border-top: 0; }
+      .phase-meta { color: var(--muted); font-size: .9rem; }
+      .phase ul { margin: 10px 0 0; padding-left: 20px; }
+      .mermaid { background: var(--white); border: 1px solid var(--line); border-radius: 18px; padding: 22px 12px; overflow: auto; }
+      .footnote { color: var(--muted); font-size: .9rem; }
+      @media (max-width: 760px) {
+        main { width: min(100% - 24px, 1160px); padding-top: 32px; }
+        .stat, .half, .decision { grid-column: span 12; }
+        .phase { grid-template-columns: 1fr; gap: 10px; }
+      }
+    </style>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "default", securityLevel: "strict", themeVariables: { primaryColor: "#d7f1c8", primaryTextColor: "#1a1c1c", primaryBorderColor: "#386a20", lineColor: "#386a20", secondaryColor: "#f8f4f3", tertiaryColor: "#ffffff" } });
+    </script>
+  </head>
+  <body>
+    <main>
+      <header class="hero">
+        <span class="eyebrow">Implementation plan · dashboard</span>
+        <h1>Turn nutrition fixtures into a live weekly view.</h1>
+        <p>The dashboard will fetch one authenticated Sunday–Saturday range, total each day’s food entries, and render real calories, fats, protein, and carbohydrates without changing the log page’s existing day endpoint.</p>
+      </header>
+
+      <section class="section grid" aria-label="Plan summary">
+        <article class="card stat"><strong>4</strong><span>charts become live</span></article>
+        <article class="card stat"><strong>7</strong><span>ordered date slots per response</span></article>
+        <article class="card stat"><strong>1</strong><span>new backward-compatible endpoint</span></article>
+        <article class="card stat"><strong>0</strong><span>database migrations required</span></article>
+      </section>
+
+      <section class="section">
+        <h2>Chosen API boundary</h2>
+        <div class="route">GET /api/v1/daylogs/week/:weekStart</div>
+        <p class="footnote" style="margin-top: 12px;">The route accepts an ISO Sunday. It returns an inclusive Sunday–Saturday response containing seven date slots. A missing log is represented as <code>dayLog: null</code>, never as a missing day.</p>
+      </section>
+
+      <section class="section">
+        <h2>How the data travels</h2>
+        <div class="mermaid">
+flowchart TD
+  A["Dashboard\ncurrent local date"] --> B["Compute Sunday\nweekStart"]
+  B --> C["GET /daylogs/week/:weekStart"]
+  C --> D["Validate + authenticate"]
+  D --> E["User-scoped range query"]
+  E --> F["Day logs + batched food entries"]
+  F --> G["Seven ordered date slots"]
+  G --> H["React Query week cache"]
+  H --> I["Totals per metric"]
+  I --> J["Four accessible chart cards"]
+        </div>
+      </section>
+
+      <section class="section grid">
+        <h2 class="wide">Why this approach</h2>
+        <article class="card decision"><h3>Leave daily logs alone</h3><p>The logs page continues to consume <code>GET /daylogs/:date</code> unchanged.</p><ul><li>No client migration</li><li>No response-shape breakage</li></ul></article>
+        <article class="card decision"><h3>Make absence explicit</h3><p>Seven slots prevent bars from disappearing when no log exists for a day.</p><ul><li>Empty days are zero</li><li>Weekdays stay stable</li></ul></article>
+        <article class="card decision"><h3>Fetch once, derive four cards</h3><p>The dashboard gets one query, then calculates all four metrics locally.</p><ul><li>Consistent chart dates</li><li>No duplicate requests</li></ul></article>
+      </section>
+
+      <section class="section">
+        <h2>Implementation sequence</h2>
+        <div class="card">
+          <article class="phase"><div><span class="pill">Task 1</span><h3 style="margin-top: 10px;">Contract + application query</h3><p class="phase-meta">Medium · foundation</p></div><div>Define the Sunday validator, exact seven-slot response, and user-scoped range read. Unit-test invalid dates, sequence guarantees, empty results, and error propagation.</div></article>
+          <article class="phase"><div><span class="pill">Task 2</span><h3 style="margin-top: 10px;">Repository + HTTP endpoint</h3><p class="phase-meta">Large · protected read</p></div><div>Use one bounded day-log query and one batched food-entry query, reconstitute aggregates, fill empty slots at the controller boundary, and test authentication and ownership.</div></article>
+          <article class="phase"><div><span class="pill">Task 3</span><h3 style="margin-top: 10px;">API client + cache refresh</h3><p class="phase-meta">Medium · transport</p></div><div>Add the typed weekly query and distinct React Query key. After food saves, invalidate both the individual day and week-query namespace.</div></article>
+          <article class="phase"><div><span class="pill">Task 4</span><h3 style="margin-top: 10px;">Dashboard model + cards</h3><p class="phase-meta">Large · user-facing</p></div><div>Fetch one week at the dashboard boundary, derive calories/fats/protein/carbs models, remove fixtures, preserve accessible text alternatives, and render loading and error states.</div></article>
+          <article class="phase"><div><span class="pill">Task 5</span><h3 style="margin-top: 10px;">Regression checkpoint</h3><p class="phase-meta">Small · proof</p></div><div>Run contracts, backend, API-client, and web checks; confirm a saved food entry refreshes all appropriate dashboard charts.</div></article>
+        </div>
+      </section>
+
+      <section class="section grid">
+        <h2 class="wide">Live chart mapping</h2>
+        <div class="card wide table-wrap">
+          <table>
+            <thead><tr><th>Card</th><th>Food-entry field</th><th>Limit source</th><th>Empty day</th></tr></thead>
+            <tbody>
+              <tr><td>Calories</td><td><code>calories</code></td><td><code>DAILY_TARGETS.calories</code> (1800)</td><td>0 calories</td></tr>
+              <tr><td>Fats</td><td><code>totalFatGrams</code></td><td><code>DAILY_TARGETS.totalFatGrams</code> (60g)</td><td>0g</td></tr>
+              <tr><td>Protein</td><td><code>proteinGrams</code></td><td><code>DAILY_TARGETS.proteinGrams</code> (120g)</td><td>0g</td></tr>
+              <tr><td>Carbs</td><td><code>totalCarbohydrateGrams</code></td><td><code>DAILY_TARGETS.totalCarbohydrateGrams</code> (220g)</td><td>0g</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section grid">
+        <div class="card half callout"><strong>Scope boundary</strong><p>Live means food-intake totals are live. Personalized nutrition goals remain a follow-up because no goal persistence or API exists today.</p></div>
+        <div class="card half callout risk"><strong>Key risk</strong><p>Timezone drift can show the wrong week. The browser therefore computes and submits a local Sunday; the backend treats it only as a calendar range.</p></div>
+      </section>
+
+      <section class="section">
+        <h2>Proof of completion</h2>
+        <div class="card">
+          <ul>
+            <li>All four dashboard cards derive totals from the week response; no dashboard fixture values remain.</li>
+            <li>The endpoint returns only the authenticated user's logs and exactly seven ordered date slots.</li>
+            <li>Missing logs and empty meals render as zero while preserving chart and text-table accessibility.</li>
+            <li>Saving a food entry invalidates the cached week so a mounted dashboard refreshes.</li>
+            <li>Focused contracts, backend, API-client, and web test/typecheck commands pass.</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
