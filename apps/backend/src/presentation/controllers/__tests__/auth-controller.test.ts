@@ -30,6 +30,7 @@ describe("AuthController", () => {
   });
 
   beforeEach(() => {
+    vi.stubEnv("WEBAUTHN_ORIGIN", "http://localhost:3000");
     mockAuthService = { login: vi.fn() } as MockedObject<IAuthService>;
     mockAccountEmailVerificationService = {
       request: vi.fn(),
@@ -55,6 +56,10 @@ describe("AuthController", () => {
       mockPasskeyAuthenticationService,
       mockSessionRestorationService,
     );
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("revokes the current session and clears matching cookies after an allowed-origin logout", async () => {
