@@ -83,6 +83,12 @@ export class FoodCatalogSearchService {
     private readonly catalogImporter: IFoodCatalogImporter,
   ) {}
 
+  /**
+   * TO-DOs: 
+   * - Find sources of data to pre-populate the catalog with, so that we can avoid hitting external APIs and their rate limits for every search.
+   * - Save external API results to the catalog so that it naturally grows over time, also reducing the need to hit external APIs.
+   * - Optimize further, plan system design and scaling for this hot read path of searching. 
+   */
   async search(input: FoodCatalogSearchInput): Promise<FoodSearchResponse> {
     const offset = readOffset(input.cursor);
     const fetchLimit = Math.min(input.limit + offset + 1, 100);
