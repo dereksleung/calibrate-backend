@@ -3,14 +3,17 @@
 A calorie tracker application, because I've gotten into healthier eating, jogging, and calisthenics.
 
 ## Frontend Current State
-The current UI is partly a prototype built with mock data, with the Logs page able to load data for a day and add new food entries if you run the frontend and backend in development and sign up a user. Some pages do not load live data yet like the Dashboard or Goals pages. 
+
+The current UI is partly a prototype built with mock data, with the Logs page able to load data for a day and add new food entries if you run the frontend and backend in development and sign up a user. Some pages do not load live data yet like the Dashboard or Goals pages.
 
 One goal is to show product judgment: take what could easily become dense, data-heavy areas in the Dashboard and Goals pages, and keep them simple enough to be useful. The target user is not an expert mathematician or nutrition analyst, rather they are people wanting to change themselves, who may need help building new habits, and need to understand what to do next, and what is working or not working. The most important product work is surfacing actions and actionable insights that help them keep momentum with new habits, while suggesting small tweaks they may not have realized they can do that will help them get results.
 
 Charts and data stay at overview level by default. When a user chooses to drill deeper, the app should still be selective about what it shows. More data is only useful when it creates a clearer insight, a better decision, or a practical adjustment the user can actually make.
 
 ### Screenshots
+
 #### Dashboard page
+
 Initial page:
 <br></br>
 <img width="1069" height="830" alt="Screenshot 2026-08-06 at 8 33 18 AM" src="https://github.com/user-attachments/assets/3136d5ef-6ad9-4a32-8011-b54b3f832ccd" />
@@ -23,18 +26,18 @@ On clicking the High Impact Swap card's Learn More link -> panel with actionable
 Hovering over the Dashboard's Fats chart will show a tooltip saying you can click the chart to go to [a panel on the Goals page](#fats-analytics-panel), making that discoverable. Only the fats detail view mock UI is built right now.
 <br></br>
 
-
 #### Goals page
+
 Allows deeper drilling into stats and progress.
 
 Initial view - can see encouragement about journey, scrolling down you can see charts (weight and fats consumption only for now):
 <br></br>
 <img width="1067" height="908" alt="Screenshot 2026-08-06 at 8 34 05 AM" src="https://github.com/user-attachments/assets/9ca56e79-7b8f-45ba-bae8-7c78e8dbe670" />
 
-
 <br></br>
 
 #### Fats Analytics panel
+
 Clicking the Fats bar chart opens a panel with deeper data the user can find trends with.
 <br></br>
 Greatest sources of fats by food in the last month:
@@ -49,18 +52,19 @@ Largest changes in fat contributions from food between last month to this month:
 <br></br>
 
 #### Daily Logs Page
+
 <img width="1032" height="851" alt="Screenshot 2026-08-06 at 8 59 02 AM" src="https://github.com/user-attachments/assets/8551ae2f-2a4c-4004-b300-507664362af0" />
 <br></br>
 Each day starts with a compact summary of calories eaten, calories remaining, and macros with line graphs to give the user a quick sense of if their day is on the right track, and what they can still afford. As they are working on building new habits, it helps to know this information so they can quickly adjust in the same day.
 
 Logging can be done via the floating Plus button, or an Add Item button under the specific meal to quickly reach logging for it, which a user will frequently do.
 
-
 # Tech Stack
 
 ## Why Nx?
 
 This project uses Nx to support a scalable monorepo architecture. Nx gives the codebase a clear project structure, strong tooling around dependency boundaries, and a better developer experience as the system grows.
+
 - One of the main reasons for choosing Nx is its ability to understand the dependency graph of the workspace. This allows Nx to determine which projects are affected by a change and run only the relevant checks, such as tests, linting, typechecking, or builds. That keeps feedback fast while still giving confidence that related parts of the system have not been broken.
 - Another reason for using Nx is future scalability. If parts of the backend eventually need to be extracted into separate services or microservices, having the code organized as independent projects inside a monorepo makes that transition easier. The workspace can evolve gradually without forcing an early split into multiple repositories.
 
@@ -74,7 +78,8 @@ In short, Nx was chosen because it provides:
 - a smoother path toward future service extraction if the system grows in that direction
 
 ## Backend
-Currently building out the backend as an Express.js app drawing from clean architecture layering to decouple business logic from particular technology choices. 
+
+Currently building out the backend as an Express.js app drawing from clean architecture layering to decouple business logic from particular technology choices.
 Will use the backend to explore/practice various backend topics.
 
 ### Node.js/Express.js, not NestJS
@@ -91,33 +96,42 @@ Will use the backend to explore/practice various backend topics.
   3. **Full type safety over Knex.js.** Kysely infers return types from the query itself and provides autocomplete on table and column names, catching schema mismatches at compile time, things Knex.js doesn't offer.
 
 ## Frontend
+
 - TanStack Router was chosen because it gives the app fully-typed routing with room to grow into route loaders for high network performance for mobile users taking time of their busy day to jot down meal entries.
 
 - shadcn/ui is useful here for helping build battle-tested, accessible, polished UI quickly while still allowing keeping ownership over styling.
 
 # Setup for Running Locally
+
 ## Common
+
 1. Run `npm ci` in the project root.
 
 ## Backend
+
 ### Run locally with Docker
-1. Run `npm ci` if you haven't yet. 
+
+1. Run `npm ci` if you haven't yet.
 2. Start Postgres first:
+
 ```bash
 npx dotenvx run -- docker compose up -d postgres
 ```
 
 3. Run database migrations.
+
 ```bash
 npx dotenvx run --overload --env DB_HOST=127.0.0.1 DB_PORT=5433 -- npx nx run backend:kysely migrate:latest
 ```
 
 4. Start the backend.
+
 ```bash
 npx dotenvx run -- docker compose up backend
 ```
 
 ### From Scratch
+
 1. Install PostgreSQL if needed.
    [Official installers here](https://www.postgresql.org/download/), [instructions on how to use them here](https://www.enterprisedb.com/docs/supported-open-source/postgresql/installing/).
    If you are installing PostgreSQL for the first time with an installer, it likely will ask you
@@ -158,16 +172,16 @@ generated values for `OTP_HMAC_KEY` and `EMAIL_REQUEST_IP_HMAC_KEY`.
 
 4. Copy the .pem file contents to the .env file like JWT_PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n(the_private_key)\n-----END PRIVATE KEY-----". It will be encrypted using dotenvx, which is a project dependency.
 
-6. Run `npm ci` in the project root.
+5. Run `npm ci` in the project root.
 
-7. Run `npx dotenvx encrypt`. It should generate a .env.keys file with a private key, and encrypt the values in .env.
+6. Run `npx dotenvx encrypt`. It should generate a .env.keys file with a private key, and encrypt the values in .env.
    Dotenvx docs [here](https://dotenvx.com/docs/learn/encrypting/introduction)
 
-8. Run `npx nx run backend:kysely migrate:latest`. Documentation for kysely's CLI [here](https://github.com/kysely-org/kysely-ctl), see "Project-scoped installation", as it is not installed globally.
+7. Run `npx nx run backend:kysely migrate:latest`. Documentation for kysely's CLI [here](https://github.com/kysely-org/kysely-ctl), see "Project-scoped installation", as it is not installed globally.
 
-9. Run `npx nx run backend:dev`.
+8. Run `npx nx run backend:dev`.
 
-10. Other commands can be run like `npx nx run (project_name):(command_name) (args)`. Project names are found in `apps/app-folder/package.json`'s `name` field, the available command names comes from the `scripts` field.
+9. Other commands can be run like `npx nx run (project_name):(command_name) (args)`. Project names are found in `apps/app-folder/package.json`'s `name` field, the available command names comes from the `scripts` field.
 
 ### Testing signup locally without Brevo
 
@@ -181,6 +195,7 @@ recovery email, so it is intended only for evaluating the local repository.
 Nx documentation [here](https://nx.dev/docs/getting-started/tutorials/running-tasks#running-a-single-task)
 
 ### Building the backend Docker image
+
 The backend Dockerfile is in `apps/backend`, but it must be built with the repository root as the Docker build context because it copies root workspace files and the shared `packages/api-contracts` package.
 
 Run this from the repository root:
@@ -200,6 +215,7 @@ Do not use `apps/backend` as the build context. Docker cannot copy files outside
 ## Frontend
 
 ### Running Frontend Locally
+
 1. Start the dev server:
 
 ```bash

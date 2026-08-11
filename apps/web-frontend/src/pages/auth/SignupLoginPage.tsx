@@ -10,6 +10,10 @@ import {
   FieldLabel,
 } from "#/shared/components/base/Field";
 import { WarningBanner } from "#/shared/components/base/WarningBanner";
+import {
+  createAccountEmailVerificationHandoff,
+  createPasskeyEnrollmentHandoff,
+} from "#/verticals/auth/account-email-verification-handoff";
 import { setAuthenticatedSession } from "#/verticals/auth/authenticated-session";
 import {
   cancelPasskeyAuthentication,
@@ -18,10 +22,6 @@ import {
   isPasskeyAuthenticationCancellation,
   startPasskeyAuthentication,
 } from "#/verticals/auth/browser-passkey-authentication-adapter";
-import {
-  createAccountEmailVerificationHandoff,
-  createPasskeyEnrollmentHandoff,
-} from "#/verticals/auth/account-email-verification-handoff";
 import {
   ApiError,
   parsePasskeyAuthenticationError,
@@ -36,16 +36,14 @@ import {
   type RequestAccountEmailVerificationRequestBody,
 } from "@calibrate/api-contracts";
 import { useForm } from "@tanstack/react-form";
-import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Mail } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type SignUpLoginFormValues = RequestAccountEmailVerificationRequestBody;
 
-const PASSKEY_AUTHENTICATION_ERROR_MESSAGES: Partial<
-  Record<PasskeyAuthenticationErrorCode, string>
-> = {
+const PASSKEY_AUTHENTICATION_ERROR_MESSAGES: Partial<Record<PasskeyAuthenticationErrorCode, string>> = {
   ORIGIN_NOT_ALLOWED: "Passkey sign-in is unavailable from this site.",
   PASSKEY_AUTHENTICATION_UNAVAILABLE: "Passkey sign-in is temporarily unavailable.",
 };
@@ -72,8 +70,7 @@ function fieldErrors(errors: unknown[]): Array<{ message?: string }> {
 function SignUpLoginForm({ onSubmitStart = () => undefined }: { onSubmitStart?: () => void }) {
   const [requestError, setRequestError] = useState<string>();
   const navigate = useNavigate();
-  const { mutateAsync: requestAccountEmailVerification } =
-    useRequestAccountEmailVerification(apiTransport);
+  const { mutateAsync: requestAccountEmailVerification } = useRequestAccountEmailVerification(apiTransport);
 
   const form = useForm({
     defaultValues: {
@@ -215,8 +212,8 @@ function LocalDevelopmentPasskeyEnrollment() {
           Local development signup
         </h2>
         <p className="mt-sm text-sm font-light text-on-surface-variant/80">
-          Local-environment-only - Authorize creating passkey for Sign Up - as you can&apos;t send
-          yourself an email first with my API key
+          Local-environment-only - Authorize creating passkey for Sign Up - as you can&apos;t send yourself an
+          email first with my API key
         </p>
       </div>
       {error && <WarningBanner className="mt-md">{error}</WarningBanner>}
@@ -258,8 +255,7 @@ function PasskeyLogin() {
   }, [isRateLimited]);
 
   function showRateLimitError(caught: unknown) {
-    const seconds =
-      caught instanceof ApiError && caught.retryAfterSeconds ? caught.retryAfterSeconds : 60;
+    const seconds = caught instanceof ApiError && caught.retryAfterSeconds ? caught.retryAfterSeconds : 60;
     setRetryAfterSeconds(seconds);
     setError("Too many passkey attempts. Please wait before trying again.");
   }
@@ -329,7 +325,8 @@ function PasskeyLogin() {
     try {
       cancelPasskeyAuthentication();
       const options =
-        activeOptionsResponse.current && new Date(activeOptionsResponse.current.expiresAt).getTime() > Date.now()
+        activeOptionsResponse.current &&
+        new Date(activeOptionsResponse.current.expiresAt).getTime() > Date.now()
           ? activeOptionsResponse.current
           : await requestPasskeyAuthenticationOptions(apiTransport);
       activeOptionsResponse.current = options;
@@ -417,9 +414,7 @@ function SignupLoginPage() {
               />
             </svg>
           </div>
-          <h1 className="font-heading text-4xl font-light tracking-[-0.02em] text-primary">
-            Calibrate
-          </h1>
+          <h1 className="font-heading text-4xl font-light tracking-[-0.02em] text-primary">Calibrate</h1>
           <p className="mt-xs max-w-[24rem] text-sm font-light text-on-surface-variant/80">
             Mindful nourishment for a balanced life.
           </p>
@@ -439,8 +434,7 @@ function SignupLoginPage() {
               Enter your email and we&apos;ll send a code to continue.
             </p>
             <p className="mt-sm text-sm font-light text-on-surface-variant/80">
-              Log in by clicking the email field, or the button below to show passkeys you already
-              registered.
+              Log in by clicking the email field, or the button below to show passkeys you already registered.
             </p>
           </div>
           <SignUpLoginForm onSubmitStart={cancelPasskeyAuthentication} />

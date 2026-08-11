@@ -89,7 +89,7 @@ const backendUrl = `http://localhost:${backendPort}`;
 export default defineConfig({
   webServer: [
     {
-      name: 'frontend',
+      name: "frontend",
       command: `npx nx run web:e2e-dev --args="--port=${frontendPort}"`,
       url: frontendUrl,
       reuseExistingServer: false,
@@ -99,7 +99,7 @@ export default defineConfig({
       },
     },
     {
-      name: 'backend',
+      name: "backend",
       command: `npx nx run backend:e2e-dev --args="--port=${backendPort}"`,
       url: `${backendUrl}/health`,
       reuseExistingServer: false,
@@ -108,10 +108,7 @@ export default defineConfig({
   ],
   use: {
     baseURL: frontendUrl,
-    screenshot:
-      process.env.CALIBRATE_E2E_CAPTURE_SCREENSHOTS === "1"
-        ? "on"
-        : "only-on-failure",
+    screenshot: process.env.CALIBRATE_E2E_CAPTURE_SCREENSHOTS === "1" ? "on" : "only-on-failure",
     trace: "retain-on-failure",
   },
 });
@@ -274,18 +271,18 @@ The first PR containing `.no-mistakes.yaml` will not use its own new `commands.t
 
 ## Risks
 
-| Risk | Mitigation |
-|---|---|
-| `npm ci` makes every gate slow | Use npm’s download cache; never share `node_modules` between worktrees. |
-| Browser binary unavailable or Playwright is too old for virtual passkeys | Provision a Playwright version at least 1.61 and its browsers explicitly; obtain approval before installing either. |
-| Frontend or backend server starts against the wrong database | The Testcontainers wrapper supplies an isolated connection only to the Playwright child process; fail closed when absent. |
-| Concurrent worktrees bind the same application port | Select a port pair per E2E run, inject it into both servers and all derived origins, and retry only a confirmed bind collision. |
-| E2E cannot access Docker | Use the same Docker/Testcontainers permission path as the existing backend integration suite; request the required sandbox approval when running it. |
-| Development-only account creation becomes reachable in production | Preserve the server-side non-production, matching-loopback-origin, matching-`Origin`, and loopback-client checks; cover the denied paths with integration tests. |
-| E2E accidentally sends real email | Make the explicit E2E no-op email-delivery mode override a credential loaded by `dotenvx`, select `NoopEmailSender`, and assert the browser never invokes either email-verification endpoint. |
-| Backend changes do not mark web E2E as affected | Add explicit Nx task/project dependencies or use a deliberately scoped target. |
-| E2E leaves processes or containers running | Let Playwright own application-process shutdown and use a database wrapper with cleanup on every exit path. |
-| Test agent rewrites intentional local-only behavior | Keep `auto_fix.test: 0`; document the local-only and no-email invariants. |
+| Risk                                                                     | Mitigation                                                                                                                                                                                    |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm ci` makes every gate slow                                           | Use npm’s download cache; never share `node_modules` between worktrees.                                                                                                                       |
+| Browser binary unavailable or Playwright is too old for virtual passkeys | Provision a Playwright version at least 1.61 and its browsers explicitly; obtain approval before installing either.                                                                           |
+| Frontend or backend server starts against the wrong database             | The Testcontainers wrapper supplies an isolated connection only to the Playwright child process; fail closed when absent.                                                                     |
+| Concurrent worktrees bind the same application port                      | Select a port pair per E2E run, inject it into both servers and all derived origins, and retry only a confirmed bind collision.                                                               |
+| E2E cannot access Docker                                                 | Use the same Docker/Testcontainers permission path as the existing backend integration suite; request the required sandbox approval when running it.                                          |
+| Development-only account creation becomes reachable in production        | Preserve the server-side non-production, matching-loopback-origin, matching-`Origin`, and loopback-client checks; cover the denied paths with integration tests.                              |
+| E2E accidentally sends real email                                        | Make the explicit E2E no-op email-delivery mode override a credential loaded by `dotenvx`, select `NoopEmailSender`, and assert the browser never invokes either email-verification endpoint. |
+| Backend changes do not mark web E2E as affected                          | Add explicit Nx task/project dependencies or use a deliberately scoped target.                                                                                                                |
+| E2E leaves processes or containers running                               | Let Playwright own application-process shutdown and use a database wrapper with cleanup on every exit path.                                                                                   |
+| Test agent rewrites intentional local-only behavior                      | Keep `auto_fix.test: 0`; document the local-only and no-email invariants.                                                                                                                     |
 
 ## Final Acceptance Criteria
 

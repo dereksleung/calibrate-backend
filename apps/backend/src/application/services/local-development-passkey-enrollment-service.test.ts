@@ -1,6 +1,7 @@
 import type { IClock } from "@application/ports/clock.js";
 import type { IOpaqueTokenService } from "@application/ports/session-token-service.js";
 import type { ISignupEnrollmentAuthorizationRepository } from "@application/ports/signup-enrollment-authorization-repository.js";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { LocalDevelopmentPasskeyEnrollmentService } from "./local-development-passkey-enrollment-service.js";

@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { createQueryClient } from "#/shared/api/query-client";
 import { ApiError } from "@calibrate/api-client";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SignupLoginPage, SignUpLoginForm } from "./SignupLoginPage";
-import { createQueryClient } from "#/shared/api/query-client";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -71,9 +71,7 @@ describe("SignupLoginPage", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Sign Up or Log In" })).toBeTruthy();
-    expect(
-      screen.getByText(/Enter your email and we'll send a code to continue./i),
-    ).toBeTruthy();
+    expect(screen.getByText(/Enter your email and we'll send a code to continue./i)).toBeTruthy();
   });
 
   it("authorizes a local passkey signup and navigates to enrollment", async () => {
@@ -154,8 +152,7 @@ describe("SignupLoginPage", () => {
 
     expect(screen.getByText(/try again in 2 seconds/i)).toBeTruthy();
     expect(
-      (screen.getByRole("button", { name: /try again in 2 seconds/i }) as HTMLButtonElement)
-        .disabled,
+      (screen.getByRole("button", { name: /try again in 2 seconds/i }) as HTMLButtonElement).disabled,
     ).toBe(true);
 
     await act(async () => {
@@ -163,16 +160,15 @@ describe("SignupLoginPage", () => {
     });
     expect(screen.getByText(/try again in 1 second/i)).toBeTruthy();
     expect(
-      (screen.getByRole("button", { name: /try again in 1 second/i }) as HTMLButtonElement)
-        .disabled,
+      (screen.getByRole("button", { name: /try again in 1 second/i }) as HTMLButtonElement).disabled,
     ).toBe(true);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000);
     });
-    expect(
-      (screen.getByRole("button", { name: /log in with passkey/i }) as HTMLButtonElement).disabled,
-    ).toBe(false);
+    expect((screen.getByRole("button", { name: /log in with passkey/i }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
   });
 
   it("applies the rate-limit countdown when conditional passkey sign-in is limited", async () => {
@@ -199,8 +195,7 @@ describe("SignupLoginPage", () => {
 
     expect(screen.getByRole("button", { name: /try again in 2 seconds/i })).toBeTruthy();
     expect(
-      (screen.getByRole("button", { name: /try again in 2 seconds/i }) as HTMLButtonElement)
-        .disabled,
+      (screen.getByRole("button", { name: /try again in 2 seconds/i }) as HTMLButtonElement).disabled,
     ).toBe(true);
   });
 });
@@ -261,11 +256,7 @@ describe("SignUpLoginForm", () => {
 
   it("disables submission while the verification email request is pending", async () => {
     let resolveRequest:
-      | ((value: {
-          challengeId: string;
-          expiresInSeconds: number;
-          resendAfterSeconds: number;
-        }) => void)
+      | ((value: { challengeId: string; expiresInSeconds: number; resendAfterSeconds: number }) => void)
       | undefined;
     mockMutateAsync.mockReturnValue(
       new Promise((resolve) => {
@@ -280,9 +271,9 @@ describe("SignUpLoginForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /continue with email/i }));
 
     await waitFor(() => {
-      expect(
-        (screen.getByRole("button", { name: /sending code/i }) as HTMLButtonElement).disabled,
-      ).toBe(true);
+      expect((screen.getByRole("button", { name: /sending code/i }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
     });
 
     resolveRequest?.({

@@ -101,15 +101,27 @@ describe("AccountEmailVerificationServiceImpl", () => {
 
   it("returns the existing-account continuation without an enrollment token", async () => {
     challengeRepository.findById.mockResolvedValue({
-      id: "d9428888-122b-4e2b-9c24-2dc8442eaa31", email: "person@example.com", purpose: "account-email-verification",
-      codeDigest: "code-digest", hmacFormatVersion: 2, hmacKeyVersion: 1, attemptCount: 0, maxAttempts: 5,
-      sessionTransport: "cookie", mobilePlatform: null, expiresAt: new Date("2026-07-12T12:10:00.000Z"), consumedAt: null, invalidatedAt: null,
+      id: "d9428888-122b-4e2b-9c24-2dc8442eaa31",
+      email: "person@example.com",
+      purpose: "account-email-verification",
+      codeDigest: "code-digest",
+      hmacFormatVersion: 2,
+      hmacKeyVersion: 1,
+      attemptCount: 0,
+      maxAttempts: 5,
+      sessionTransport: "cookie",
+      mobilePlatform: null,
+      expiresAt: new Date("2026-07-12T12:10:00.000Z"),
+      consumedAt: null,
+      invalidatedAt: null,
     });
     codeService.verifyChallenge.mockReturnValue(true);
     opaqueTokenService.create.mockReturnValue({ token: "unused", digest: "unused" });
     enrollmentRepository.consumeAndResolveContinuation.mockResolvedValue({ next: "login-or-recovery" });
 
-    await expect(service.verify({ challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "012345", platform: null })).resolves.toEqual({ next: "login-or-recovery" });
+    await expect(
+      service.verify({ challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "012345", platform: null }),
+    ).resolves.toEqual({ next: "login-or-recovery" });
   });
 
   it("rejects a mismatched client binding without checking the code or consuming an OTP attempt", async () => {

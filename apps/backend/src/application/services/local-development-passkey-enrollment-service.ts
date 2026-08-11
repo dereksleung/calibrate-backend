@@ -48,9 +48,7 @@ export class LocalDevelopmentPasskeyEnrollmentService implements ILocalDevelopme
   }
 }
 
-export class UnavailableLocalDevelopmentPasskeyEnrollmentService
-  implements ILocalDevelopmentPasskeyEnrollmentService
-{
+export class UnavailableLocalDevelopmentPasskeyEnrollmentService implements ILocalDevelopmentPasskeyEnrollmentService {
   create(): Promise<LocalDevelopmentPasskeyEnrollment> {
     return Promise.reject(new Error("Local development enrollment unavailable"));
   }

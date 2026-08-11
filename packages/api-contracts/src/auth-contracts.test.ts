@@ -33,9 +33,7 @@ describe("signup email verification request contracts", () => {
   });
 
   it("rejects invalid, oversized, and unexpected request fields", () => {
-    expect(() =>
-      RequestAccountEmailVerificationRequestBodySchema.parse({ email: "not-an-email" }),
-    ).toThrow();
+    expect(() => RequestAccountEmailVerificationRequestBodySchema.parse({ email: "not-an-email" })).toThrow();
     expect(() =>
       RequestAccountEmailVerificationRequestBodySchema.parse({
         email: `${"a".repeat(310)}@example.com`,
@@ -109,7 +107,7 @@ describe("account email verification contracts", () => {
     });
   });
 
-  it.each(["12345", "1234567", " 123456", "123456 ", "+12345", "12.345", "１２３４５６"]) (
+  it.each(["12345", "1234567", " 123456", "123456 ", "+12345", "12.345", "１２３４５６"])(
     "rejects non-canonical verification code %s",
     (code) => {
       expect(() =>
@@ -177,7 +175,9 @@ describe("session restoration errors", () => {
       error: "REFRESH_SESSION_REQUIRED",
     });
     expect(() => AccessSessionRequiredErrorResponseSchema.parse({ error: "expired" })).toThrow();
-    expect(() => RefreshSessionRequiredErrorResponseSchema.parse({ error: "REFRESH_SESSION_REQUIRED", token: "x" })).toThrow();
+    expect(() =>
+      RefreshSessionRequiredErrorResponseSchema.parse({ error: "REFRESH_SESSION_REQUIRED", token: "x" }),
+    ).toThrow();
   });
 });
 

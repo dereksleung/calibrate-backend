@@ -53,7 +53,9 @@ class InMemoryEnrollmentRepository implements ISignupEnrollmentAuthorizationRepo
 
   async consumeAndResolveContinuation({
     authorization,
-  }: Parameters<ISignupEnrollmentAuthorizationRepository["consumeAndResolveContinuation"]>[0]): Promise<{ next: "passkey-registration" }> {
+  }: Parameters<ISignupEnrollmentAuthorizationRepository["consumeAndResolveContinuation"]>[0]): Promise<{
+    next: "passkey-registration";
+  }> {
     this.authorizations.push(authorization);
     return { next: "passkey-registration" };
   }
@@ -203,23 +205,34 @@ describe("current-session logout HTTP route", () => {
     new NodeOpaqueTokenService(),
     { now: () => new Date("2026-08-03T12:00:00.000Z") },
   );
-  app.use("/api/v1", createAuthRoutes(new AuthController(
-    authService,
-    emailService,
-    new UnavailableSignupPasskeyRegistrationService(),
-    undefined,
-    { getCurrentSession: vi.fn(), refresh: vi.fn(), logout },
-  )));
+  app.use(
+    "/api/v1",
+    createAuthRoutes(
+      new AuthController(
+        authService,
+        emailService,
+        new UnavailableSignupPasskeyRegistrationService(),
+        undefined,
+        { getCurrentSession: vi.fn(), refresh: vi.fn(), logout },
+      ),
+    ),
+  );
   let server: Server;
   let baseUrl: string;
 
-  beforeAll(() => new Promise<void>((resolve) => {
-    server = app.listen(0, "127.0.0.1", () => {
-      baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-      resolve();
-    });
-  }));
-  afterAll(() => new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())));
+  beforeAll(
+    () =>
+      new Promise<void>((resolve) => {
+        server = app.listen(0, "127.0.0.1", () => {
+          baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+          resolve();
+        });
+      }),
+  );
+  afterAll(
+    () =>
+      new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+  );
   beforeEach(() => logout.mockReset());
 
   it("returns an idempotent no-store 204 and clears both cookies after revocation", async () => {

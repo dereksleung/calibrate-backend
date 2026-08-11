@@ -17,7 +17,7 @@ For every change that adds, modifies, or deletes code under `apps/backend/`:
      `presentation -> application -> domain`; infrastructure may depend on
      application and domain; domain must not depend on application,
      infrastructure, presentation, HTTP, persistence, or framework code.
-    - Consider the package `@calibrate/api-contracts` part of the presentation layer.
+   - Consider the package `@calibrate/api-contracts` part of the presentation layer.
    - Domain entities and value objects own single-aggregate invariants and
      behavior. Do not put those rules in controllers, services, repositories,
      or database constraints alone.
@@ -112,6 +112,9 @@ Use the repo commit message convention in `docs/agents/commit-messages.md`.
 
 - Never install or upgrade dependencies without explicit user confirmation.
 - Before install/upgrade, show exact command(s) and wait for approval.
+- During a no-mistakes pipeline or phase, `npm ci --prefer-offline` is pre-approved
+  when dependencies are absent; it must not modify dependency manifests or
+  `package-lock.json`.
 
 ## Change Safety
 
@@ -142,7 +145,6 @@ Use the repo commit message convention in `docs/agents/commit-messages.md`.
   - After the frontend/backend wiring subtasks finish.
 - Before switching branches or opening a PR, inspect the diff and confirm the branch contains only the intended subtask or gate scope.
 
-
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->
 
@@ -164,6 +166,5 @@ Use the repo commit message convention in `docs/agents/commit-messages.md`.
 - USE for: advanced config options, unfamiliar flags, migration guides, plugin configuration, edge cases
 - DON'T USE for: basic generator syntax (`nx g @nx/react:app`), standard commands, things you already know
 - The `nx-generate` skill handles generator discovery internally - don't call nx_docs just to look up generator syntax
-
 
 <!-- nx configuration end-->
