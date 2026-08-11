@@ -15,7 +15,6 @@ import { AuthController } from "../../controllers/auth-controller.js";
 import { createAuthRoutes } from "../auth-routes.js";
 
 describe("local development auth route", () => {
-  const originalEnvironment = { ...process.env };
   const enrollment: LocalDevelopmentPasskeyEnrollment = {
     token: "local-enrollment-token",
     email: "local-123@example.test",
@@ -46,32 +45,34 @@ describe("local development auth route", () => {
   let server: Server;
   let baseUrl: string;
 
-  beforeAll(
-    () =>
-      new Promise<void>((resolve) => {
-        process.env.CALIBRATE_E2E = "1";
-        process.env.NODE_ENV = "test";
-        process.env.WEBAUTHN_ORIGIN = "http://localhost:3000";
-        server = app.listen(0, "127.0.0.1", () => {
-          baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-          resolve();
-        });
-      }),
-  );
+  beforeAll(() => {
+    vi.stubEnv("CALIBRATE_E2E", "1");
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("WEBAUTHN_ORIGIN", "http://localhost:3000");
 
-  afterAll(
-    () =>
-      new Promise<void>((resolve, reject) => {
+    return new Promise<void>((resolve) => {
+      server = app.listen(0, "127.0.0.1", () => {
+        baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+        resolve();
+      });
+    });
+  });
+
+  afterAll(async () => {
+    try {
+      await new Promise<void>((resolve, reject) => {
         server.close((error) => {
-          process.env = { ...originalEnvironment };
           if (error) {
             reject(error);
             return;
           }
           resolve();
         });
-      }),
-  );
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 
   it("issues the existing enrollment cookie and a public handoff on loopback", async () => {
     const response = await fetch(`${baseUrl}/api/v1/auth/local-development/passkey-enrollment`, {
