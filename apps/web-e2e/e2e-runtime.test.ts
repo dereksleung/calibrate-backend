@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createE2eEnvironment, selectPortPair } from "./e2e-runtime.js";
+import { createE2eEnvironment, createPlaywrightTargetArguments, selectPortPair } from "./e2e-runtime.js";
 
 const originalEnvironment = { ...process.env };
 
@@ -45,5 +45,17 @@ describe("E2E runtime", () => {
     expect(ports.frontend).toBeGreaterThanOrEqual(43_100);
     expect(ports.frontend % 2).toBe(0);
     expect(ports.backend).toBe(ports.frontend + 1);
+  });
+
+  it("forwards E2E CLI arguments to the inferred Playwright target", () => {
+    expect(createPlaywrightTargetArguments(["--grep", "local development passkey signup"])).toEqual([
+      "nx",
+      "run",
+      "web-e2e:parameterize-playwright",
+      "--outputStyle=static",
+      "--",
+      "--grep",
+      "local development passkey signup",
+    ]);
   });
 });

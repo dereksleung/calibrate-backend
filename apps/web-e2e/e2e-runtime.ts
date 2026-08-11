@@ -140,10 +140,24 @@ async function startDatabase(): Promise<{
   }
 }
 
-async function runNx(target: string, env: NodeJS.ProcessEnv): Promise<{ exitCode: number; output: string }> {
+export function createPlaywrightTargetArguments(playwrightArguments: string[]): string[] {
+  return [
+    "nx",
+    "run",
+    "web-e2e:parameterize-playwright",
+    "--outputStyle=static",
+    "--",
+    ...playwrightArguments,
+  ];
+}
+
+async function runNx(
+  env: NodeJS.ProcessEnv,
+  playwrightArguments: string[],
+): Promise<{ exitCode: number; output: string }> {
   return new Promise((resolve, reject) => {
     const command = process.platform === "win32" ? "npx.cmd" : "npx";
-    const child = spawn(command, ["nx", "run", target, "--outputStyle=static"], {
+    const child = spawn(command, createPlaywrightTargetArguments(playwrightArguments), {
       cwd: workspaceRoot,
       env,
       stdio: ["inherit", "pipe", "pipe"],
@@ -176,11 +190,12 @@ async function runNx(target: string, env: NodeJS.ProcessEnv): Promise<{ exitCode
 
 export async function run(): Promise<void> {
   const { container, config } = await startDatabase();
+  const playwrightArguments = process.argv.slice(2);
 
   try {
     for (let attempt = 0; attempt < MAX_PORT_ATTEMPTS; attempt += 1) {
       const ports = await selectPortPair(3000 + attempt * 2);
-      const result = await runNx("web-e2e:parameterize-playwright", createE2eEnvironment(config, ports));
+      const result = await runNx(createE2eEnvironment(config, ports), playwrightArguments);
 
       if (result.exitCode === 0) return;
       if (!result.output.includes("EADDRINUSE")) {
