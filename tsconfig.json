@@ -5,6 +5,9 @@
     { "path": "./apps/backend" },
     { "path": "./apps/web-frontend" },
     { "path": "./packages/api-contracts" },
-    { "path": "./packages/api-client" }
+    { "path": "./packages/api-client" },
+    {
+      "path": "./apps/web-e2e"
+    }
   ]
 }

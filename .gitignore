@@ -20,3 +20,5 @@ vitest.config.*.timestamp*
 vite.config.*.timestamp*
 
 storybook-static
+
+test-output
