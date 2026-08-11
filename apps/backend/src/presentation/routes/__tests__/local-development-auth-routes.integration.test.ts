@@ -5,8 +5,8 @@ import type {
   LocalDevelopmentPasskeyEnrollment,
 } from "@application/services/local-development-passkey-enrollment-service.js";
 import type { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
-import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
+import type { AddressInfo } from "node:net";
 
 import express from "express";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -15,6 +15,7 @@ import { AuthController } from "../../controllers/auth-controller.js";
 import { createAuthRoutes } from "../auth-routes.js";
 
 describe("local development auth route", () => {
+  const originalEnvironment = { ...process.env };
   const enrollment: LocalDevelopmentPasskeyEnrollment = {
     token: "local-enrollment-token",
     email: "local-123@example.test",
@@ -31,10 +32,10 @@ describe("local development auth route", () => {
       new AuthController(
         { login: vi.fn() } satisfies IAuthService,
         { request: vi.fn(), verify: vi.fn() } satisfies IAccountEmailVerificationService,
-        { createRegistrationOptions: vi.fn(), verifyRegistration: vi.fn() } satisfies ISignupPasskeyRegistrationService,
-        undefined,
-        undefined,
-        undefined,
+        {
+          createRegistrationOptions: vi.fn(),
+          verifyRegistration: vi.fn(),
+        } satisfies ISignupPasskeyRegistrationService,
         undefined,
         undefined,
         localEnrollmentService,
@@ -48,6 +49,9 @@ describe("local development auth route", () => {
   beforeAll(
     () =>
       new Promise<void>((resolve) => {
+        process.env.CALIBRATE_E2E = "1";
+        process.env.NODE_ENV = "test";
+        process.env.WEBAUTHN_ORIGIN = "http://localhost:3000";
         server = app.listen(0, "127.0.0.1", () => {
           baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
           resolve();
@@ -58,7 +62,14 @@ describe("local development auth route", () => {
   afterAll(
     () =>
       new Promise<void>((resolve, reject) => {
-        server.close((error) => (error ? reject(error) : resolve()));
+        server.close((error) => {
+          process.env = { ...originalEnvironment };
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
       }),
   );
 
