@@ -12,6 +12,14 @@
         "command": "nodemon --exec \"tsx --tsconfig apps/backend/tsconfig.json\" apps/backend/src/app.ts"
       }
     },
+    "e2e-dev": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "cache": false,
+      "options": {
+        "command": "tsx --tsconfig apps/backend/tsconfig.json apps/backend/src/app.ts"
+      }
+    },
     "build": {
       "executor": "nx:run-commands",
       "outputs": ["{projectRoot}/dist"],

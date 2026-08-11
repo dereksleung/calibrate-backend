@@ -7,6 +7,7 @@
   },
   "scripts": {
     "dev": "vite dev --port 3000",
+    "e2e-dev": "vite dev --host localhost --port $E2E_FRONTEND_PORT",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run --exclude \"**/*.integration.test.{ts,tsx}\" --exclude \"**/*.e2e.test.{ts,tsx}\" --exclude \"integration/**\" --exclude \"e2e/**\" --exclude \"test/integration/**\" --exclude \"test/e2e/**\"",

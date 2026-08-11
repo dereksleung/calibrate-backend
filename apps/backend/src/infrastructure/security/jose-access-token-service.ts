@@ -5,6 +5,8 @@ import { importPKCS8, importSPKI, jwtVerify, SignJWT } from "jose";
 import { createPrivateKey, createPublicKey, type KeyObject } from "node:crypto";
 import path from "node:path";
 
+import { getRuntimeEnvironmentValue, isE2eRuntime } from "../runtime-environment.js";
+
 interface JoseAccessTokenServiceConfig {
   issuer: string;
   audience: string;
@@ -75,9 +77,10 @@ export class JoseAccessTokenService implements IAccessTokenService {
 
   private static resolveConfig(config?: Partial<JoseAccessTokenServiceConfig>): JoseAccessTokenServiceConfig {
     const expiresIn =
-      config?.expiresInSeconds ?? parseExpiresInSeconds(dotenvx.get("JWT_ACCESS_TOKEN_TTL_SECONDS"));
-    const issuer = config?.issuer ?? dotenvx.get("JWT_ISSUER");
-    const audience = config?.audience ?? dotenvx.get("JWT_AUDIENCE");
+      config?.expiresInSeconds ??
+      parseExpiresInSeconds(getRuntimeEnvironmentValue("JWT_ACCESS_TOKEN_TTL_SECONDS"));
+    const issuer = config?.issuer ?? getRuntimeEnvironmentValue("JWT_ISSUER");
+    const audience = config?.audience ?? getRuntimeEnvironmentValue("JWT_AUDIENCE");
 
     if (!issuer) {
       throw new Error("JWT_ISSUER is not configured");
@@ -93,7 +96,7 @@ export class JoseAccessTokenService implements IAccessTokenService {
       issuer,
       audience,
       expiresInSeconds: expiresIn,
-      keyId: config?.keyId ?? dotenvx.get("JWT_KEY_ID"),
+      keyId: config?.keyId ?? getRuntimeEnvironmentValue("JWT_KEY_ID"),
       envFilePath: config?.envFilePath ?? path.resolve(process.cwd(), ".env"),
       envKeysFilePath: config?.envKeysFilePath ?? path.resolve(process.cwd(), ".env.keys"),
       publicKeyPem: config?.publicKeyPem, // optional; if not provided, will be derived from the private key
@@ -127,7 +130,9 @@ export class JoseAccessTokenService implements IAccessTokenService {
         envKeysFile: this.config.envKeysFilePath ?? path.resolve(process.cwd(), ".env.keys"),
         strict: true,
       } as Parameters<typeof dotenvx.get>[1];
-      const privateKeyPem = dotenvx.get("JWT_PRIVATE_KEY_PEM", getOptions);
+      const privateKeyPem = isE2eRuntime()
+        ? process.env.JWT_PRIVATE_KEY_PEM
+        : dotenvx.get("JWT_PRIVATE_KEY_PEM", getOptions);
 
       if (!privateKeyPem) {
         throw new Error("JWT_PRIVATE_KEY_PEM is not configured");

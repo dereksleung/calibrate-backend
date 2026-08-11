@@ -3,5 +3,21 @@
   "name": "web-e2e",
   "projectType": "application",
   "sourceRoot": "apps/web-e2e/e2e",
-  "tags": ["type:e2e", "scope:web"]
+  "tags": ["type:e2e", "scope:web"],
+  "targets": {
+    "e2e": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "tsx apps/web-e2e/e2e-runtime.ts"
+      }
+    },
+    "runtime-test": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "vitest run apps/web-e2e/e2e-runtime.test.ts"
+      }
+    }
+  }
 }

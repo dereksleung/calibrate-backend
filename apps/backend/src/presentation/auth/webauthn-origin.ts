@@ -1,7 +1,7 @@
-import dotenvx from "@dotenvx/dotenvx";
+import { getRuntimeEnvironmentValue } from "../../infrastructure/runtime-environment.js";
 
 export function getExpectedWebAuthnOrigin(): string {
-  return dotenvx.get("WEBAUTHN_ORIGIN") ?? "http://localhost:3000";
+  return getRuntimeEnvironmentValue("WEBAUTHN_ORIGIN") ?? "http://localhost:3000";
 }
 
 export function readRequestOrigin(originHeader: string | undefined): string | null {

@@ -51,22 +51,26 @@ export default defineConfig({
     ? [
         {
           name: "frontend",
-          command: `npx nx run web:e2e-dev --args=\"--port=${ports.frontend}\"`,
+          command: "npx nx run web:e2e-dev",
           url: frontendUrl,
           reuseExistingServer: false,
           timeout: 120_000,
           cwd: workspaceRoot,
           env: {
+            E2E_FRONTEND_PORT: String(ports.frontend),
             VITE_API_BASE_URL: `${backendUrl}/api/v1`,
           },
         },
         {
           name: "backend",
-          command: `npx nx run backend:e2e-dev --args=\"--port=${ports.backend}\"`,
+          command: "npx nx run backend:e2e-dev",
           url: `${backendUrl}/health`,
           reuseExistingServer: false,
           timeout: 120_000,
           cwd: workspaceRoot,
+          env: {
+            PORT: String(ports.backend),
+          },
         },
       ]
     : undefined,

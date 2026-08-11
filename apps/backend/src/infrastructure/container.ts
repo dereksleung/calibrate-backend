@@ -40,7 +40,6 @@ import { AuthController } from "@controllers/auth-controller.js";
 import { DayLogController } from "@controllers/day-log-controller.js";
 import { FoodSearchController } from "@controllers/food-search-controller.js";
 import { UserController } from "@controllers/user-controller.js";
-import dotenvx from "@dotenvx/dotenvx";
 import { createSecretKey } from "crypto";
 
 import { BrevoEmailSender } from "./email/brevo-email-sender.js";
@@ -57,6 +56,7 @@ import { PostgresRecentFoodQuery } from "./persistence/repositories/postgres-rec
 import { PostgresSignupEnrollmentAuthorizationRepository } from "./persistence/repositories/postgres-signup-enrollment-authorization-repository.js";
 import { PostgresSignupPasskeyRegistrationRepository } from "./persistence/repositories/postgres-signup-passkey-registration-repository.js";
 import { PostgresUserRepository } from "./persistence/repositories/postgres-user-repository.js";
+import { getRuntimeEnvironmentValue, isE2eRuntime } from "./runtime-environment.js";
 import { Argon2PasswordHasher } from "./security/argon2-password-hasher.js";
 import { JoseAccessTokenService } from "./security/jose-access-token-service.js";
 import { NodeEmailOtpCodeService } from "./security/node-email-otp-code-service.js";
@@ -64,7 +64,7 @@ import { NodeOpaqueTokenService } from "./security/node-session-token-service.js
 import { SimpleWebAuthnAuthenticationAdapter } from "./webauthn/simple-webauthn-authentication-adapter.js";
 import { SimpleWebAuthnRegistrationAdapter } from "./webauthn/simple-webauthn-registration-adapter.js";
 
-const encodedKey = dotenvx.get("OTP_HMAC_KEY");
+const encodedKey = getRuntimeEnvironmentValue("OTP_HMAC_KEY");
 
 if (!encodedKey) {
   throw new Error("OTP_HMAC_KEY is not configured");
@@ -76,10 +76,10 @@ if (keyBytes.byteLength < 32) {
   throw new Error("The email OTP HMAC key must contain at least 32 bytes");
 }
 
-const keyVersion = Number(dotenvx.get("OTP_HMAC_CURRENT_KEY_VERSION") ?? "1");
+const keyVersion = Number(getRuntimeEnvironmentValue("OTP_HMAC_CURRENT_KEY_VERSION") ?? "1");
 
 const otpHmacKey = createSecretKey(keyBytes);
-const encodedIpDigestKey = dotenvx.get("EMAIL_REQUEST_IP_HMAC_KEY");
+const encodedIpDigestKey = getRuntimeEnvironmentValue("EMAIL_REQUEST_IP_HMAC_KEY");
 
 if (!encodedIpDigestKey) {
   throw new Error("EMAIL_REQUEST_IP_HMAC_KEY is not configured");
@@ -91,24 +91,26 @@ if (ipDigestKeyBytes.byteLength < 32) {
   throw new Error("The email request IP HMAC key must contain at least 32 bytes");
 }
 
-const globalHourlyLimit = Number(dotenvx.get("EMAIL_VERIFICATION_GLOBAL_HOURLY_LIMIT") ?? "1000");
+const globalHourlyLimit = Number(
+  getRuntimeEnvironmentValue("EMAIL_VERIFICATION_GLOBAL_HOURLY_LIMIT") ?? "1000",
+);
 
 if (!Number.isInteger(globalHourlyLimit) || globalHourlyLimit < 1) {
   throw new Error("EMAIL_VERIFICATION_GLOBAL_HOURLY_LIMIT must be a positive integer");
 }
 
-const trustProxyHops = Number(dotenvx.get("TRUST_PROXY_HOPS") ?? "0");
+const trustProxyHops = Number(getRuntimeEnvironmentValue("TRUST_PROXY_HOPS") ?? "0");
 
 if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0) {
   throw new Error("TRUST_PROXY_HOPS must be a non-negative integer");
 }
 
-const emailServiceCredential = dotenvx.get("EMAIL_SERVICE_CREDENTIAL");
+const emailServiceCredential = getRuntimeEnvironmentValue("EMAIL_SERVICE_CREDENTIAL");
 
-const webAuthnRpId = dotenvx.get("WEBAUTHN_RP_ID") ?? "localhost";
-const webAuthnOrigin = dotenvx.get("WEBAUTHN_ORIGIN") ?? "http://localhost:3000";
-const webAuthnRpName = dotenvx.get("WEBAUTHN_RP_NAME") ?? "Calibrate";
-const foodDataCentralApiKey = dotenvx.get("FOODDATA_CENTRAL_API_KEY");
+const webAuthnRpId = getRuntimeEnvironmentValue("WEBAUTHN_RP_ID") ?? "localhost";
+const webAuthnOrigin = getRuntimeEnvironmentValue("WEBAUTHN_ORIGIN") ?? "http://localhost:3000";
+const webAuthnRpName = getRuntimeEnvironmentValue("WEBAUTHN_RP_NAME") ?? "Calibrate";
+const foodDataCentralApiKey = getRuntimeEnvironmentValue("FOODDATA_CENTRAL_API_KEY");
 
 export class Container {
   private readonly accessSessionRepository: IRefreshSessionRepository;
@@ -202,7 +204,12 @@ export class Container {
     this.emailOtpCodeService =
       emailOtpCodeService ?? new NodeEmailOtpCodeService({ key: otpHmacKey, keyVersion });
     const configuredEmailSender =
-      emailSender ?? (emailServiceCredential ? new BrevoEmailSender(emailServiceCredential) : null);
+      emailSender ??
+      (isE2eRuntime()
+        ? new NoopEmailSender()
+        : emailServiceCredential
+          ? new BrevoEmailSender(emailServiceCredential)
+          : null);
     const passkeyEmailSender = configuredEmailSender ?? new NoopEmailSender();
     this.accountEmailVerificationService =
       accountEmailVerificationService ??

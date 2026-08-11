@@ -1,4 +1,5 @@
 import { Container } from "@infrastructure/container.js";
+import { getRuntimeEnvironmentValue } from "@infrastructure/runtime-environment.js";
 import { createAuthenticationMiddleware } from "@presentation/middleware/auth-middleware.js";
 import { createAuthRoutes } from "@routes/auth-routes.js";
 import { createDayLogRoutes } from "@routes/day-log-routes.js";
@@ -18,7 +19,10 @@ app.set("trust proxy", container.getTrustProxyHops());
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.NODE_ENV === "production" ? false : "http://localhost:3000",
+    origin:
+      process.env.NODE_ENV === "production"
+        ? false
+        : (getRuntimeEnvironmentValue("CORS_ORIGIN") ?? "http://localhost:3000"),
     credentials: true,
   }),
 );
