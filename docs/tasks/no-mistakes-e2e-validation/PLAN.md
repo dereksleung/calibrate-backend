@@ -23,6 +23,7 @@ Use `.no-mistakes.yaml` as the gate contract. Do not rely on an agent skill to s
 - The existing loopback-only development flow creates an enrollment authorization for a generated `@example.test` address, then creates the user only after the real passkey-registration ceremony.
 - Use Playwright 1.61 or later's native `browserContext.credentials` virtual authenticator so the E2E suite can complete that ceremony without hardware or raw CDP.
 - Add an explicit test-only no-op email-delivery mode that takes precedence over any `EMAIL_SERVICE_CREDENTIAL` loaded by `dotenvx`; the flow then cannot deliver email. The test must prove it never enters the email-verification flow, while allowing the existing passkey-notification call to be handled by the no-op sender.
+- Default Playwright screenshots to `only-on-failure` for local development. Let the gate opt in to screenshots for successful tests with `CALIBRATE_E2E_CAPTURE_SCREENSHOTS=1`, so no-mistakes provides visual E2E evidence without making normal local runs artifact-heavy.
 - Set `auto_fix.test: 0` so test findings require human approval.
 - Commit `.no-mistakes.yaml` to the default branch. no-mistakes reads `commands.*` only from that trusted branch.
 
@@ -64,7 +65,8 @@ Use `.no-mistakes.yaml` as the gate contract. Do not rely on an agent skill to s
 - [ ] Playwright uses the derived frontend URL as `baseURL` and waits for the derived backend health URL.
 - [ ] The frontend server receives a derived `VITE_API_BASE_URL`; the backend inherits the isolated E2E database and derived WebAuthn/CORS environment from the `e2eEnv` child-process environment supplied by Task 3.
 - [ ] `web-e2e:e2e` always sets `reuseExistingServer: false`, so it fails rather than silently using a server from another worktree.
-- [ ] Screenshots/traces are retained on failures.
+- [ ] Screenshots/traces are retained on failures during ordinary E2E runs.
+- [ ] `CALIBRATE_E2E_CAPTURE_SCREENSHOTS=1` changes screenshots to `on`, while the default remains `only-on-failure`.
 - [ ] The runner uses a test-only browser profile and test-only environment.
 - [ ] The selected Playwright version is 1.61 or later and the suite uses `browserContext.credentials` for virtual WebAuthn registration, not a CDP session.
 
@@ -106,6 +108,11 @@ export default defineConfig({
   ],
   use: {
     baseURL: frontendUrl,
+    screenshot:
+      process.env.CALIBRATE_E2E_CAPTURE_SCREENSHOTS === "1"
+        ? "on"
+        : "only-on-failure",
+    trace: "retain-on-failure",
   },
 });
 ```
@@ -114,6 +121,7 @@ export default defineConfig({
 
 - [ ] Confirm the generated configuration lists tests without requiring an existing developer database.
 - [ ] Confirm a deliberate assertion failure produces a trace/screenshot once Task 3 provides the database runtime.
+- [ ] Confirm `CALIBRATE_E2E_CAPTURE_SCREENSHOTS=1` retains a screenshot after a successful test, while an unset variable retains screenshots only on failure.
 - [ ] Confirm the configuration derives one matching localhost origin for the browser, backend CORS, and WebAuthn guard.
 
 **Verification:**
@@ -232,6 +240,7 @@ Suggested initial configuration:
 commands:
   test: >
     npm ci --prefer-offline &&
+    CALIBRATE_E2E_CAPTURE_SCREENSHOTS=1
     npx nx run web-e2e:e2e --outputStyle=static
 
 auto_fix:
@@ -242,6 +251,7 @@ auto_fix:
 
 - [ ] `npm ci` executes inside the gate worktree before Nx runs.
 - [ ] `web-e2e:e2e` is the explicit baseline for the test step.
+- [ ] The gate sets `CALIBRATE_E2E_CAPTURE_SCREENSHOTS=1` so successful E2E tests retain screenshot evidence.
 - [ ] Test findings park for approval instead of auto-editing code.
 - [ ] No frontend, backend, or database process outlives the E2E command.
 
@@ -301,3 +311,4 @@ The first PR containing `.no-mistakes.yaml` will not use its own new `commands.t
 - [ ] Backend integration tests prove the local-development-only route is unavailable outside the loopback, non-production configuration.
 - [ ] Test failures park for human review.
 - [ ] The gate produces usable test artifacts and does not require the Desktop Browser plugin.
+- [ ] no-mistakes runs retain successful-test screenshots; ordinary local E2E runs retain screenshots only on failure.
