@@ -1,6 +1,7 @@
 commands:
   test: >
     npm ci --prefer-offline &&
+    npx playwright install chromium &&
     CALIBRATE_E2E_CAPTURE_SCREENSHOTS=1
     npx nx run web-e2e:e2e --outputStyle=static
 
