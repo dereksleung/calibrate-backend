@@ -3,6 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { WEB_PUBLIC_BASE_URL } from "../web-frontend/src/config/public-base-path.ts";
+
 type E2ePorts = {
   backend: number;
   frontend: number;
@@ -36,7 +38,7 @@ const configPath = fileURLToPath(import.meta.url);
 const workspaceRoot = resolve(dirname(configPath), "../..");
 const ports = readE2ePorts();
 const frontendUrl = ports ? `http://localhost:${ports.frontend}` : "http://127.0.0.1:0";
-const frontendBaseUrl = `${frontendUrl}/calibrate-monorepo/`;
+const frontendBaseUrl = new URL(WEB_PUBLIC_BASE_URL, frontendUrl).toString();
 const backendUrl = ports ? `http://localhost:${ports.backend}` : undefined;
 const screenshot = process.env.CALIBRATE_E2E_CAPTURE_SCREENSHOTS === "1" ? "on" : "only-on-failure";
 

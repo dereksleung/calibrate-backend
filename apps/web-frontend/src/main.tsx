@@ -3,9 +3,10 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 import { createQueryClient } from '#/shared/api/query-client.ts'
+import { WEB_PUBLIC_BASE_PATH } from '#/config/public-base-path.ts'
 
 const router = createRouter({
-  basepath: '/calibrate-monorepo', // For temp Github page deployment of mock UI, remove for production deployment
+  basepath: WEB_PUBLIC_BASE_PATH, // For temp Github page deployment of mock UI, remove for production deployment
   routeTree,
   defaultPreload: 'intent',
   scrollRestoration: true,
