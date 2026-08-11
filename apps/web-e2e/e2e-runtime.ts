@@ -153,11 +153,11 @@ export function createPlaywrightTargetArguments(playwrightArguments: string[]): 
 
 async function runNx(
   env: NodeJS.ProcessEnv,
-  playwrightArguments: string[],
+  targetArguments: string[],
 ): Promise<{ exitCode: number; output: string }> {
   return new Promise((resolve, reject) => {
     const command = process.platform === "win32" ? "npx.cmd" : "npx";
-    const child = spawn(command, createPlaywrightTargetArguments(playwrightArguments), {
+    const child = spawn(command, targetArguments, {
       cwd: workspaceRoot,
       env,
       stdio: ["inherit", "pipe", "pipe"],
@@ -189,13 +189,26 @@ async function runNx(
 }
 
 export async function run(): Promise<void> {
+  const prerequisiteBuild = await runNx(process.env, [
+    "nx",
+    "run",
+    "@calibrate/api-contracts:build",
+    "--outputStyle=static",
+  ]);
+  if (prerequisiteBuild.exitCode !== 0) {
+    throw new Error(`E2E prerequisite build failed with exit code ${prerequisiteBuild.exitCode}`);
+  }
+
   const { container, config } = await startDatabase();
   const playwrightArguments = process.argv.slice(2);
 
   try {
     for (let attempt = 0; attempt < MAX_PORT_ATTEMPTS; attempt += 1) {
       const ports = await selectPortPair(3000 + attempt * 2);
-      const result = await runNx(createE2eEnvironment(config, ports), playwrightArguments);
+      const result = await runNx(
+        createE2eEnvironment(config, ports),
+        createPlaywrightTargetArguments(playwrightArguments),
+      );
 
       if (result.exitCode === 0) return;
       if (!result.output.includes("EADDRINUSE")) {
