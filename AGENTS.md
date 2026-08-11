@@ -4,9 +4,49 @@
 
 Instructions for working in this repository.
 
+## Backend Architecture Guardrails
+
+For every change that adds, modifies, or deletes code under `apps/backend/`:
+
+1. Read `apps/backend/docs/adr/0001-clean-architecture-and-domain-boundaries.md`
+   before designing or editing the implementation.
+2. State which architectural layers and aggregate(s) the change affects, then keep
+   the implementation within the ADR’s dependency direction.
+3. Preserve these non-negotiable rules:
+   - Dependencies point inward only:
+     `presentation -> application -> domain`; infrastructure may depend on
+     application and domain; domain must not depend on application,
+     infrastructure, presentation, HTTP, persistence, or framework code.
+    - Consider the package `@calibrate/api-contracts` part of the presentation layer.
+   - Domain entities and value objects own single-aggregate invariants and
+     behavior. Do not put those rules in controllers, services, repositories,
+     or database constraints alone.
+   - Business rules that coordinate multiple aggregates belong in application
+     services.
+   - Writes to child entities must go through their aggregate-root repository.
+     Do not add a child-entity write repository or port that bypasses the
+     aggregate root.
+   - Application ports speak in domain/application terms. Keep database rows,
+     ORM/query-builder types, and third-party SDK payloads inside infrastructure.
+   - Contracts belong beside the boundary that gives them meaning: domain,
+     application use case, application port, presentation/API, or infrastructure.
+     Do not create catch-all DTO modules or duplicate types merely to simulate a
+     boundary.
+   - Presentation validates and maps HTTP input/output; it must not contain
+     domain business rules.
+   - Infrastructure owns transaction mechanics; application services do not
+     manage database transactions directly.
+4. Before committing a backend change, inspect the diff for dependency-direction,
+   aggregate-boundary, contract-ownership, and transaction-boundary violations.
+5. If the requested design conflicts with this ADR or requires a new architectural
+   exception, stop and explain the conflict. Do not silently introduce the
+   exception; propose an ADR update or request direction first.
+
+The ADR is the source of truth. These guardrails summarize it and do not replace it.
+
 ## Required Context
 
-- For backend architecture/layering questions or backend cross-layer changes, read the backend ADRs under `apps/backend/docs/adr/` first.
+- For backend cross-layer changes, read the backend ADRs under `apps/backend/docs/adr/` first.
 - For other apps or projects, first look for project-local architecture docs under `apps/<project>/docs/` or the relevant project folder.
 - Treat project-local architecture docs as the source of truth for that project's boundaries and dependency direction.
 
