@@ -37,13 +37,14 @@ const workspaceRoot = resolve(dirname(configPath), "../..");
 const ports = readE2ePorts();
 const frontendUrl = ports ? `http://localhost:${ports.frontend}` : "http://127.0.0.1:0";
 const backendUrl = ports ? `http://localhost:${ports.backend}` : undefined;
+const screenshot = process.env.CALIBRATE_E2E_CAPTURE_SCREENSHOTS === "1" ? "on" : "only-on-failure";
 
 export default defineConfig({
   ...nxE2EPreset(configPath, { testDir: "./e2e" }),
   outputDir: "test-output/playwright/results",
   use: {
     baseURL: frontendUrl,
-    screenshot: "only-on-failure",
+    screenshot,
     trace: "retain-on-failure",
   },
   webServer: ports
