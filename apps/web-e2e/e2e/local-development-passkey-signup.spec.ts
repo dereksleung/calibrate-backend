@@ -8,7 +8,7 @@ const emailVerificationPaths = new Set([
 test("local development passkey signup creates a disposable account without email verification", async ({
   context,
   page,
-}) => {
+}, testInfo) => {
   const emailVerificationRequests: string[] = [];
   page.on("request", (request) => {
     const { pathname } = new URL(request.url());
@@ -28,6 +28,12 @@ test("local development passkey signup creates a disposable account without emai
 
   await expect(page.getByRole("heading", { name: "Daily Insights" })).toBeVisible();
   await expect(context.credentials.get({ rpId: "localhost" })).resolves.toHaveLength(1);
+  if (process.env.CALIBRATE_E2E_CAPTURE_SCREENSHOTS === "1") {
+    await testInfo.attach("authenticated-daily-insights", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+  }
 
   await page.goBack();
   await expect(page.getByRole("heading", { name: "Set up your passkey" })).toBeVisible();

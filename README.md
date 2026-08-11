@@ -171,8 +171,9 @@ generated values for `OTP_HMAC_KEY` and `EMAIL_REQUEST_IP_HMAC_KEY`.
 
 ### Testing signup locally without Brevo
 
-When the web frontend and backend are running on their loopback development
-origins, the signup page shows a local-development-only section with an
+When the web frontend is running on the HTTP loopback origin configured by the
+backend's `WEBAUTHN_ORIGIN` (`http://localhost:3000` by default), the signup
+page shows a local-development-only section with an
 **Authorize create passkey** button. Use it to create a disposable
 `@example.test` account and continue directly to the existing passkey setup
 page. This bypass is denied in production and does not create a deliverable

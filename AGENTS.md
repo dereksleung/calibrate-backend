@@ -76,7 +76,8 @@ Use the repo commit message convention in `docs/agents/commit-messages.md`.
 - Dev server: `npx nx run <project_name>:dev`
 - Tests, fast/default suite: `npx nx run <project_name>:test`
 - Tests, integration suite: `npx nx run <project_name>:test:integration`
-- Tests, end-to-end suite: `npx nx run <project_name>:test:e2e`
+- Tests, project-local end-to-end suite: `npx nx run <project_name>:test:e2e`
+- Tests, full browser end-to-end suite: `npx nx run web-e2e:e2e`
 - Typechecking: `npx nx run <project_name>:typecheck`
 - Lint: `npx nx run <project_name>:lint`
 - Lint fix: `npx nx run <project_name>:lint:fix`
@@ -91,7 +92,9 @@ Use the repo commit message convention in `docs/agents/commit-messages.md`.
 - Put project-specific test factories under that same project, such as `apps/<project>/test/`.
 - Use `*.test.ts` / `*.test.tsx` for the normal fast suite run by `npx nx run <project_name>:test`.
 - Use `*.integration.test.ts` / `*.integration.test.tsx` for integration tests run by `npx nx run <project_name>:test:integration`.
-- Use `*.e2e.test.ts` / `*.e2e.test.tsx` for end-to-end tests run by `npx nx run <project_name>:test:e2e`.
+- Use `*.e2e.test.ts` / `*.e2e.test.tsx` for project-local end-to-end tests run by `npx nx run <project_name>:test:e2e`.
+- Use `apps/web-e2e/e2e/*.spec.ts` for Playwright browser flows run by `npx nx run web-e2e:e2e`.
+- Gate bootstrap is owned by `.no-mistakes.yaml`; the local signup security boundary is owned by `apps/backend/docs/adr/0003-loopback-only-local-passkey-signup.md`.
 - Prefer the normal suite for pure units, isolated components, mappers, validators, and service behavior with test doubles.
 - Prefer the integration suite when the test crosses a real project boundary, such as database persistence, HTTP adapters, filesystem, queues, framework middleware, or multiple layers wired together locally.
 - Prefer the end-to-end suite for critical user/system flows exercised through the outermost interface, such as browser flows or full HTTP flows through the running app.

@@ -132,11 +132,12 @@ export default defineConfig({
 
 ### Task 3: Implement disposable database lifecycle
 
-**Description:** Create `web-e2e:e2e`, the normal full E2E target. Its wrapper uses the existing Testcontainers Postgres pattern with a random mapped port, selects a distinct frontend/backend port pair, applies migrations, builds one child-process environment, invokes `web-e2e:parameterize-playwright`, and always tears down the database. The Playwright configuration owns frontend/backend process lifecycle through its `webServer` configuration.
+**Description:** Create `web-e2e:e2e`, the normal full E2E target. Its wrapper builds the API contracts, uses the existing Testcontainers Postgres pattern with a random mapped port, selects a distinct frontend/backend port pair, applies migrations, builds one child-process environment, invokes `web-e2e:parameterize-playwright`, and always tears down the database. The Playwright configuration owns frontend/backend process lifecycle through its `webServer` configuration.
 
 **Acceptance criteria:**
 
 - [ ] Uses a Testcontainers database with an isolated database name and random mapped port; never points at a developer database or Compose volume.
+- [ ] Builds `@calibrate/api-contracts` before starting the disposable database or Playwright processes.
 - [ ] Selects a unique `E2E_FRONTEND_PORT` / `E2E_BACKEND_PORT` pair before Playwright parses its configuration; retries selection/startup on a port collision.
 - [ ] Builds `e2eEnv` with the isolated database connection, `CALIBRATE_E2E=1`, `WEBAUTHN_RP_ID=localhost`, `WEBAUTHN_ORIGIN=http://localhost:<E2E_FRONTEND_PORT>`, the corresponding CORS allowlist, and `VITE_API_BASE_URL=http://localhost:<E2E_BACKEND_PORT>/api/v1`; passes it only to the child process running `web-e2e:parameterize-playwright`.
 - [ ] Does not write dynamic ports, database settings, test-only HMAC keys, or delivery settings to `.env`, `.env.local`, or any other shared dotenv file.
@@ -232,24 +233,12 @@ await runNx("web-e2e:parameterize-playwright", { env: e2eEnv });
 
 ### Task 5: Add trusted no-mistakes test configuration
 
-**Description:** Add a root `.no-mistakes.yaml` to the default branch.
-
-Suggested initial configuration:
-
-```yaml
-commands:
-  test: >
-    npm ci --prefer-offline &&
-    CALIBRATE_E2E_CAPTURE_SCREENSHOTS=1
-    npx nx run web-e2e:e2e --outputStyle=static
-
-auto_fix:
-  test: 0
-```
+**Description:** Add a root `.no-mistakes.yaml` to the default branch. That file is the authoritative gate contract; keep the command sequence there instead of duplicating it in this plan.
 
 **Acceptance criteria:**
 
 - [ ] `npm ci` executes inside the gate worktree before Nx runs.
+- [ ] The gate provisions the Chromium binary after installing workspace dependencies and before Nx runs.
 - [ ] `web-e2e:e2e` is the explicit baseline for the test step.
 - [ ] The gate sets `CALIBRATE_E2E_CAPTURE_SCREENSHOTS=1` so successful E2E tests retain screenshot evidence.
 - [ ] Test findings park for approval instead of auto-editing code.
@@ -264,21 +253,18 @@ auto_fix:
 
 ### Task 6: Add agent guidance
 
-**Description:** Update root `AGENTS.md` with the exact E2E target and local-development-user safety invariant.
+**Description:** Update root `AGENTS.md` with the Playwright test placement and exact E2E target. Keep gate bootstrap details in `.no-mistakes.yaml` and the local-development signup security rationale in [backend ADR 0003](../../../apps/backend/docs/adr/0003-loopback-only-local-passkey-signup.md).
 
 **Acceptance criteria:**
 
-- [ ] States `npx nx run web-e2e:e2e --outputStyle=static` as the target command for relevant web/backend changes.
-- [ ] States that Playwright’s `webServer` configuration owns frontend and backend process startup/readiness using ports injected by `web-e2e:e2e`.
-- [ ] States that `web-e2e:e2e` owns disposable database setup, migration, port selection, and teardown before it invokes the inner `web-e2e:parameterize-playwright` target.
-- [ ] States that the focused E2E flow completes the existing local enrollment authorization and passkey ceremony to create a new local-development-only user without using email verification or delivering email.
-- [ ] States that the capability is available only for a non-production request with a matching HTTP loopback origin, matching `Origin` header, and loopback client address.
-- [ ] States that the explicit E2E no-op email-delivery mode overrides credentials loaded by `dotenvx`, selects `NoopEmailSender`, and requires the test to assert the email-verification endpoints were not used.
-- [ ] States that E2E dependencies must be provisioned by the gate bootstrap, not shared `node_modules`.
+- [ ] States `npx nx run web-e2e:e2e` as the target command for relevant web/backend changes.
+- [ ] States that Playwright browser specs live under `apps/web-e2e/e2e/`.
+- [ ] Leaves the gate command sequence owned by `.no-mistakes.yaml`.
+- [ ] Leaves the local-only guard and no-email rationale owned by [backend ADR 0003](../../../apps/backend/docs/adr/0003-loopback-only-local-passkey-signup.md).
 
 **Verification:**
 
-- [ ] A fresh agent can identify the target, process ownership, local-only guard, and no-email assertion from repository instructions alone.
+- [ ] A fresh agent can identify the browser-spec location and target, then follow the pointers to the gate and security owners.
 
 **Dependencies:** Task 5
 
@@ -303,7 +289,7 @@ The first PR containing `.no-mistakes.yaml` will not use its own new `commands.t
 
 ## Final Acceptance Criteria
 
-- [ ] A clean no-mistakes worktree runs `npm ci`, then `web-e2e:e2e`.
+- [ ] A clean no-mistakes worktree runs `npm ci`, provisions Chromium, then runs `web-e2e:e2e`.
 - [ ] Playwright starts, waits for, and cleans up the frontend and backend servers.
 - [ ] The target provisions, migrates, and cleans up its own disposable database.
 - [ ] The E2E test creates a new local-development-only user through the existing enrollment and passkey-registration flow.
