@@ -1,4 +1,3 @@
-import { type UseMutationOptions, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CreateFoodEntryRequestRouteParamsSchema,
   CreateFoodEntryRequestSchema,
@@ -6,9 +5,17 @@ import {
   type CreateFoodEntryRequest,
   type FoodEntryResponse,
 } from "@calibrate/api-contracts";
+import {
+  type QueryClient,
+  type UseMutationOptions,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 
-import { dayLogQueryKey } from "./get-day-log.js";
 import type { ApiTransport } from "../transport.js";
+
+import { dayLogRangeQueryKeyPrefix } from "./get-day-log-range.js";
+import { dayLogQueryKey } from "./get-day-log.js";
 
 export function saveFoodEntry(
   transport: ApiTransport,
@@ -32,7 +39,15 @@ export function getSaveFoodEntryMutationOptions(transport: ApiTransport, date: s
   };
 }
 
-/** Portable save hook. It refreshes only the selected day after a successful entry creation. */
+export async function invalidateDayLogQueries(
+  queryClient: Pick<QueryClient, "invalidateQueries">,
+  date: string,
+): Promise<void> {
+  await queryClient.invalidateQueries({ queryKey: dayLogQueryKey(date) });
+  await queryClient.invalidateQueries({ queryKey: dayLogRangeQueryKeyPrefix });
+}
+
+/** Portable save hook. It refreshes the selected day and cached dashboard ranges after a successful entry creation. */
 export function useSaveFoodEntry(
   transport: ApiTransport,
   date: string,
@@ -44,7 +59,7 @@ export function useSaveFoodEntry(
     ...getSaveFoodEntryMutationOptions(transport, date),
     ...mutationOptions,
     onSuccess: async (entry, variables, context, mutation) => {
-      await queryClient.invalidateQueries({ queryKey: dayLogQueryKey(date) });
+      await invalidateDayLogQueries(queryClient, date);
       await onSuccess?.(entry, variables, context, mutation);
     },
   });
