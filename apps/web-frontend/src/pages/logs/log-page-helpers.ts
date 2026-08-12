@@ -1,11 +1,12 @@
 import type { DayLogResponse, FoodEntryResponse, MealNameEnumType } from "@calibrate/api-contracts";
 
-export const DAILY_TARGETS = {
-  calories: 1800,
-  proteinGrams: 120,
-  totalFatGrams: 60,
-  totalCarbohydrateGrams: 220,
-} as const;
+import {
+  DAILY_TARGETS,
+  getFoodEntryNutritionTotals,
+  type NutritionTotals,
+} from "#/shared/nutrition/nutrition-totals.ts";
+
+export { DAILY_TARGETS };
 
 export const MACRO_PROGRESS_COLORS = {
   calories: "#44403C",
@@ -29,12 +30,7 @@ export type FoodSearchRouteSearch = LogsSearch & {
   meal?: MealNameEnumType;
 };
 
-export type NutritionTotals = {
-  calories: number;
-  proteinGrams: number;
-  totalFatGrams: number;
-  totalCarbohydrateGrams: number;
-};
+export type { NutritionTotals };
 
 export type ProgressValue = {
   current: number;
@@ -125,10 +121,11 @@ export function addDaysToIsoDate(date: string, days: number): string {
   return formatLocalDate(localDate);
 }
 
-export function normalizeDayLogForRender(dayLog: DayLogResponse | null, selectedDate: string): NormalizedDayLog {
-  const date = dayLog?.date 
-    ? new Date(dayLog.date) 
-    : new Date(`${selectedDate}T00:00:00`);
+export function normalizeDayLogForRender(
+  dayLog: DayLogResponse | null,
+  selectedDate: string,
+): NormalizedDayLog {
+  const date = dayLog?.date ? new Date(dayLog.date) : new Date(`${selectedDate}T00:00:00`);
 
   return {
     id: dayLog?.id ?? null,
@@ -143,25 +140,14 @@ export function normalizeDayLogForRender(dayLog: DayLogResponse | null, selected
     weight: dayLog?.weight ?? null,
     isEmpty:
       !dayLog ||
-      [dayLog.breakfast, dayLog.lunch, dayLog.dinner, dayLog.snacks].every((entries) => (entries?.length ?? 0) === 0),
+      [dayLog.breakfast, dayLog.lunch, dayLog.dinner, dayLog.snacks].every(
+        (entries) => (entries?.length ?? 0) === 0,
+      ),
   };
 }
 
 export function getMealTotals(entries: FoodEntryResponse[]): NutritionTotals {
-  return entries.reduce<NutritionTotals>(
-    (totals, entry) => ({
-      calories: totals.calories + entry.calories,
-      proteinGrams: totals.proteinGrams + entry.proteinGrams,
-      totalFatGrams: totals.totalFatGrams + entry.totalFatGrams,
-      totalCarbohydrateGrams: totals.totalCarbohydrateGrams + entry.totalCarbohydrateGrams,
-    }),
-    {
-      calories: 0,
-      proteinGrams: 0,
-      totalFatGrams: 0,
-      totalCarbohydrateGrams: 0,
-    }
-  );
+  return getFoodEntryNutritionTotals(entries);
 }
 
 export function getDailyTotals(dayLog: NormalizedDayLog): NutritionTotals {
@@ -181,7 +167,7 @@ export function getDailyTotals(dayLog: NormalizedDayLog): NutritionTotals {
       proteinGrams: 0,
       totalFatGrams: 0,
       totalCarbohydrateGrams: 0,
-    }
+    },
   );
 }
 
@@ -203,7 +189,7 @@ export function getDailyProgress(totals: NutritionTotals) {
     totalFatGrams: getTargetProgress(totals.totalFatGrams, DAILY_TARGETS.totalFatGrams),
     totalCarbohydrateGrams: getTargetProgress(
       totals.totalCarbohydrateGrams,
-      DAILY_TARGETS.totalCarbohydrateGrams
+      DAILY_TARGETS.totalCarbohydrateGrams,
     ),
   };
 }
