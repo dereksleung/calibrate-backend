@@ -3,8 +3,8 @@ import { Pool, types } from "pg";
 
 import { DayLogsTable } from "./schemas/day-logs-table.js";
 import { EmailOtpChallengesTable } from "./schemas/email-otp-challenges-table.js";
-import { FoodEntriesTable } from "./schemas/food-entries-table.js";
 import { FoodCatalogTable } from "./schemas/food-catalog-table.js";
+import { FoodEntriesTable } from "./schemas/food-entries-table.js";
 import { PasskeyAuthenticationRateLimitEventsTable } from "./schemas/passkey-authentication-rate-limit-events-table.js";
 import { PasskeyCredentialsTable } from "./schemas/passkey-credentials-table.js";
 import { RefreshTokenGenerationsTable } from "./schemas/refresh-token-generations-table.js";
@@ -16,6 +16,7 @@ import { UsersTable } from "./schemas/users-table.js";
 import { WebauthnChallengesTable } from "./schemas/webauthn-challenges-table.js";
 
 types.setTypeParser(types.builtins.DATE, (value: string) => value);
+types.setTypeParser(types.builtins.NUMERIC, Number);
 
 export interface DatabaseSchema {
   email_otp_challenges: EmailOtpChallengesTable;

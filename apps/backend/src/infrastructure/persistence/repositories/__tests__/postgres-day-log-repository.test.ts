@@ -52,6 +52,10 @@ describe("Postgres database date parsing", () => {
   it("keeps SQL date values as calendar-date strings", () => {
     expect(types.getTypeParser(types.builtins.DATE)("2026-05-18")).toBe("2026-05-18");
   });
+
+  it("converts SQL numeric values into JavaScript numbers", () => {
+    expect(types.getTypeParser(types.builtins.NUMERIC)("100.25")).toBe(100.25);
+  });
 });
 
 describe("PostgresDayLogRepository.addFoodEntry", () => {
