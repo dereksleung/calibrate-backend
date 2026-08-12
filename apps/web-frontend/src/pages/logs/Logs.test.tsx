@@ -18,8 +18,8 @@ vi.mock("@tanstack/react-router-devtools", () => ({
 }));
 
 const dayLogMay18Response = {
-  id: "day-log-518",
-  date: "2026-05-18T00:00:00.000Z",
+  id: "94e23c4b-cd80-4b8e-b10c-4b263e710ec2",
+  date: "2026-05-18",
   breakfast: [oatmealFixture, coffeeFixture],
   lunch: [],
   dinner: [],
@@ -107,7 +107,8 @@ describe("Logs", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "No items logged yet" })[0]);
 
-    expect(await screen.findByRole("status")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Recently logged" })).toBeTruthy();
+    expect(screen.getByRole("searchbox", { name: "Search foods" })).toBeTruthy();
   });
 
   it("opens the quick log drawer from the floating action button", async () => {

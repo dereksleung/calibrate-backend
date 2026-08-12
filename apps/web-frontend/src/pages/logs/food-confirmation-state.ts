@@ -73,13 +73,13 @@ export function parseFoodConfirmationState(value: unknown): FoodConfirmationStat
   const hasNullableStrings = ["massUnit", "volumeUnit"].every((key) => isNullableString(candidate[key]));
 
   if (
-    // typeof candidate.id !== "string" ||
-    // typeof candidate.name !== "string" ||
-    // !isOptionalString(candidate.brand) ||
-    // typeof candidate.servingLabel !== "string" ||
-    // !hasRequiredNumbers ||
-    // !hasNullableNumbers ||
-    // !hasNullableStrings ||
+    typeof candidate.id !== "string" ||
+    typeof candidate.name !== "string" ||
+    !isOptionalString(candidate.brand) ||
+    typeof candidate.servingLabel !== "string" ||
+    !hasRequiredNumbers ||
+    !hasNullableNumbers ||
+    !hasNullableStrings ||
     !["BREAKFAST", "LUNCH", "DINNER", "SNACKS", undefined].includes(state.preselectedMeal as never)
   )
     return null;

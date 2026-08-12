@@ -1,9 +1,13 @@
 import type { CreateFoodEntryRequest, MealNameEnumType } from "@calibrate/api-contracts";
-import { ArrowLeft } from "lucide-react";
-import { useState } from "react";
 
 import { Button } from "#/shared/components/base/Button.tsx";
+import { ArrowLeft, ChevronDown } from "lucide-react";
+import { useMemo, useState } from "react";
+
 import type { FoodConfirmationState } from "../food-confirmation-state.ts";
+
+import { getFoodUnitOptions, scaleFoodNutrition } from "./confirm-food-nutrition.ts";
+import { DailyGoalProgress, NutritionAtGlance, NutritionFacts } from "./FoodNutritionPanels.tsx";
 
 type ConfirmFoodFormProps = {
   confirmation: FoodConfirmationState;
@@ -13,25 +17,27 @@ type ConfirmFoodFormProps = {
 };
 
 const meals: Array<{ value: MealNameEnumType; label: string }> = [
-  { value: "BREAKFAST", label: "Breakfast" }, { value: "LUNCH", label: "Lunch" },
-  { value: "DINNER", label: "Dinner" }, { value: "SNACKS", label: "Snacks" },
+  { value: "BREAKFAST", label: "Breakfast" },
+  { value: "LUNCH", label: "Lunch" },
+  { value: "DINNER", label: "Dinner" },
+  { value: "SNACKS", label: "Snacks" },
 ];
-
-function servingUnits(food: FoodConfirmationState["food"]) {
-  return [food.servingLabel, food.massUnit, food.volumeUnit].filter((unit): unit is string => Boolean(unit));
-}
 
 export function ConfirmFoodForm({ confirmation, isSaving, onCancel, onSave }: ConfirmFoodFormProps) {
   const { food } = confirmation;
-  const units = servingUnits(food);
+  const units = useMemo(() => getFoodUnitOptions(food), [food]);
   const [quantity, setQuantity] = useState(String(food.quantityServing));
-  const [unit, setUnit] = useState(units[0] ?? food.servingLabel);
+  const [unit, setUnit] = useState(units[0]?.unit ?? food.servingLabel);
   const [meal, setMeal] = useState<MealNameEnumType>(confirmation.preselectedMeal ?? "BREAKFAST");
   const [quantityError, setQuantityError] = useState<string | null>(null);
+  const chosenQuantity = Number(quantity);
+  const nutrition = useMemo(
+    () => scaleFoodNutrition(food, chosenQuantity, unit),
+    [chosenQuantity, food, unit],
+  );
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const chosenQuantity = Number(quantity);
     if (!Number.isFinite(chosenQuantity) || chosenQuantity <= 0) {
       setQuantityError("Enter an amount greater than 0.");
       return;
@@ -39,71 +45,146 @@ export function ConfirmFoodForm({ confirmation, isSaving, onCancel, onSave }: Co
 
     setQuantityError(null);
     onSave({
-      name: food.name, brand: food.brand ?? null, meal, chosenQuantity, chosenUnit: unit,
-      calories: food.calories, totalFatGrams: food.totalFatGrams, saturatedFatGrams: food.saturatedFatGrams,
-      cholesterolMg: food.cholesterolMg, sodiumMg: food.sodiumMg, totalCarbohydrateGrams: food.totalCarbohydrateGrams,
-      fiberGrams: food.fiberGrams, sugarGrams: food.sugarGrams, proteinGrams: food.proteinGrams,
-      quantityServing: food.quantityServing, servingLabel: food.servingLabel, quantityMass: food.quantityMass,
-      massUnit: food.massUnit, quantityVolume: food.quantityVolume, volumeUnit: food.volumeUnit,
+      name: food.name,
+      brand: food.brand ?? null,
+      meal,
+      chosenQuantity,
+      chosenUnit: unit,
+      ...nutrition,
+      quantityServing: food.quantityServing,
+      servingLabel: food.servingLabel,
+      quantityMass: food.quantityMass,
+      massUnit: food.massUnit,
+      quantityVolume: food.quantityVolume,
+      volumeUnit: food.volumeUnit,
     });
   }
 
   return (
-    <main className="min-h-screen bg-surface px-6 pb-24 pt-6 antialiased md:px-10 md:pt-12 subtle-aurora-fade-page-background">
-      <form className="mx-auto w-full max-w-2xl" onSubmit={submit}>
-        <header className="flex items-center justify-between gap-4">
-          <Button aria-label="Back to food search" type="button" variant="ghost" size="icon" onClick={onCancel}>
-            <ArrowLeft aria-hidden />
-          </Button>
-          <h1 className="font-heading text-xl font-medium tracking-tight text-on-surface">Add Food</h1>
-          <Button type="submit" size="sm" disabled={isSaving}>{isSaving ? "Saving…" : "Done"}</Button>
+    <main className="min-h-screen bg-surface-container-low pb-24 antialiased subtle-aurora-fade-page-background md:bg-surface md:px-10 md:pb-20">
+      <form className="w-full" onSubmit={submit}>
+        <header className="sticky top-0 z-40 border-b border-white/80 bg-surface/90 px-6 py-4 backdrop-blur-md shadow-[0_12px_24px_-20px_rgba(26,28,28,0.38)] md:static md:mx-auto md:max-w-[60rem] md:border-0 md:bg-transparent md:px-0 md:py-10 md:shadow-none">
+          <div className="relative flex items-center justify-between gap-4">
+            <Button
+              aria-label="Back to food search"
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="relative z-10 text-primary hover:bg-primary/10"
+              onClick={onCancel}
+            >
+              <ArrowLeft aria-hidden strokeWidth={1.75} />
+            </Button>
+            <h1 className="pointer-events-none absolute inset-x-14 text-center font-heading text-xl font-medium tracking-tight text-on-surface">
+              Add Food
+            </h1>
+            <Button
+              type="submit"
+              variant="ghost"
+              size="sm"
+              className="relative z-10 min-w-11 justify-center px-2 text-primary hover:bg-primary/10"
+              disabled={isSaving}
+            >
+              {isSaving ? "Saving…" : "Done"}
+            </Button>
+          </div>
         </header>
 
-        <section className="mt-9 rounded-2xl bg-surface-container-lowest px-6 py-6 shadow-[0_18px_45px_-32px_rgba(26,28,28,0.42)] ring-1 ring-on-surface/5">
-          <p className="font-heading text-xl font-semibold text-on-surface">{food.name}</p>
-          {food.brand ? <p className="mt-1 text-sm text-on-surface-variant">{food.brand}</p> : null}
+        <div className="mx-auto w-full max-w-[60rem] px-6 pt-5 md:px-0 md:pt-0">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1.05fr)_minmax(20rem,0.95fr)] md:gap-6">
+            <div className="space-y-4">
+              <section
+                aria-labelledby="food-name-heading"
+                className="rounded-2xl bg-surface-container-lowest px-6 py-6 shadow-[0_18px_45px_-32px_rgba(26,28,28,0.42)]"
+              >
+                <h2 id="food-name-heading" className="font-heading text-xl font-medium text-on-surface">
+                  {food.name}
+                </h2>
+                {food.brand ? <p className="mt-1 text-sm text-on-surface-variant/75">{food.brand}</p> : null}
+              </section>
 
-          <div className="mt-7 grid grid-cols-2 gap-3">
-            <label className="text-xs font-medium tracking-wide text-on-surface-variant" htmlFor="food-quantity">
-              Quantity
-              <input id="food-quantity" inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)}
-                aria-invalid={Boolean(quantityError)} className="mt-2 h-12 w-full rounded-xl bg-surface-container-low px-4 text-base text-on-surface outline-none focus-visible:ring-3 focus-visible:ring-ring/30" />
-            </label>
-            <label className="text-xs font-medium tracking-wide text-on-surface-variant" htmlFor="serving-unit">
-              Unit
-              <select id="serving-unit" value={unit} onChange={(event) => setUnit(event.target.value)} className="mt-2 h-12 w-full rounded-xl bg-surface-container-low px-4 text-base text-on-surface outline-none focus-visible:ring-3 focus-visible:ring-ring/30">
-                {units.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-            </label>
-          </div>
-          {quantityError ? <p role="alert" className="mt-2 text-sm text-error">{quantityError}</p> : null}
+              <section className="rounded-2xl bg-surface-container-lowest px-6 py-6 shadow-[0_18px_45px_-32px_rgba(26,28,28,0.42)]">
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="min-w-0" htmlFor="food-quantity">
+                    <span className="block text-[0.625rem] font-medium tracking-[0.12em] text-on-surface-variant/70 uppercase">
+                      Quantity
+                    </span>
+                    <input
+                      id="food-quantity"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="any"
+                      value={quantity}
+                      onChange={(event) => setQuantity(event.target.value)}
+                      aria-invalid={Boolean(quantityError)}
+                      className={`mt-2 h-12 w-full rounded-xl px-4 text-base font-medium tabular-nums text-on-surface outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/30 ${quantityError ? "bg-error-container" : "bg-surface-container-low"}`}
+                    />
+                  </label>
 
-          <fieldset className="mt-7">
-            <legend className="text-xs font-medium tracking-wide text-on-surface-variant">Meal</legend>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {meals.map((option) => (
-                <button key={option.value} type="button" onClick={() => setMeal(option.value)} aria-pressed={meal === option.value}
-                  className="rounded-full bg-surface-container-low px-3 py-2 text-sm text-on-surface-variant transition hover:bg-surface-container focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30 aria-pressed:bg-primary aria-pressed:text-on-primary">
-                  {option.label}
-                </button>
-              ))}
+                  <label className="min-w-0" htmlFor="serving-unit">
+                    <span className="block text-[0.625rem] font-medium tracking-[0.12em] text-on-surface-variant/70 uppercase">
+                      Unit
+                    </span>
+                    <span className="relative mt-2 block">
+                      <select
+                        id="serving-unit"
+                        value={unit}
+                        onChange={(event) => setUnit(event.target.value)}
+                        className="h-12 w-full appearance-none rounded-xl bg-surface-container-low px-4 pr-10 text-base font-medium text-on-surface outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/30"
+                      >
+                        {units.map((option) => (
+                          <option key={option.unit} value={option.unit}>
+                            {option.unit}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        aria-hidden
+                        className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-primary"
+                        strokeWidth={1.75}
+                      />
+                    </span>
+                  </label>
+                </div>
+
+                {quantityError ? (
+                  <p role="alert" className="mt-3 text-sm text-error">
+                    {quantityError}
+                  </p>
+                ) : null}
+
+                <fieldset className="mt-6">
+                  <legend className="text-[0.625rem] font-medium tracking-[0.12em] text-on-surface-variant/70 uppercase">
+                    Select a meal
+                  </legend>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {meals.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setMeal(option.value)}
+                        aria-pressed={meal === option.value}
+                        className="rounded-full bg-surface-container px-3.5 py-2 text-sm font-medium text-on-surface-variant transition-colors duration-200 hover:bg-surface-container-high focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30 aria-pressed:bg-primary aria-pressed:text-on-primary"
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+              </section>
             </div>
-          </fieldset>
-        </section>
 
-        <section className="mt-6 rounded-2xl bg-surface-container-low px-6 py-5" aria-labelledby="nutrition-heading">
-          <div className="flex items-baseline justify-between gap-4"><h2 id="nutrition-heading" className="font-heading text-lg text-on-surface">Nutrition</h2><p className="text-2xl font-semibold text-on-surface">{Math.round(food.calories)} cal</p></div>
-          <dl className="mt-5 grid grid-cols-3 gap-4 text-sm">
-            <div><dt className="text-on-surface-variant">Protein</dt><dd className="mt-1 font-medium text-on-surface">{food.proteinGrams}g</dd></div>
-            <div><dt className="text-on-surface-variant">Carbs</dt><dd className="mt-1 font-medium text-on-surface">{food.totalCarbohydrateGrams}g</dd></div>
-            <div><dt className="text-on-surface-variant">Fat</dt><dd className="mt-1 font-medium text-on-surface">{food.totalFatGrams}g</dd></div>
-          </dl>
-        </section>
+            <div className="space-y-4">
+              <NutritionAtGlance nutrition={nutrition} />
+              <DailyGoalProgress nutrition={nutrition} />
+            </div>
 
-        <details className="mt-6 rounded-2xl bg-surface-container-lowest px-6 py-5 text-sm text-on-surface-variant">
-          <summary className="cursor-pointer font-medium text-on-surface">Nutrition facts</summary>
-          <dl className="mt-4 space-y-2"><div className="flex justify-between"><dt>Sodium</dt><dd>{food.sodiumMg ?? 0}mg</dd></div><div className="flex justify-between"><dt>Fiber</dt><dd>{food.fiberGrams ?? 0}g</dd></div><div className="flex justify-between"><dt>Sugar</dt><dd>{food.sugarGrams ?? 0}g</dd></div></dl>
-        </details>
+            <div className="md:col-span-2">
+              <NutritionFacts nutrition={nutrition} />
+            </div>
+          </div>
+        </div>
       </form>
     </main>
   );

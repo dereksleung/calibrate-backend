@@ -36,17 +36,28 @@ function RootComponent() {
       state.location.pathname === '/auth/passkey-enrollment' ||
       state.location.pathname === '/auth/login-recovery',
   });
+  const isConfirmFoodRoute = useRouterState({
+    select: (state) => state.location.pathname === '/logs/confirm-food',
+  });
 
   const content = (
     <TooltipProvider>
       <div className={isAuthRoute ? 'min-h-dvh' : 'h-dvh'}>
-        {/* pb-18 clears the mobile bottom nav bar */}
-        <div className={isAuthRoute ? undefined : 'pb-18 md:pb-0'}>
-          {!isAuthRoute && <Header />}
+        {/* pb-18 clears the mobile bottom nav bar. */}
+        <div className={isAuthRoute ? undefined : isConfirmFoodRoute ? 'md:pb-0' : 'pb-18 md:pb-0'}>
+          {!isAuthRoute && (
+            <div className={isConfirmFoodRoute ? 'hidden md:block' : undefined}>
+              <Header />
+            </div>
+          )}
           <Toaster position={isMobile ? 'bottom-center' : 'top-center'} />
           <Outlet />
         </div>
-        {!isAuthRoute && <Footer />}
+        {!isAuthRoute && (
+          <div className={isConfirmFoodRoute ? 'hidden md:block' : undefined}>
+            <Footer />
+          </div>
+        )}
       </div>
       <TanStackDevtools
         config={{
