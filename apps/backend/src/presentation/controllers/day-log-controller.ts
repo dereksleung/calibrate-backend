@@ -4,7 +4,10 @@ import {
   CreateFoodEntryRequestRouteParams,
   CreateFoodEntryRequestRouteParamsSchema,
   CreateFoodEntryRequestSchema,
+  DayLogRangeResponse,
   DayLogResponse,
+  GetDayLogRangeRequestQuery,
+  GetDayLogRangeRequestQuerySchema,
   GetDayLogRequestRouteParams,
   GetDayLogRequestRouteParamsSchema,
 } from "@calibrate/api-contracts";
@@ -52,6 +55,47 @@ export class DayLogController {
       });
 
       const response: DayLogResponse | null = dayLog ? DayLogResponseMapper.toResponse(dayLog) : null;
+      res.status(200).json(response);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  }
+
+  async getLogsForDateRange(
+    req: Request<Record<string, never>, unknown, unknown, GetDayLogRangeRequestQuery>,
+    res: Response,
+  ): Promise<void> {
+    try {
+      const validatedInput = validate(GetDayLogRangeRequestQuerySchema, req.query);
+      if (!validatedInput.isValid) {
+        res.status(400).json({
+          error: "Validation failed",
+          details: validatedInput.errors,
+        });
+        return;
+      }
+
+      const authenticatedUserId = req.auth?.userId;
+      if (!authenticatedUserId) {
+        throw new AuthenticationError("Authentication required");
+      }
+
+      const { startDate, endDate } = validatedInput.data;
+      const dayLogs = await this.dayLogService.getLogsForDateRange({
+        userId: authenticatedUserId,
+        startDate,
+        endDate,
+      });
+      const dayLogsByDate = new Map(dayLogs.map((dayLog) => [dayLog.date.toString(), dayLog]));
+      const response: DayLogRangeResponse = {
+        startDate,
+        endDate,
+        days: getConsecutiveDates(startDate, endDate).map((date) => {
+          const dayLog = dayLogsByDate.get(date);
+          return { date, dayLog: dayLog ? DayLogResponseMapper.toResponse(dayLog) : null };
+        }),
+      };
+
       res.status(200).json(response);
     } catch (error) {
       handleControllerError(error, res);
@@ -115,4 +159,17 @@ export class DayLogController {
       handleControllerError(error, res);
     }
   }
+}
+
+function getConsecutiveDates(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const end = Temporal.PlainDate.from(endDate);
+  let date = Temporal.PlainDate.from(startDate);
+
+  while (Temporal.PlainDate.compare(date, end) <= 0) {
+    dates.push(date.toString());
+    date = date.add({ days: 1 });
+  }
+
+  return dates;
 }

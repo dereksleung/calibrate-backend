@@ -6,6 +6,8 @@ import {
   FoodSearchResponseSchema,
   FoodSearchRequestQuerySchema,
   RecentFoodSearchResultSchema,
+  DayLogRangeResponseSchema,
+  GetDayLogRangeRequestQuerySchema,
   UpdateDayLogWeightRequestBodySchema,
   UpdateDayLogWeightRequestRouteParamsSchema,
   CatalogFoodSearchResultSchema,
@@ -27,6 +29,31 @@ const baseFoodResult = {
 };
 
 describe("log page request contracts", () => {
+  it("accepts an ordered inclusive date range of up to seven days", () => {
+    expect(
+      GetDayLogRangeRequestQuerySchema.parse({
+        startDate: "2026-08-06",
+        endDate: "2026-08-12",
+      }),
+    ).toEqual({
+      startDate: "2026-08-06",
+      endDate: "2026-08-12",
+    });
+  });
+
+  it("rejects malformed, missing, reversed, and overlong date ranges", () => {
+    expect(() =>
+      GetDayLogRangeRequestQuerySchema.parse({ startDate: "2026-8-06", endDate: "2026-08-12" }),
+    ).toThrow();
+    expect(() => GetDayLogRangeRequestQuerySchema.parse({ startDate: "2026-08-06" })).toThrow();
+    expect(() =>
+      GetDayLogRangeRequestQuerySchema.parse({ startDate: "2026-08-12", endDate: "2026-08-06" }),
+    ).toThrow();
+    expect(() =>
+      GetDayLogRangeRequestQuerySchema.parse({ startDate: "2026-08-05", endDate: "2026-08-12" }),
+    ).toThrow();
+  });
+
   it("validates day-log weight updates by date and positive weight", () => {
     expect(UpdateDayLogWeightRequestRouteParamsSchema.parse({ date: "2026-05-20" })).toEqual({
       date: "2026-05-20",
@@ -38,11 +65,18 @@ describe("log page request contracts", () => {
   });
 
   it("trims and bounds food search query params", () => {
-    expect(FoodSearchRequestQuerySchema.parse({ query: "  yogurt  " })).toEqual({ query: "yogurt", limit: 20 });
+    expect(FoodSearchRequestQuerySchema.parse({ query: "  yogurt  " })).toEqual({
+      query: "yogurt",
+      limit: 20,
+    });
     expect(() => FoodSearchRequestQuerySchema.parse({ query: "   " })).toThrow();
     expect(() => FoodSearchRequestQuerySchema.parse({ query: "yo" })).toThrow();
-    expect(() => FoodSearchRequestQuerySchema.parse({ query: "one two three four five six seven eight nine" })).toThrow();
-    expect(FoodSearchRequestQuerySchema.parse({ query: "greek yogurt", cursor: "offset:20", limit: "12" })).toEqual({
+    expect(() =>
+      FoodSearchRequestQuerySchema.parse({ query: "one two three four five six seven eight nine" }),
+    ).toThrow();
+    expect(
+      FoodSearchRequestQuerySchema.parse({ query: "greek yogurt", cursor: "offset:20", limit: "12" }),
+    ).toEqual({
       query: "greek yogurt",
       cursor: "offset:20",
       limit: 12,
@@ -71,6 +105,55 @@ describe("log page request contracts", () => {
 });
 
 describe("log page response contracts", () => {
+  const dayLogForDate = (date: string) => ({
+    id: "00000000-0000-0000-0000-000000000000",
+    date,
+    breakfast: [],
+    lunch: [],
+    dinner: [],
+    snacks: [],
+    weight: null,
+  });
+
+  const validRangeResponse = {
+    startDate: "2026-08-06",
+    endDate: "2026-08-12",
+    days: [
+      { date: "2026-08-06", dayLog: dayLogForDate("2026-08-06") },
+      { date: "2026-08-07", dayLog: null },
+      { date: "2026-08-08", dayLog: null },
+      { date: "2026-08-09", dayLog: null },
+      { date: "2026-08-10", dayLog: null },
+      { date: "2026-08-11", dayLog: null },
+      { date: "2026-08-12", dayLog: dayLogForDate("2026-08-12") },
+    ],
+  };
+
+  it("accepts one consecutive date slot for every requested date", () => {
+    expect(DayLogRangeResponseSchema.parse(validRangeResponse)).toEqual(validRangeResponse);
+  });
+
+  it("rejects date slots that are out of order, duplicated, or do not match the range", () => {
+    expect(() =>
+      DayLogRangeResponseSchema.parse({
+        ...validRangeResponse,
+        days: [validRangeResponse.days[1], validRangeResponse.days[0], ...validRangeResponse.days.slice(2)],
+      }),
+    ).toThrow();
+    expect(() =>
+      DayLogRangeResponseSchema.parse({
+        ...validRangeResponse,
+        days: [validRangeResponse.days[0], validRangeResponse.days[0], ...validRangeResponse.days.slice(2)],
+      }),
+    ).toThrow();
+    expect(() =>
+      DayLogRangeResponseSchema.parse({
+        ...validRangeResponse,
+        days: [{ date: "2026-08-05", dayLog: null }, ...validRangeResponse.days.slice(1)],
+      }),
+    ).toThrow();
+  });
+
   it("defaults only serving fields for catalog results", () => {
     const result = CatalogFoodSearchResultSchema.parse({
       ...baseFoodResult,

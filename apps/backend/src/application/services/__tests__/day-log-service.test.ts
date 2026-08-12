@@ -27,6 +27,8 @@ describe("DayLogServiceImpl", () => {
     } as any;
     mockDayLogRepository = {
       findLogByDateAndUserId: vi.fn(),
+      findLogsByDateRangeAndUserId: vi.fn(),
+      findOrCreateByDateAndUserId: vi.fn(),
     } as any;
     dayLogService = new DayLogServiceImpl(mockDayLogRepository, mockUserRepository);
   });
@@ -69,6 +71,53 @@ describe("DayLogServiceImpl", () => {
         dayLogService.getLogForDay({
           userId: "user-1",
           date: "2026-02-22",
+        }),
+      ).rejects.toThrow("Database connection failed");
+    });
+  });
+
+  describe("getLogsForDateRange", () => {
+    it("delegates the authenticated user and inclusive bounds to the repository", async () => {
+      mockDayLogRepository.findLogsByDateRangeAndUserId.mockResolvedValue([mockDayLog]);
+
+      const result = await dayLogService.getLogsForDateRange({
+        userId: "user-1",
+        startDate: "2026-02-16",
+        endDate: "2026-02-22",
+      });
+
+      expect(mockDayLogRepository.findLogsByDateRangeAndUserId).toHaveBeenCalledWith({
+        userId: "user-1",
+        startDate: "2026-02-16",
+        endDate: "2026-02-22",
+      });
+      expect(result).toEqual([mockDayLog]);
+    });
+
+    it("propagates an empty repository result without creating day logs", async () => {
+      mockDayLogRepository.findLogsByDateRangeAndUserId.mockResolvedValue([]);
+
+      await expect(
+        dayLogService.getLogsForDateRange({
+          userId: "user-1",
+          startDate: "2026-02-16",
+          endDate: "2026-02-22",
+        }),
+      ).resolves.toEqual([]);
+
+      expect(mockDayLogRepository.findOrCreateByDateAndUserId).not.toHaveBeenCalled();
+    });
+
+    it("propagates repository errors", async () => {
+      mockDayLogRepository.findLogsByDateRangeAndUserId.mockRejectedValue(
+        new Error("Database connection failed"),
+      );
+
+      await expect(
+        dayLogService.getLogsForDateRange({
+          userId: "user-1",
+          startDate: "2026-02-16",
+          endDate: "2026-02-22",
         }),
       ).rejects.toThrow("Database connection failed");
     });
