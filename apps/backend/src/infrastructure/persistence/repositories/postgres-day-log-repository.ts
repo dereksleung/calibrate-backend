@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import type {
   FindDayLogByDateAndUserInput,
+  FindDayLogsByDateRangeAndUserInput,
   FindOrCreateDayLogByDateAndUserInput,
   IDayLogRepository,
 } from "../../../application/ports/day-log-repository.js";
@@ -11,6 +12,13 @@ import type { DatabaseClient } from "../../persistence/database-client.js";
 
 import { SelectableDayLog } from "../schemas/day-logs-table.js";
 import { InsertableFoodEntry, SelectableFoodEntry } from "../schemas/food-entries-table.js";
+
+interface FoodEntriesByMeal {
+  breakfast: FoodEntry[];
+  lunch: FoodEntry[];
+  dinner: FoodEntry[];
+  snacks: FoodEntry[];
+}
 
 export class PostgresDayLogRepository implements IDayLogRepository {
   constructor(private readonly databaseClient: DatabaseClient) {}
@@ -113,6 +121,39 @@ export class PostgresDayLogRepository implements IDayLogRepository {
     });
   }
 
+  async findLogsByDateRangeAndUserId({
+    userId,
+    startDate,
+    endDate,
+  }: FindDayLogsByDateRangeAndUserInput): Promise<DayLog[]> {
+    const dayLogRows = await this.databaseClient
+      .selectFrom("day_logs")
+      .selectAll()
+      .where("user_id", "=", userId)
+      .where("date", ">=", Temporal.PlainDate.from(startDate).toString())
+      .where("date", "<=", Temporal.PlainDate.from(endDate).toString())
+      .orderBy("date", "asc")
+      .execute();
+
+    if (dayLogRows.length === 0) return [];
+
+    const foodEntriesByDayLogId = await this.getFoodEntriesByDayLogIds(dayLogRows.map((dayLog) => dayLog.id));
+
+    return dayLogRows.map((dayLog) => {
+      const { breakfast, lunch, dinner, snacks } = foodEntriesByDayLogId.get(dayLog.id) ?? this.emptyMeals();
+
+      return DayLog.reconstitute({
+        id: dayLog.id,
+        date: Temporal.PlainDate.from(dayLog.date),
+        weight: dayLog.weight ?? null,
+        breakfast,
+        lunch,
+        dinner,
+        snacks,
+      });
+    });
+  }
+
   private mapRowToFoodEntry(row: SelectableFoodEntry): FoodEntry {
     return FoodEntry.reconstitute({
       id: row.id,
@@ -177,39 +218,51 @@ export class PostgresDayLogRepository implements IDayLogRepository {
     dinner: FoodEntry[];
     snacks: FoodEntry[];
   }> {
+    const foodEntriesByDayLogId = await this.getFoodEntriesByDayLogIds([dayLogId]);
+    return foodEntriesByDayLogId.get(dayLogId) ?? this.emptyMeals();
+  }
+
+  private async getFoodEntriesByDayLogIds(dayLogIds: string[]): Promise<Map<string, FoodEntriesByMeal>> {
+    const foodEntriesByDayLogId = new Map<string, FoodEntriesByMeal>(
+      dayLogIds.map((dayLogId) => [dayLogId, this.emptyMeals()]),
+    );
+    if (dayLogIds.length === 0) return foodEntriesByDayLogId;
+
     const foodEntries = await this.databaseClient
       .selectFrom("food_entries")
       .selectAll()
-      .where("day_log_id", "=", dayLogId)
+      .where("day_log_id", "in", dayLogIds)
       .execute();
 
-    const breakfast: SelectableFoodEntry[] = [];
-    const lunch: SelectableFoodEntry[] = [];
-    const dinner: SelectableFoodEntry[] = [];
-    const snacks: SelectableFoodEntry[] = [];
-
     for (const foodEntry of foodEntries) {
+      const meals = foodEntriesByDayLogId.get(foodEntry.day_log_id);
+      if (!meals) continue;
+
       switch (foodEntry.meal) {
         case MealNameEnum.BREAKFAST:
-          breakfast.push(foodEntry);
+          meals.breakfast.push(this.mapRowToFoodEntry(foodEntry));
           break;
         case MealNameEnum.LUNCH:
-          lunch.push(foodEntry);
+          meals.lunch.push(this.mapRowToFoodEntry(foodEntry));
           break;
         case MealNameEnum.DINNER:
-          dinner.push(foodEntry);
+          meals.dinner.push(this.mapRowToFoodEntry(foodEntry));
           break;
         case MealNameEnum.SNACKS:
-          snacks.push(foodEntry);
+          meals.snacks.push(this.mapRowToFoodEntry(foodEntry));
           break;
       }
     }
 
+    return foodEntriesByDayLogId;
+  }
+
+  private emptyMeals(): FoodEntriesByMeal {
     return {
-      breakfast: breakfast.map(this.mapRowToFoodEntry),
-      lunch: lunch.map(this.mapRowToFoodEntry),
-      dinner: dinner.map(this.mapRowToFoodEntry),
-      snacks: snacks.map(this.mapRowToFoodEntry),
+      breakfast: [],
+      lunch: [],
+      dinner: [],
+      snacks: [],
     };
   }
 }

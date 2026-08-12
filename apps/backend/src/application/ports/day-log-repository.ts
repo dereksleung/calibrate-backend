@@ -6,6 +6,12 @@ export interface FindDayLogByDateAndUserInput {
   date: string;
 }
 
+export interface FindDayLogsByDateRangeAndUserInput {
+  userId: string;
+  startDate: string;
+  endDate: string;
+}
+
 export interface FindOrCreateDayLogByDateAndUserInput {
   date: string;
   userId: string;
@@ -14,10 +20,13 @@ export interface FindOrCreateDayLogByDateAndUserInput {
 export interface IDayLogRepository {
   findLogByDateAndUserId({ userId, date }: FindDayLogByDateAndUserInput): Promise<DayLog | null>;
 
-  findOrCreateByDateAndUserId({
-    date,
+  findLogsByDateRangeAndUserId({
     userId,
-  }: FindOrCreateDayLogByDateAndUserInput): Promise<DayLog>;
+    startDate,
+    endDate,
+  }: FindDayLogsByDateRangeAndUserInput): Promise<DayLog[]>;
+
+  findOrCreateByDateAndUserId({ date, userId }: FindOrCreateDayLogByDateAndUserInput): Promise<DayLog>;
 
   addFoodEntry(dayLogId: string, foodEntry: FoodEntry): Promise<FoodEntry>;
 

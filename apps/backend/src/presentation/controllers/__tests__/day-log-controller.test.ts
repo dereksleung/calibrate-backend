@@ -1,7 +1,12 @@
 import type { CreateFoodEntryRequestRouteParams } from "@calibrate/api-contracts";
 
 import { DayLogServiceImpl } from "@application/services/day-log-service.js";
-import { DayLogResponse, GetDayLogRequestRouteParams } from "@calibrate/api-contracts";
+import {
+  DayLogRangeResponse,
+  DayLogResponse,
+  GetDayLogRangeRequestQuery,
+  GetDayLogRequestRouteParams,
+} from "@calibrate/api-contracts";
 import { DayLog } from "@domain/entities/day-log.js";
 import { MealNameEnum } from "@domain/entities/food-entry.js";
 import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
@@ -81,6 +86,7 @@ describe("DayLogController", () => {
   beforeEach(() => {
     mockDayLogService = {
       getLogForDay: vi.fn(),
+      getLogsForDateRange: vi.fn(),
       addFoodEntry: vi.fn(),
       // any is acceptable here because this is a test file,
       // the type assertion will not spread beyond the test file and beforeEach handler.
@@ -264,6 +270,57 @@ describe("DayLogController", () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(null);
+  });
+
+  it("returns every requested date slot with nulls for missing logs", async () => {
+    const req = {
+      auth: { userId: "user-1" },
+      query: { startDate: "2026-02-16", endDate: "2026-02-22" },
+    } as unknown as Request<Record<string, never>, unknown, unknown, GetDayLogRangeRequestQuery>;
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
+    const expectedResponse: DayLogRangeResponse = {
+      startDate: "2026-02-16",
+      endDate: "2026-02-22",
+      days: [
+        { date: "2026-02-16", dayLog: null },
+        { date: "2026-02-17", dayLog: null },
+        { date: "2026-02-18", dayLog: null },
+        { date: "2026-02-19", dayLog: null },
+        { date: "2026-02-20", dayLog: null },
+        { date: "2026-02-21", dayLog: null },
+        { date: "2026-02-22", dayLog: mockDayLogResponse },
+      ],
+    };
+    mockDayLogService.getLogsForDateRange.mockResolvedValue([mockDayLog]);
+
+    await dayLogController.getLogsForDateRange(req, res);
+
+    expect(mockDayLogService.getLogsForDateRange).toHaveBeenCalledWith({
+      userId: "user-1",
+      startDate: "2026-02-16",
+      endDate: "2026-02-22",
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expectedResponse);
+  });
+
+  it("rejects an invalid date range before calling the service", async () => {
+    const req = {
+      auth: { userId: "user-1" },
+      query: { startDate: "2026-02-22", endDate: "2026-02-16" },
+    } as unknown as Request<Record<string, never>, unknown, unknown, GetDayLogRangeRequestQuery>;
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
+
+    await dayLogController.getLogsForDateRange(req, res);
+
+    expect(mockDayLogService.getLogsForDateRange).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
   });
 
   it("should return 400 when service throws a BusinessLogicError", async () => {

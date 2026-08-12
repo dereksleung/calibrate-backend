@@ -10,6 +10,12 @@ export interface GetDayLogInput {
   date: string;
 }
 
+export interface GetDayLogRangeInput {
+  userId: string;
+  startDate: string;
+  endDate: string;
+}
+
 export interface AddFoodEntryInput {
   userId: string;
   date: string;
@@ -40,6 +46,7 @@ export interface AddFoodEntryInput {
 
 export interface IDayLogService {
   getLogForDay({ userId, date }: GetDayLogInput): Promise<DayLog | null>;
+  getLogsForDateRange({ userId, startDate, endDate }: GetDayLogRangeInput): Promise<DayLog[]>;
   addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<FoodEntry>;
 }
 
@@ -53,6 +60,10 @@ export class DayLogServiceImpl implements IDayLogService {
 
   async getLogForDay({ userId, date }: GetDayLogInput): Promise<DayLog | null> {
     return this.dayLogRepository.findLogByDateAndUserId({ userId, date });
+  }
+
+  async getLogsForDateRange({ userId, startDate, endDate }: GetDayLogRangeInput): Promise<DayLog[]> {
+    return this.dayLogRepository.findLogsByDateRangeAndUserId({ userId, startDate, endDate });
   }
 
   async addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<FoodEntry> {
