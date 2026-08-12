@@ -123,6 +123,11 @@ Use the repo commit message convention in `docs/agents/commit-messages.md`.
 - If unexpected unrelated changes are detected, stop and ask.
 - Never store secrets, keys, or sensitive info in version control.
 
+## Container Runtime Recovery
+
+- When a backend integration test fails because no working container runtime is available, agents may start Docker Desktop and rerun that same test without asking first.
+- Do not start Docker preemptively for unrelated work. If Docker cannot start, report the failure and its impact.
+
 ## Story Branch And PR Gates
 
 - At the start of each story, create a story integration feature branch before implementation work begins.
