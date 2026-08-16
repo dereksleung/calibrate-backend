@@ -55,11 +55,11 @@ import { PostgresDayLogRepository } from "./persistence/repositories/postgres-da
 import { PostgresEmailOtpChallengeRepository } from "./persistence/repositories/postgres-email-otp-challenge-repository.js";
 import { PostgresFoodCatalogSearchQuery } from "./persistence/repositories/postgres-food-catalog-search-query.js";
 import { PostgresFoodCatalogWriter } from "./persistence/repositories/postgres-food-catalog-writer.js";
+import { PostgresLocalDevelopmentTestSessionRepository } from "./persistence/repositories/postgres-local-development-test-session-repository.js";
 import { PostgresPasskeyAuthenticationRepository } from "./persistence/repositories/postgres-passkey-authentication-repository.js";
 import { PostgresRecentFoodQuery } from "./persistence/repositories/postgres-recent-food-query.js";
 import { PostgresSignupEnrollmentAuthorizationRepository } from "./persistence/repositories/postgres-signup-enrollment-authorization-repository.js";
 import { PostgresSignupPasskeyRegistrationRepository } from "./persistence/repositories/postgres-signup-passkey-registration-repository.js";
-import { PostgresLocalDevelopmentTestSessionRepository } from "./persistence/repositories/postgres-local-development-test-session-repository.js";
 import { PostgresUserRepository } from "./persistence/repositories/postgres-user-repository.js";
 import { getRuntimeEnvironmentValue, isE2eRuntime } from "./runtime-environment.js";
 import { Argon2PasswordHasher } from "./security/argon2-password-hasher.js";

@@ -9,10 +9,10 @@ import type {
   LocalDevelopmentTestSession,
 } from "@application/services/local-development-test-session-service.js";
 import type { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
-import { User } from "@domain/entities/user.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
+import { User } from "@domain/entities/user.js";
 import express from "express";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -122,7 +122,9 @@ describe("local development auth route", () => {
     expect(setCookieHeaders).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/^calibrate-access=raw-access-token;.*HttpOnly;.*SameSite=Lax/),
-        expect.stringMatching(/^calibrate-refresh=raw-refresh-token;.*Path=\/api\/v1\/auth\/session;.*HttpOnly;.*SameSite=Strict/),
+        expect.stringMatching(
+          /^calibrate-refresh=raw-refresh-token;.*Path=\/api\/v1\/auth\/session;.*HttpOnly;.*SameSite=Strict/,
+        ),
       ]),
     );
 

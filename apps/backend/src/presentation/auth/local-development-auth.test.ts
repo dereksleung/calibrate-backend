@@ -39,7 +39,11 @@ describe("isLocalDevelopmentRequest", () => {
 
   it.each([
     { origin: "http://localhost:3000", expectedOrigin: "http://localhost:3000", clientIp: "::1" },
-    { origin: "http://localhost:3000", expectedOrigin: "http://localhost:3000", clientIp: "::ffff:127.0.0.1" },
+    {
+      origin: "http://localhost:3000",
+      expectedOrigin: "http://localhost:3000",
+      clientIp: "::ffff:127.0.0.1",
+    },
   ])("accepts the supported loopback peer %#", (request) => {
     expect(isLocalDevelopmentRequest({ environment: "test", ...request })).toBe(true);
   });

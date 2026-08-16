@@ -89,9 +89,7 @@ export class User {
     });
   }
 
-  public static createForLocalDevelopmentFixture(
-    props: CreateLocalDevelopmentFixtureUserProps,
-  ): User {
+  public static createForLocalDevelopmentFixture(props: CreateLocalDevelopmentFixtureUserProps): User {
     return new User({
       id: crypto.randomUUID(),
       email: props.email,

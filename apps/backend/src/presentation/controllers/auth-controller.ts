@@ -18,13 +18,13 @@ import { ServiceUnavailableError } from "@application/errors/service-unavailable
 import { IAccountEmailVerificationService } from "@application/services/account-email-verification-service.js";
 import { IAuthService } from "@application/services/auth-service.js";
 import {
-  ILocalDevelopmentTestSessionService,
-  UnavailableLocalDevelopmentTestSessionService,
-} from "@application/services/local-development-test-session-service.js";
-import {
   ILocalDevelopmentPasskeyEnrollmentService,
   UnavailableLocalDevelopmentPasskeyEnrollmentService,
 } from "@application/services/local-development-passkey-enrollment-service.js";
+import {
+  ILocalDevelopmentTestSessionService,
+  UnavailableLocalDevelopmentTestSessionService,
+} from "@application/services/local-development-test-session-service.js";
 import {
   IPasskeyAuthenticationService,
   UnavailablePasskeyAuthenticationService,

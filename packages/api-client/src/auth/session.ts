@@ -12,7 +12,11 @@ export function getCurrentSession(transport: ApiTransport): Promise<Authenticate
 }
 
 export function refreshSession(transport: ApiTransport): Promise<AuthenticatedSessionResponse> {
-  return transport.request({ path: "/auth/session/refresh", method: "POST", responseBodySchema: AuthenticatedSessionResponseSchema });
+  return transport.request({
+    path: "/auth/session/refresh",
+    method: "POST",
+    responseBodySchema: AuthenticatedSessionResponseSchema,
+  });
 }
 
 export function startLocalDevelopmentTestSession(
@@ -26,5 +30,9 @@ export function startLocalDevelopmentTestSession(
 }
 
 export function deleteCurrentSession(transport: ApiTransport): Promise<DeleteCurrentSessionResponse> {
-  return transport.request({ path: "/auth/session", method: "DELETE", responseBodySchema: DeleteCurrentSessionResponseSchema });
+  return transport.request({
+    path: "/auth/session",
+    method: "DELETE",
+    responseBodySchema: DeleteCurrentSessionResponseSchema,
+  });
 }

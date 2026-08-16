@@ -83,11 +83,9 @@ describe("LocalDevelopmentTestSessionService", () => {
         .mockReturnValueOnce({ token: "access-two", digest: "access-digest-two" })
         .mockReturnValueOnce({ token: "refresh-two", digest: "refresh-digest-two" }),
     };
-    const service = new LocalDevelopmentTestSessionService(
-      repository,
-      tokenService,
-      { now: () => new Date("2026-08-16T12:00:00.000Z") },
-    );
+    const service = new LocalDevelopmentTestSessionService(repository, tokenService, {
+      now: () => new Date("2026-08-16T12:00:00.000Z"),
+    });
 
     await service.create();
     await service.create();
@@ -95,11 +93,17 @@ describe("LocalDevelopmentTestSessionService", () => {
     expect(repository.createOrReuseFixtureSession).toHaveBeenCalledTimes(2);
     expect(repository.createOrReuseFixtureSession).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ accessTokenDigest: "access-digest-one", refreshTokenDigest: "refresh-digest-one" }),
+      expect.objectContaining({
+        accessTokenDigest: "access-digest-one",
+        refreshTokenDigest: "refresh-digest-one",
+      }),
     );
     expect(repository.createOrReuseFixtureSession).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ accessTokenDigest: "access-digest-two", refreshTokenDigest: "refresh-digest-two" }),
+      expect.objectContaining({
+        accessTokenDigest: "access-digest-two",
+        refreshTokenDigest: "refresh-digest-two",
+      }),
     );
   });
 });

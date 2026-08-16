@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiTransport } from "../transport.js";
+
 import {
   deleteCurrentSession,
   getCurrentSession,
@@ -9,7 +10,13 @@ import {
 } from "./session.js";
 
 const session = {
-  user: { id: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff", email: "person@example.com", tier: "FREE", createdAt: "2030-01-01T00:00:00.000Z", updatedAt: "2030-01-01T00:00:00.000Z" },
+  user: {
+    id: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
+    email: "person@example.com",
+    tier: "FREE",
+    createdAt: "2030-01-01T00:00:00.000Z",
+    updatedAt: "2030-01-01T00:00:00.000Z",
+  },
   sessionTransport: "cookie" as const,
 };
 
@@ -29,7 +36,11 @@ describe("session restoration API client", () => {
       user: { email: "person@example.com" },
       sessionTransport: "cookie",
     });
-    expect(request).toHaveBeenCalledWith({ path: "/auth/session/refresh", method: "POST", responseBodySchema: expect.any(Object) });
+    expect(request).toHaveBeenCalledWith({
+      path: "/auth/session/refresh",
+      method: "POST",
+      responseBodySchema: expect.any(Object),
+    });
   });
 
   it("starts a local test session through the cookie-backed auth route", async () => {

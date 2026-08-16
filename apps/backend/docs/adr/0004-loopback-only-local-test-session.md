@@ -72,5 +72,6 @@ weaken the meaning of the real passkey flow.
   require the real passkey or recovery flow.
 - A collision with the reserved email that is not the credentialless fixture
   fails without creating a session.
-- Production, staging, public preview, non-loopback, wrong-origin, missing-
-  origin, and non-loopback-peer requests cannot create the fixture or session.
+- Production, non-loopback, wrong-origin, missing-origin, and non-loopback-peer
+  requests cannot create the fixture or session; a staging or public-preview
+  deployment is likewise excluded when it is not a local loopback request.

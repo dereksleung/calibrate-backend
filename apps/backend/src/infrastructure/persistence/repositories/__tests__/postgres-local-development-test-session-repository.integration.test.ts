@@ -16,12 +16,14 @@ function digest(value: string): string {
   return createHash("sha256").update(value).digest("base64url");
 }
 
-function createInput(overrides: Partial<{
-  accessTokenDigest: string;
-  refreshTokenDigest: string;
-  now: Date;
-  user: User;
-}> = {}) {
+function createInput(
+  overrides: Partial<{
+    accessTokenDigest: string;
+    refreshTokenDigest: string;
+    now: Date;
+    user: User;
+  }> = {},
+) {
   const now = overrides.now ?? firstNow;
   return {
     fixtureUser:
@@ -125,8 +127,12 @@ describe("PostgresLocalDevelopmentTestSessionRepository", () => {
 
     expect(second.user.id).toBe(first.user.id);
     expect(await databaseClient.selectFrom("users").selectAll().execute()).toHaveLength(1);
-    expect(await databaseClient.selectFrom("remembered_device_families").selectAll().execute()).toHaveLength(2);
-    expect(await databaseClient.selectFrom("refresh_token_generations").selectAll().execute()).toHaveLength(2);
+    expect(await databaseClient.selectFrom("remembered_device_families").selectAll().execute()).toHaveLength(
+      2,
+    );
+    expect(await databaseClient.selectFrom("refresh_token_generations").selectAll().execute()).toHaveLength(
+      2,
+    );
     expect(await databaseClient.selectFrom("sessions").selectAll().execute()).toHaveLength(2);
   });
 
@@ -148,8 +154,12 @@ describe("PostgresLocalDevelopmentTestSessionRepository", () => {
     await expect(repository.createOrReuseFixtureSession(createInput())).rejects.toThrow();
 
     expect(await databaseClient.selectFrom("users").selectAll().execute()).toHaveLength(1);
-    expect(await databaseClient.selectFrom("remembered_device_families").selectAll().execute()).toHaveLength(0);
-    expect(await databaseClient.selectFrom("refresh_token_generations").selectAll().execute()).toHaveLength(0);
+    expect(await databaseClient.selectFrom("remembered_device_families").selectAll().execute()).toHaveLength(
+      0,
+    );
+    expect(await databaseClient.selectFrom("refresh_token_generations").selectAll().execute()).toHaveLength(
+      0,
+    );
     expect(await databaseClient.selectFrom("sessions").selectAll().execute()).toHaveLength(0);
     expect(await databaseClient.selectFrom("security_events").selectAll().execute()).toHaveLength(0);
   });
@@ -190,8 +200,12 @@ describe("PostgresLocalDevelopmentTestSessionRepository", () => {
 
     await expect(repository.createOrReuseFixtureSession(createInput())).rejects.toThrow();
 
-    expect(await databaseClient.selectFrom("remembered_device_families").selectAll().execute()).toHaveLength(0);
-    expect(await databaseClient.selectFrom("refresh_token_generations").selectAll().execute()).toHaveLength(0);
+    expect(await databaseClient.selectFrom("remembered_device_families").selectAll().execute()).toHaveLength(
+      0,
+    );
+    expect(await databaseClient.selectFrom("refresh_token_generations").selectAll().execute()).toHaveLength(
+      0,
+    );
     expect(await databaseClient.selectFrom("sessions").selectAll().execute()).toHaveLength(0);
     expect(await databaseClient.selectFrom("security_events").selectAll().execute()).toHaveLength(0);
   });
@@ -214,8 +228,12 @@ describe("PostgresLocalDevelopmentTestSessionRepository", () => {
     ).rejects.toThrow();
 
     expect(await databaseClient.selectFrom("users").selectAll().execute()).toHaveLength(1);
-    expect(await databaseClient.selectFrom("remembered_device_families").selectAll().execute()).toHaveLength(1);
-    expect(await databaseClient.selectFrom("refresh_token_generations").selectAll().execute()).toHaveLength(1);
+    expect(await databaseClient.selectFrom("remembered_device_families").selectAll().execute()).toHaveLength(
+      1,
+    );
+    expect(await databaseClient.selectFrom("refresh_token_generations").selectAll().execute()).toHaveLength(
+      1,
+    );
     expect(await databaseClient.selectFrom("sessions").selectAll().execute()).toHaveLength(1);
   });
 });

@@ -3,6 +3,7 @@ import type {
   CreateLocalDevelopmentTestSessionInput,
   ILocalDevelopmentTestSessionRepository,
 } from "@application/ports/local-development-test-session-repository.js";
+
 import { User } from "@domain/entities/user.js";
 import { sql, type Transaction } from "kysely";
 import { randomUUID } from "node:crypto";
@@ -12,9 +13,7 @@ import type { SelectableUser } from "../schemas/users-table.js";
 
 const LOCAL_DEVELOPMENT_SESSION_EVENT_TYPE = "local-development-session-created";
 
-export class PostgresLocalDevelopmentTestSessionRepository
-  implements ILocalDevelopmentTestSessionRepository
-{
+export class PostgresLocalDevelopmentTestSessionRepository implements ILocalDevelopmentTestSessionRepository {
   constructor(private readonly databaseClient: DatabaseClient) {}
 
   async createOrReuseFixtureSession(

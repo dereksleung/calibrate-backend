@@ -208,8 +208,8 @@ function LocalDevelopmentTestSession() {
           Local test session
         </h2>
         <p className="mt-sm text-sm font-light text-on-surface-variant/80">
-          Loopback development only. Start a disposable server session to inspect authenticated pages
-          without creating or saving a passkey.
+          Loopback development only. Start a disposable server session to inspect authenticated pages without
+          creating or saving a passkey.
         </p>
       </div>
       {error && <WarningBanner className="mt-md">{error}</WarningBanner>}

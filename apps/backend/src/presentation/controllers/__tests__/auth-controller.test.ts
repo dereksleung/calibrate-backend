@@ -2,12 +2,12 @@ import { AuthenticationError } from "@application/errors/authentication-error.js
 import { InvalidEmailVerificationCodeError } from "@application/errors/invalid-email-verification-code-error.js";
 import { RateLimitError } from "@application/errors/rate-limit-error.js";
 import { ServiceUnavailableError } from "@application/errors/service-unavailable-error.js";
-import { IAuthService } from "@application/services/auth-service.js";
-import { IPasskeyAuthenticationService } from "@application/services/passkey-authentication-service.js";
 import { IAccountEmailVerificationService } from "@application/services/account-email-verification-service.js";
+import { IAuthService } from "@application/services/auth-service.js";
 import { ILocalDevelopmentTestSessionService } from "@application/services/local-development-test-session-service.js";
-import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
+import { IPasskeyAuthenticationService } from "@application/services/passkey-authentication-service.js";
 import { ISessionRestorationService } from "@application/services/session-restoration-service.js";
+import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
 import { User } from "@domain/entities/user.js";
 import { Request } from "express";
@@ -203,7 +203,12 @@ describe("AuthController", () => {
         return undefined;
       }),
     } as unknown as Request;
-    const res = { set: vi.fn(), clearCookie: vi.fn(), status: vi.fn().mockReturnThis(), send: vi.fn() } as any;
+    const res = {
+      set: vi.fn(),
+      clearCookie: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as any;
 
     await authController.logout(req, res);
 
@@ -218,15 +223,27 @@ describe("AuthController", () => {
     );
     expect(res.clearCookie).toHaveBeenCalledWith(
       "calibrate-refresh",
-      expect.objectContaining({ httpOnly: true, secure: false, sameSite: "strict", path: "/api/v1/auth/session" }),
+      expect.objectContaining({
+        httpOnly: true,
+        secure: false,
+        sameSite: "strict",
+        path: "/api/v1/auth/session",
+      }),
     );
     expect(res.status).toHaveBeenCalledWith(204);
     expect(res.send).toHaveBeenCalledWith();
   });
 
   it("rejects an unexpected origin before reading credentials, revoking state, or clearing cookies", async () => {
-    const req = { get: vi.fn((name: string) => (name === "Origin" ? "https://attacker.example" : undefined)) } as unknown as Request;
-    const res = { set: vi.fn(), clearCookie: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+    const req = {
+      get: vi.fn((name: string) => (name === "Origin" ? "https://attacker.example" : undefined)),
+    } as unknown as Request;
+    const res = {
+      set: vi.fn(),
+      clearCookie: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
 
     await authController.logout(req, res);
 
@@ -245,7 +262,12 @@ describe("AuthController", () => {
         return undefined;
       }),
     } as unknown as Request;
-    const res = { set: vi.fn(), clearCookie: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+    const res = {
+      set: vi.fn(),
+      clearCookie: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
 
     await authController.logout(req, res);
 
@@ -492,13 +514,25 @@ describe("AuthController", () => {
 
   it("clears a stale enrollment cookie for an existing-account continuation", async () => {
     mockAccountEmailVerificationService.verify.mockResolvedValue({ next: "login-or-recovery" });
-    const req = { body: { challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "012345" }, get: vi.fn().mockReturnValue(undefined) } as unknown as Request;
-    const res = { set: vi.fn(), clearCookie: vi.fn(), cookie: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+    const req = {
+      body: { challengeId: "d9428888-122b-4e2b-9c24-2dc8442eaa31", code: "012345" },
+      get: vi.fn().mockReturnValue(undefined),
+    } as unknown as Request;
+    const res = {
+      set: vi.fn(),
+      clearCookie: vi.fn(),
+      cookie: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
 
     await authController.verifyAccountEmailVerification(req, res);
 
     expect(res.cookie).not.toHaveBeenCalled();
-    expect(res.clearCookie).toHaveBeenCalledWith("passkey-enrollment", expect.objectContaining({ path: "/api/v1/auth/passkeys/registration" }));
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      "passkey-enrollment",
+      expect.objectContaining({ path: "/api/v1/auth/passkeys/registration" }),
+    );
     expect(res.json).toHaveBeenCalledWith({ next: "login-or-recovery" });
   });
 

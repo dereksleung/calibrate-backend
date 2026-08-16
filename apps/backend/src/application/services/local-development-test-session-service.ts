@@ -1,6 +1,7 @@
 import type { IClock } from "@application/ports/clock.js";
 import type { ILocalDevelopmentTestSessionRepository } from "@application/ports/local-development-test-session-repository.js";
 import type { IOpaqueTokenService } from "@application/ports/session-token-service.js";
+
 import { User } from "@domain/entities/user.js";
 
 import { calculateSessionLifetimes } from "./session-lifetime-calculator.js";
