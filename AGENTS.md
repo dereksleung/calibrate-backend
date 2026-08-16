@@ -110,7 +110,8 @@ Use the repo commit message convention in `docs/agents/commit-messages.md`.
 
 ## Dependency Policy
 
-- Never install or upgrade dependencies without explicit user confirmation.
+- Never install new dependencies or upgrade dependencies without explicit user confirmation.
+- You may `npm ci --prefer-offline` to install known dependencies when spawning a git worktree that lacks a node_modules folder.
 - Before install/upgrade, show exact command(s) and wait for approval.
 - During a no-mistakes pipeline or phase, `npm ci --prefer-offline` is pre-approved
   when dependencies are absent; it must not modify dependency manifests or
