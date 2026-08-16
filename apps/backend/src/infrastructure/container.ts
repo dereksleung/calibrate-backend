@@ -146,6 +146,7 @@ export class Container {
     emailOtpCodeService,
     accountEmailVerificationService,
     localDevelopmentPasskeyEnrollmentService,
+    localDevelopmentTestSessionService,
     signupPasskeyRegistrationService,
     passkeyAuthenticationService,
     emailSender,
