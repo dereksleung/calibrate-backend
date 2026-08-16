@@ -24,6 +24,12 @@ export interface CreatePasskeySignupUserProps {
   updatedAt: Date;
 }
 
+export interface CreateLocalDevelopmentFixtureUserProps {
+  email: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export class User {
   private readonly _id: string;
   private readonly _email: string;
@@ -77,6 +83,21 @@ export class User {
       passwordHash: null,
       emailVerifiedAt: props.emailVerifiedAt,
       webauthnUserHandle: props.webauthnUserHandle,
+      tier: UserTierSchema.enum.FREE,
+      createdAt: props.createdAt,
+      updatedAt: props.updatedAt,
+    });
+  }
+
+  public static createForLocalDevelopmentFixture(
+    props: CreateLocalDevelopmentFixtureUserProps,
+  ): User {
+    return new User({
+      id: crypto.randomUUID(),
+      email: props.email,
+      passwordHash: null,
+      emailVerifiedAt: null,
+      webauthnUserHandle: null,
       tier: UserTierSchema.enum.FREE,
       createdAt: props.createdAt,
       updatedAt: props.updatedAt,

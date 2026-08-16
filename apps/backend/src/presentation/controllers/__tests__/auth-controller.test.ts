@@ -5,6 +5,7 @@ import { ServiceUnavailableError } from "@application/errors/service-unavailable
 import { IAuthService } from "@application/services/auth-service.js";
 import { IPasskeyAuthenticationService } from "@application/services/passkey-authentication-service.js";
 import { IAccountEmailVerificationService } from "@application/services/account-email-verification-service.js";
+import { ILocalDevelopmentTestSessionService } from "@application/services/local-development-test-session-service.js";
 import { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
 import { ISessionRestorationService } from "@application/services/session-restoration-service.js";
 import { AuthController } from "@controllers/auth-controller.js";
@@ -19,6 +20,7 @@ describe("AuthController", () => {
   let mockSignupPasskeyRegistrationService: MockedObject<ISignupPasskeyRegistrationService>;
   let mockPasskeyAuthenticationService: MockedObject<IPasskeyAuthenticationService>;
   let mockSessionRestorationService: MockedObject<ISessionRestorationService>;
+  let mockLocalDevelopmentTestSessionService: MockedObject<ILocalDevelopmentTestSessionService>;
 
   const user = User.reconstitute({
     id: "user-1",
@@ -30,6 +32,8 @@ describe("AuthController", () => {
   });
 
   beforeEach(() => {
+    vi.stubEnv("CALIBRATE_E2E", "1");
+    vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("WEBAUTHN_ORIGIN", "http://localhost:3000");
     mockAuthService = { login: vi.fn() } as MockedObject<IAuthService>;
     mockAccountEmailVerificationService = {
@@ -49,17 +53,146 @@ describe("AuthController", () => {
       logout: vi.fn(),
       refresh: vi.fn(),
     };
+    mockLocalDevelopmentTestSessionService = {
+      create: vi.fn(),
+    };
     authController = new AuthController(
       mockAuthService,
       mockAccountEmailVerificationService,
       mockSignupPasskeyRegistrationService,
       mockPasskeyAuthenticationService,
       mockSessionRestorationService,
+      undefined,
+      mockLocalDevelopmentTestSessionService,
     );
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it("sets normal access and refresh cookies for a local session without returning raw credentials", async () => {
+    mockLocalDevelopmentTestSessionService.create.mockResolvedValue({
+      user,
+      accessToken: "raw-local-access-token",
+      refreshToken: "raw-local-refresh-token",
+      rememberDevice: true,
+      accessInactivityExpiresAt: new Date(Date.now() + 30 * 60_000),
+      accessAbsoluteExpiresAt: new Date(Date.now() + 8 * 60 * 60_000),
+      familyInactivityExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000),
+      familyAbsoluteExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60_000),
+    });
+    const req = {
+      get: vi.fn((name: string) => (name === "Origin" ? "http://localhost:3000" : undefined)),
+      socket: { remoteAddress: "127.0.0.1" },
+    } as unknown as Request;
+    const res = {
+      set: vi.fn(),
+      cookie: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      end: vi.fn(),
+    } as any;
+
+    await authController.createLocalDevelopmentTestSession(req, res);
+
+    expect(mockLocalDevelopmentTestSessionService.create).toHaveBeenCalledOnce();
+    expect(res.set).toHaveBeenCalledWith("Cache-Control", "no-store");
+    expect(res.cookie).toHaveBeenCalledWith(
+      "calibrate-access",
+      "raw-local-access-token",
+      expect.objectContaining({ httpOnly: true, sameSite: "lax", path: "/", maxAge: expect.any(Number) }),
+    );
+    expect(res.cookie).toHaveBeenCalledWith(
+      "calibrate-refresh",
+      "raw-local-refresh-token",
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: "strict",
+        path: "/api/v1/auth/session",
+        maxAge: expect.any(Number),
+      }),
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      user: expect.objectContaining({ email: "existing@example.com" }),
+      sessionTransport: "cookie",
+    });
+    expect(JSON.stringify(res.json.mock.calls)).not.toContain("raw-local-access-token");
+    expect(JSON.stringify(res.json.mock.calls)).not.toContain("raw-local-refresh-token");
+  });
+
+  it.each([
+    {
+      label: "production runtime",
+      environment: "production",
+      origin: "http://localhost:3000",
+      expectedOrigin: "http://localhost:3000",
+      clientIp: "127.0.0.1",
+    },
+    {
+      label: "missing Origin",
+      environment: "test",
+      origin: undefined,
+      expectedOrigin: "http://localhost:3000",
+      clientIp: "127.0.0.1",
+    },
+    {
+      label: "unexpected exact Origin",
+      environment: "test",
+      origin: "http://evil.example",
+      expectedOrigin: "http://localhost:3000",
+      clientIp: "127.0.0.1",
+    },
+    {
+      label: "non-HTTP Origin",
+      environment: "test",
+      origin: "https://localhost:3000",
+      expectedOrigin: "https://localhost:3000",
+      clientIp: "127.0.0.1",
+    },
+    {
+      label: "non-loopback configured origin",
+      environment: "test",
+      origin: "http://example.test",
+      expectedOrigin: "http://example.test",
+      clientIp: "127.0.0.1",
+    },
+    {
+      label: "non-loopback raw peer",
+      environment: "test",
+      origin: "http://localhost:3000",
+      expectedOrigin: "http://localhost:3000",
+      clientIp: "192.168.1.20",
+    },
+    {
+      label: "non-exact Origin with a path",
+      environment: "test",
+      origin: "http://localhost:3000/path",
+      expectedOrigin: "http://localhost:3000",
+      clientIp: "127.0.0.1",
+    },
+  ])("returns 404 and does not create a session for $label", async (request) => {
+    vi.stubEnv("NODE_ENV", request.environment);
+    vi.stubEnv("WEBAUTHN_ORIGIN", request.expectedOrigin);
+    const req = {
+      get: vi.fn((name: string) => (name === "Origin" ? request.origin : undefined)),
+      socket: { remoteAddress: request.clientIp },
+    } as unknown as Request;
+    const res = {
+      set: vi.fn(),
+      cookie: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      end: vi.fn(),
+    } as any;
+
+    await authController.createLocalDevelopmentTestSession(req, res);
+
+    expect(mockLocalDevelopmentTestSessionService.create).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.end).toHaveBeenCalledWith();
+    expect(res.cookie).not.toHaveBeenCalled();
   });
 
   it("revokes the current session and clears matching cookies after an allowed-origin logout", async () => {

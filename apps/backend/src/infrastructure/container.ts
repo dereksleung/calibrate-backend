@@ -24,6 +24,10 @@ import {
   LocalDevelopmentPasskeyEnrollmentService,
 } from "@application/services/local-development-passkey-enrollment-service.js";
 import {
+  ILocalDevelopmentTestSessionService,
+  LocalDevelopmentTestSessionService,
+} from "@application/services/local-development-test-session-service.js";
+import {
   IPasskeyAuthenticationService,
   PasskeyAuthenticationServiceImpl,
 } from "@application/services/passkey-authentication-service.js";
@@ -55,6 +59,7 @@ import { PostgresPasskeyAuthenticationRepository } from "./persistence/repositor
 import { PostgresRecentFoodQuery } from "./persistence/repositories/postgres-recent-food-query.js";
 import { PostgresSignupEnrollmentAuthorizationRepository } from "./persistence/repositories/postgres-signup-enrollment-authorization-repository.js";
 import { PostgresSignupPasskeyRegistrationRepository } from "./persistence/repositories/postgres-signup-passkey-registration-repository.js";
+import { PostgresLocalDevelopmentTestSessionRepository } from "./persistence/repositories/postgres-local-development-test-session-repository.js";
 import { PostgresUserRepository } from "./persistence/repositories/postgres-user-repository.js";
 import { getRuntimeEnvironmentValue, isE2eRuntime } from "./runtime-environment.js";
 import { Argon2PasswordHasher } from "./security/argon2-password-hasher.js";
@@ -121,6 +126,7 @@ export class Container {
   private readonly emailOtpCodeService: IEmailOtpCodeService;
   private readonly accountEmailVerificationService: IAccountEmailVerificationService;
   private readonly localDevelopmentPasskeyEnrollmentService: ILocalDevelopmentPasskeyEnrollmentService;
+  private readonly localDevelopmentTestSessionService: ILocalDevelopmentTestSessionService;
   private readonly signupPasskeyRegistrationService: ISignupPasskeyRegistrationService;
   private readonly passkeyAuthenticationService: IPasskeyAuthenticationService;
   private readonly sessionRestorationService: ISessionRestorationService;
@@ -159,6 +165,7 @@ export class Container {
     emailOtpCodeService?: IEmailOtpCodeService;
     accountEmailVerificationService?: IAccountEmailVerificationService;
     localDevelopmentPasskeyEnrollmentService?: ILocalDevelopmentPasskeyEnrollmentService;
+    localDevelopmentTestSessionService?: ILocalDevelopmentTestSessionService;
     signupPasskeyRegistrationService?: ISignupPasskeyRegistrationService;
     passkeyAuthenticationService?: IPasskeyAuthenticationService;
     emailSender?: IEmailSender;
@@ -253,6 +260,14 @@ export class Container {
         this.clock,
       );
 
+    this.localDevelopmentTestSessionService =
+      localDevelopmentTestSessionService ??
+      new LocalDevelopmentTestSessionService(
+        new PostgresLocalDevelopmentTestSessionRepository(databaseClient),
+        new NodeOpaqueTokenService(),
+        this.clock,
+      );
+
     this.passkeyAuthenticationService =
       passkeyAuthenticationService ??
       new PasskeyAuthenticationServiceImpl(
@@ -280,6 +295,7 @@ export class Container {
         this.passkeyAuthenticationService,
         this.sessionRestorationService,
         this.localDevelopmentPasskeyEnrollmentService,
+        this.localDevelopmentTestSessionService,
       );
     this.userService = userService ?? new UserServiceImpl(this.passwordHasher, this.userRepository);
     this.userController = userController ?? new UserController(this.userService);

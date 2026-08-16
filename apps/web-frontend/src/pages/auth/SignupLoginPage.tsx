@@ -27,6 +27,7 @@ import {
   parsePasskeyAuthenticationError,
   requestLocalDevelopmentPasskeyEnrollment,
   requestPasskeyAuthenticationOptions,
+  startLocalDevelopmentTestSession,
   useRequestAccountEmailVerification,
   verifyPasskeyAuthentication,
 } from "@calibrate/api-client";
@@ -166,6 +167,61 @@ function isLocalDevelopmentUi(): boolean {
     import.meta.env.DEV &&
     typeof window !== "undefined" &&
     LOCAL_DEVELOPMENT_HOSTNAMES.has(window.location.hostname)
+  );
+}
+
+function LocalDevelopmentTestSession() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string>();
+
+  if (!isLocalDevelopmentUi()) return null;
+
+  async function startLocalSession() {
+    setIsPending(true);
+    setError(undefined);
+    cancelPasskeyAuthentication();
+
+    try {
+      const session = await startLocalDevelopmentTestSession(apiTransport);
+      setAuthenticatedSession(queryClient, session);
+      await navigate({ to: "/" });
+    } catch {
+      setError("We couldn't start a local test session. Please try again.");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  return (
+    <section
+      className="glass-card mb-lg rounded-4xl p-lg md:p-xl"
+      aria-labelledby="local-development-test-session-heading"
+      aria-busy={isPending}
+    >
+      <div className="text-center">
+        <h2
+          id="local-development-test-session-heading"
+          className="font-heading text-xl font-light tracking-[-0.01em] text-primary"
+        >
+          Local test session
+        </h2>
+        <p className="mt-sm text-sm font-light text-on-surface-variant/80">
+          Loopback development only. Start a disposable server session to inspect authenticated pages
+          without creating or saving a passkey.
+        </p>
+      </div>
+      {error && <WarningBanner className="mt-md">{error}</WarningBanner>}
+      <Button
+        className="mt-lg h-12 w-full"
+        disabled={isPending}
+        type="button"
+        onClick={() => void startLocalSession()}
+      >
+        {isPending ? "Starting local test session…" : "Start local test session"}
+      </Button>
+    </section>
   );
 }
 
@@ -420,6 +476,7 @@ function SignupLoginPage() {
           </p>
         </header>
 
+        <LocalDevelopmentTestSession />
         <LocalDevelopmentPasskeyEnrollment />
 
         <section className="glass-card rounded-4xl p-lg md:p-xl" aria-labelledby="signup-heading">

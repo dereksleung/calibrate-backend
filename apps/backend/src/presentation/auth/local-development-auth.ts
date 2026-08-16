@@ -14,7 +14,12 @@ export function isLocalDevelopmentRequest({
   expectedOrigin,
   clientIp,
 }: LocalDevelopmentRequestCheck): boolean {
-  if (environment === "production" || !origin || !LOOPBACK_CLIENT_IPS.has(clientIp ?? "")) {
+  if (
+    environment === "production" ||
+    !origin ||
+    origin !== expectedOrigin ||
+    !LOOPBACK_CLIENT_IPS.has(clientIp ?? "")
+  ) {
     return false;
   }
 

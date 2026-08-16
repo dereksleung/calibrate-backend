@@ -18,6 +18,10 @@ import { ServiceUnavailableError } from "@application/errors/service-unavailable
 import { IAccountEmailVerificationService } from "@application/services/account-email-verification-service.js";
 import { IAuthService } from "@application/services/auth-service.js";
 import {
+  ILocalDevelopmentTestSessionService,
+  UnavailableLocalDevelopmentTestSessionService,
+} from "@application/services/local-development-test-session-service.js";
+import {
   ILocalDevelopmentPasskeyEnrollmentService,
   UnavailableLocalDevelopmentPasskeyEnrollmentService,
 } from "@application/services/local-development-passkey-enrollment-service.js";
@@ -61,19 +65,51 @@ export class AuthController {
     private readonly passkeyAuthenticationService: IPasskeyAuthenticationService = new UnavailablePasskeyAuthenticationService(),
     private readonly sessionRestorationService?: ISessionRestorationService,
     private readonly localDevelopmentPasskeyEnrollmentService: ILocalDevelopmentPasskeyEnrollmentService = new UnavailableLocalDevelopmentPasskeyEnrollmentService(),
+    private readonly localDevelopmentTestSessionService: ILocalDevelopmentTestSessionService = new UnavailableLocalDevelopmentTestSessionService(),
   ) {}
 
-  async createLocalDevelopmentPasskeyEnrollment(req: Request, res: Response): Promise<void> {
+  async createLocalDevelopmentTestSession(req: Request, res: Response): Promise<void> {
     res.set("Cache-Control", "no-store");
-    const origin = readRequestOrigin(req.get("Origin"));
     if (
       !isLocalDevelopmentRequest({
         environment: process.env.NODE_ENV,
-        origin: origin ?? undefined,
+        // Keep the raw header here: the local shortcut requires the exact
+        // configured Origin rather than a canonicalized URL with extra data.
+        origin: req.get("Origin"),
         expectedOrigin: getExpectedWebAuthnOrigin(),
         // Use the actual peer address instead of the trust-proxy-derived value so
         // a forwarded header cannot make a remote request look loopback-local.
-        clientIp: req.socket.remoteAddress ?? req.ip,
+        clientIp: req.socket.remoteAddress,
+      })
+    ) {
+      res.status(404).end();
+      return;
+    }
+
+    try {
+      const result = await this.localDevelopmentTestSessionService.create();
+      this.setSessionCookies(res, result, new Date());
+      res.status(200).json({
+        user: UserResponseMapper.toResponse(result.user),
+        sessionTransport: "cookie",
+      });
+    } catch {
+      res.status(503).json({ error: "LOCAL_DEVELOPMENT_SESSION_UNAVAILABLE" });
+    }
+  }
+
+  async createLocalDevelopmentPasskeyEnrollment(req: Request, res: Response): Promise<void> {
+    res.set("Cache-Control", "no-store");
+    if (
+      !isLocalDevelopmentRequest({
+        environment: process.env.NODE_ENV,
+        // Keep the raw header here so this existing local shortcut also uses
+        // the exact-origin boundary shared by local development routes.
+        origin: req.get("Origin"),
+        expectedOrigin: getExpectedWebAuthnOrigin(),
+        // Use the actual peer address instead of the trust-proxy-derived value so
+        // a forwarded header cannot make a remote request look loopback-local.
+        clientIp: req.socket.remoteAddress,
       })
     ) {
       res.status(404).end();

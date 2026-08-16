@@ -20,6 +20,7 @@ const {
   mockNavigate,
   mockRequestPasskeyAuthenticationOptions,
   mockRequestLocalDevelopmentPasskeyEnrollment,
+  mockStartLocalDevelopmentTestSession,
   mockStartPasskeyAuthentication,
   mockVerifyPasskeyAuthentication,
 } = vi.hoisted(() => ({
@@ -28,6 +29,7 @@ const {
   mockNavigate: vi.fn(),
   mockRequestPasskeyAuthenticationOptions: vi.fn(),
   mockRequestLocalDevelopmentPasskeyEnrollment: vi.fn(),
+  mockStartLocalDevelopmentTestSession: vi.fn(),
   mockStartPasskeyAuthentication: vi.fn(),
   mockVerifyPasskeyAuthentication: vi.fn(),
 }));
@@ -41,6 +43,7 @@ vi.mock("@calibrate/api-client", async (importOriginal) => {
     })),
     requestPasskeyAuthenticationOptions: mockRequestPasskeyAuthenticationOptions,
     requestLocalDevelopmentPasskeyEnrollment: mockRequestLocalDevelopmentPasskeyEnrollment,
+    startLocalDevelopmentTestSession: mockStartLocalDevelopmentTestSession,
     verifyPasskeyAuthentication: mockVerifyPasskeyAuthentication,
   };
 });
@@ -111,6 +114,54 @@ describe("SignupLoginPage", () => {
         expiresAt: "2030-01-01T00:05:00.000Z",
       },
     });
+  });
+
+  it("starts a local cookie-backed test session and navigates to the dashboard", async () => {
+    mockStartLocalDevelopmentTestSession.mockResolvedValue({
+      user: {
+        id: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
+        email: "local-test-session@example.test",
+        tier: "FREE",
+        createdAt: new Date("2030-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2030-01-01T00:00:00.000Z"),
+      },
+      sessionTransport: "cookie",
+    });
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SignupLoginPage />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByRole("heading", { name: "Local test session" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Start local test session" }));
+
+    await waitFor(() => {
+      expect(mockStartLocalDevelopmentTestSession).toHaveBeenCalledOnce();
+    });
+    expect(queryClient.getQueryData(["authenticatedSession"])).toMatchObject({
+      user: { email: "local-test-session@example.test" },
+      sessionTransport: "cookie",
+    });
+    expect(mockNavigate).toHaveBeenCalledWith({ to: "/" });
+  });
+
+  it("shows a safe error when the local test session cannot be created", async () => {
+    mockStartLocalDevelopmentTestSession.mockRejectedValue(new Error("backend detail"));
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <SignupLoginPage />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Start local test session" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "We couldn't start a local test session. Please try again.",
+    );
+    expect(screen.queryByText("backend detail")).toBeNull();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it("shows a safe error when local authorization cannot be created", async () => {

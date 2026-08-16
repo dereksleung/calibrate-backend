@@ -4,7 +4,12 @@ import type {
   ILocalDevelopmentPasskeyEnrollmentService,
   LocalDevelopmentPasskeyEnrollment,
 } from "@application/services/local-development-passkey-enrollment-service.js";
+import type {
+  ILocalDevelopmentTestSessionService,
+  LocalDevelopmentTestSession,
+} from "@application/services/local-development-test-session-service.js";
 import type { ISignupPasskeyRegistrationService } from "@application/services/signup-passkey-registration-service.js";
+import { User } from "@domain/entities/user.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -23,6 +28,35 @@ describe("local development auth route", () => {
   const localEnrollmentService: ILocalDevelopmentPasskeyEnrollmentService = {
     create: vi.fn(async () => enrollment),
   };
+  const localTestSession: LocalDevelopmentTestSession = {
+    user: User.reconstitute({
+      id: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
+      email: "local-test-session@example.test",
+      passwordHash: null,
+      emailVerifiedAt: null,
+      webauthnUserHandle: null,
+      tier: "FREE",
+      createdAt: new Date("2030-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2030-01-01T00:00:00.000Z"),
+    }),
+    accessToken: "raw-access-token",
+    refreshToken: "raw-refresh-token",
+    rememberDevice: true,
+    accessInactivityExpiresAt: new Date("2030-01-01T00:30:00.000Z"),
+    accessAbsoluteExpiresAt: new Date("2030-01-01T08:00:00.000Z"),
+    familyInactivityExpiresAt: new Date("2030-01-08T00:00:00.000Z"),
+    familyAbsoluteExpiresAt: new Date("2030-01-31T00:00:00.000Z"),
+  };
+  const localTestSessionService: ILocalDevelopmentTestSessionService = {
+    create: vi.fn(async () => localTestSession),
+  };
+  const sessionRestorationService = {
+    getCurrentSession: vi.fn(async (accessToken: string) =>
+      accessToken === localTestSession.accessToken ? localTestSession.user : null,
+    ),
+    refresh: vi.fn(),
+    logout: vi.fn(),
+  };
   const app = express();
   app.use(express.json());
   app.use(
@@ -36,8 +70,9 @@ describe("local development auth route", () => {
           verifyRegistration: vi.fn(),
         } satisfies ISignupPasskeyRegistrationService,
         undefined,
-        undefined,
+        sessionRestorationService,
         localEnrollmentService,
+        localTestSessionService,
       ),
     ),
   );
@@ -72,6 +107,52 @@ describe("local development auth route", () => {
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+
+  it("sets normal cookies that restore an authenticated session through the cookie jar", async () => {
+    const response = await fetch(`${baseUrl}/api/v1/auth/local-development/test-session`, {
+      method: "POST",
+      headers: { Origin: "http://localhost:3000" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const setCookieHeaders = response.headers.getSetCookie();
+    const cookieHeader = setCookieHeaders.map((header) => header.split(";", 1)[0]).join("; ");
+    expect(setCookieHeaders).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^calibrate-access=raw-access-token;.*HttpOnly;.*SameSite=Lax/),
+        expect.stringMatching(/^calibrate-refresh=raw-refresh-token;.*Path=\/api\/v1\/auth\/session;.*HttpOnly;.*SameSite=Strict/),
+      ]),
+    );
+
+    const body = await response.json();
+    expect(body).toEqual({
+      user: expect.objectContaining({ email: "local-test-session@example.test" }),
+      sessionTransport: "cookie",
+    });
+    expect(JSON.stringify(body)).not.toContain(localTestSession.accessToken);
+    expect(JSON.stringify(body)).not.toContain(localTestSession.refreshToken);
+
+    const restored = await fetch(`${baseUrl}/api/v1/auth/session`, {
+      headers: { Cookie: cookieHeader },
+    });
+    expect(restored.status).toBe(200);
+    expect(await restored.json()).toEqual({
+      user: expect.objectContaining({ email: "local-test-session@example.test" }),
+      sessionTransport: "cookie",
+    });
+  });
+
+  it("returns 404 without creating a session when Origin is absent", async () => {
+    const callsBefore = localTestSessionService.create.mock.calls.length;
+    const response = await fetch(`${baseUrl}/api/v1/auth/local-development/test-session`, {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(localTestSessionService.create).toHaveBeenCalledTimes(callsBefore);
   });
 
   it("issues the existing enrollment cookie and a public handoff on loopback", async () => {

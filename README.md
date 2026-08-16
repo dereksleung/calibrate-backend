@@ -194,6 +194,29 @@ page. This bypass is denied in production and does not create a deliverable
 recovery email, so it is intended only for evaluating the local repository.
 Nx documentation [here](https://nx.dev/docs/getting-started/tutorials/running-tasks#running-a-single-task)
 
+### Inspecting authenticated pages locally without a passkey
+
+For a quick manual check of the dashboard or other protected pages, start the
+local services in separate terminals:
+
+```bash
+npx nx run backend:kysely migrate:latest
+npx nx run backend:dev
+VITE_API_BASE_URL=http://localhost:3001/api/v1 npx nx run web:dev
+```
+
+Open `http://localhost:3000/calibrate-monorepo/signup-login` in the agent browser and click
+**Start local test session**. The server creates the disposable local fixture
+session and the browser keeps the normal access and refresh cookies; no
+passkey is created or stored. The button is available only from the local
+loopback development UI, and the backend remains the authoritative boundary.
+
+Use **Authorize create passkey** when the task is specifically about passkey
+registration or the real WebAuthn flow. The local test session does not satisfy
+recent passkey re-authentication required by sensitive operations. See
+[ADR-0004](apps/backend/docs/adr/0004-loopback-only-local-test-session.md) for
+the security boundary and rationale.
+
 ### Building the backend Docker image
 
 The backend Dockerfile is in `apps/backend`, but it must be built with the repository root as the Docker build context because it copies root workspace files and the shared `packages/api-contracts` package.
