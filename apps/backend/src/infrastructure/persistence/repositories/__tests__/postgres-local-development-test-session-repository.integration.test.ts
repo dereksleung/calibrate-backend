@@ -130,6 +130,72 @@ describe("PostgresLocalDevelopmentTestSessionRepository", () => {
     expect(await databaseClient.selectFrom("sessions").selectAll().execute()).toHaveLength(2);
   });
 
+  it("fails closed when the reserved email belongs to a password user", async () => {
+    await databaseClient
+      .insertInto("users")
+      .values({
+        id: randomUUID(),
+        email: "local-test-session@example.test",
+        password_hash: "existing-password-hash",
+        email_verified_at: null,
+        webauthn_user_handle: null,
+        tier: "FREE",
+        created_at: firstNow.toISOString(),
+        updated_at: firstNow.toISOString(),
+      })
+      .execute();
+
+    await expect(repository.createOrReuseFixtureSession(createInput())).rejects.toThrow();
+
+    expect(await databaseClient.selectFrom("users").selectAll().execute()).toHaveLength(1);
+    expect(await databaseClient.selectFrom("remembered_device_families").selectAll().execute()).toHaveLength(0);
+    expect(await databaseClient.selectFrom("refresh_token_generations").selectAll().execute()).toHaveLength(0);
+    expect(await databaseClient.selectFrom("sessions").selectAll().execute()).toHaveLength(0);
+    expect(await databaseClient.selectFrom("security_events").selectAll().execute()).toHaveLength(0);
+  });
+
+  it("fails closed when the reserved identity still has passkey credentials", async () => {
+    const userId = randomUUID();
+    await databaseClient
+      .insertInto("users")
+      .values({
+        id: userId,
+        email: "local-test-session@example.test",
+        password_hash: null,
+        email_verified_at: null,
+        webauthn_user_handle: null,
+        tier: "FREE",
+        created_at: firstNow.toISOString(),
+        updated_at: firstNow.toISOString(),
+      })
+      .execute();
+    await databaseClient
+      .insertInto("passkey_credentials")
+      .values({
+        id: randomUUID(),
+        user_id: userId,
+        credential_id: "stale-credential-id",
+        public_key: Buffer.from([1]),
+        algorithm: -7,
+        transports: ["internal"],
+        signature_counter: BigInt(0),
+        aaguid: "00000000-0000-0000-0000-000000000000",
+        backup_eligible: false,
+        backup_state: false,
+        created_at: firstNow,
+        last_used_at: null,
+        revoked_at: null,
+      })
+      .execute();
+
+    await expect(repository.createOrReuseFixtureSession(createInput())).rejects.toThrow();
+
+    expect(await databaseClient.selectFrom("remembered_device_families").selectAll().execute()).toHaveLength(0);
+    expect(await databaseClient.selectFrom("refresh_token_generations").selectAll().execute()).toHaveLength(0);
+    expect(await databaseClient.selectFrom("sessions").selectAll().execute()).toHaveLength(0);
+    expect(await databaseClient.selectFrom("security_events").selectAll().execute()).toHaveLength(0);
+  });
+
   it("rolls back the new family and session when generation persistence fails", async () => {
     const firstInput = createInput({
       accessTokenDigest: "duplicate-access-digest",

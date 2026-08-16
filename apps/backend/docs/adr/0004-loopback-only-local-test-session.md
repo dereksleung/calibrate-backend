@@ -26,8 +26,11 @@ verification. The route:
   the raw `Origin` header exactly matches that configured origin, and the raw
   socket peer is loopback;
 - atomically creates or reuses the reserved
-  `local-test-session@example.test` user and creates a new remembered-device
-  family, refresh generation, and access session on every request;
+  `local-test-session@example.test` user only while it remains a credentialless
+  fixture (null password, email-verification, and WebAuthn state with no
+  passkey credentials), then creates a new remembered-device family, refresh
+  generation, and access session on every request; a credentialed or otherwise
+  changed collision fails closed;
 - uses the existing opaque token generator, digest-only persistence,
   transaction boundary, and access/refresh cookie writer;
 - returns only the ordinary authenticated-user response while placing raw
@@ -67,5 +70,7 @@ weaken the meaning of the real passkey flow.
 - The local session is ordinary authentication for page access only. It does
   not satisfy recent passkey re-authentication, so sensitive operations still
   require the real passkey or recovery flow.
+- A collision with the reserved email that is not the credentialless fixture
+  fails without creating a session.
 - Production, staging, public preview, non-loopback, wrong-origin, missing-
   origin, and non-loopback-peer requests cannot create the fixture or session.

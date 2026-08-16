@@ -47,6 +47,21 @@ export class PostgresLocalDevelopmentTestSessionRepository
           .where("email", "=", input.fixtureUser.email)
           .forUpdate()
           .executeTakeFirstOrThrow());
+      const passkeyCredential = await trx
+        .selectFrom("passkey_credentials")
+        .select("id")
+        .where("user_id", "=", userRow.id)
+        .executeTakeFirst();
+      const isCredentiallessFixture =
+        userRow.password_hash === null &&
+        userRow.email_verified_at === null &&
+        userRow.webauthn_user_handle === null &&
+        !passkeyCredential;
+
+      if (!isCredentiallessFixture) {
+        throw new Error("Reserved local development fixture identity is credentialed");
+      }
+
       const user = this.mapUser(userRow);
       const familyId = randomUUID();
 
