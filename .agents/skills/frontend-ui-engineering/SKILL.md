@@ -39,6 +39,38 @@ Use the repo test suite suffixes deliberately:
 - `*.integration.test.tsx` for slower provider/router/API-boundary integration tests run by `npx nx run <project_name>:test:integration`.
 - `*.e2e.test.tsx` for full user flows through the app UI run by `npx nx run <project_name>:test:e2e`.
 
+### Page-Scoped File Structure
+
+When a route area contains multiple page entry points, create one sibling folder per page directly under that route's page directory. Keep the page entry file at the root of its folder and place its visual child components in a `components/` subfolder:
+
+```
+src/pages/logs/
+  Logs/
+    Logs.tsx
+    Logs.test.tsx
+    components/
+      DailySummary.tsx
+      MealSection.tsx
+  ConfirmFood/
+    ConfirmFood.tsx
+    components/
+      ConfirmFoodForm.tsx
+  FoodSearch/
+    FoodSearch.tsx
+    components/
+      FoodSearchPage.tsx
+  log-page-helpers.ts
+  food-confirmation-state.ts
+  logs-routing.integration.test.tsx
+```
+
+Apply this structure when organizing page files:
+
+- Name each sibling folder after its page entry point (`Logs/`, `ConfirmFood/`, `FoodSearch/`); never nest one page folder inside another page folder.
+- Colocate the page-specific entry file, components, hooks, types, utilities, stories, and page-level unit tests inside that page folder.
+- Keep helpers, types, fixtures, and integration tests in the route parent when they are consumed by multiple pages or route modules. Do not duplicate shared code or place it under whichever page happens to use it first.
+- Trace local imports before moving files, then update route modules and relative imports so the route behavior stays unchanged.
+
 ### Component Patterns
 
 **Prefer composition over configuration:**
