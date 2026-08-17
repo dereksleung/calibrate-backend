@@ -2,15 +2,18 @@
 
 A calorie tracker application, because I've gotten into healthier eating, jogging, and calisthenics.
 
-## Currently experimenting with scaling myself with AI development flows
+## Experimenting with scaling myself with AI development flows - code may not be perfect
 
-I am changing when and how much I review code, including potentially after first merging lower-risk feature changes
-onto the main branch, creating refactor commits after when I see issues, and updating skills and other agent context to
-catch things automatically.
-I may catch things later than I previously would have as a result.
-The reason I am doing this is that the industry is trending toward engineers scaling themselves by acting more like an engineering manager over a fleet of agents. Managers do not always review code, but rather ask for evidence that things worked, so I use review and validation pipelines that take screenshots, run E2E Playwright tests, and created a path for easy agent manual validation of authenticated routes. It is better to have agents also participate in review and validation, otherwise I become the bottleneck. Jobhunting is its own full-time effort, and does also mean I cannot devote constant attention to reviewing with a fine-toothed comb the large amounts of code AI agents can write.
-So I am investing in and testing systems that take a good amount of the review and validation burden off me, while still
-doing some manual verification like Amplitude's recent article on their usage of AI, and examining diffs from time to time for opportunities to simplify and improve the code.
+- I am changing when and how much I review code, including after first merging lower-risk feature changes
+  onto the main branch, creating refactor commits after when I see issues, and updating skills and other agent context to
+  catch things automatically.
+- I may catch things later than I previously would have as a result.
+- The reason I am doing this is that the industry is trending toward engineers scaling themselves by acting more like an engineering manager over a fleet of agents.
+- Managers do not always review code, but rather ask for evidence that things worked, so I use review and validation pipelines that take screenshots, run E2E Playwright tests, and created a path for easy agent manual validation of authenticated routes.
+- It is better to have agents also participate in review and validation, otherwise I become the bottleneck.
+- Jobhunting is its own full-time effort, and does also mean I cannot devote constant attention to reviewing with a fine-toothed comb the large amounts of code AI agents can write.
+- So I am investing in and testing systems that take a good amount of the review and validation burden off me, while still
+  doing some manual verification like Amplitude's recent article on their usage of AI, and examining diffs from time to time for opportunities to simplify and improve the code.
 
 ## Frontend Current State
 
