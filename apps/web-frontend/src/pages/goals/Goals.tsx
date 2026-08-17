@@ -18,6 +18,7 @@ import { Typography } from "#/shared/components/base/typography/Typography.tsx";
 import { useIsMobile } from "#/shared/hooks/use-media-query.ts";
 import { FatBarChart } from "#/verticals/goals-analytics/components/FatBarChart.tsx";
 import { FatsAnalytics } from "#/verticals/goals-analytics/components/FatsAnalytics.tsx";
+import { useSearch } from "@tanstack/react-router";
 import { TrendingDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Line, LineChart, XAxis, YAxis } from "recharts";
@@ -26,10 +27,6 @@ import { Line, LineChart, XAxis, YAxis } from "recharts";
 
 // type GoalTab = (typeof GOAL_TABS)[number];
 type AnalyticsDrawerContent = "fats";
-
-type GoalsProps = {
-  openFatsAnalytics?: boolean;
-};
 
 const JOURNEY_IMAGE_URL =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuCXHD-C_7DzoORGBlhQEayIAZvNgeTVMM4FMeM6BGWET_HfdXvcm_MnHFn2_7QL9hVMQ9RmC-ROXAkFA-epORDLxaZ9WCyairiFsWBnyJ9Pn5izptULWIha5Y55osPr1oYFHNMnHWYEii2t-QY8fsQ-4q1M-lW2zDbO7KSS1A2Ow-fp1aC9DKB9Ziy2R5jCrytOBxlWqRkFHuAVjZwcO2LHVcMFlzJU5GLt0NdBU8ILQudTuPJTi7Ma2_suLfSE7hC1H79MXm3Iol0";
@@ -63,7 +60,8 @@ const weightChartConfig = {
   },
 } satisfies ChartConfig;
 
-export function Goals({ openFatsAnalytics = false }: GoalsProps) {
+export function Goals() {
+  const { openFatsAnalytics = false } = useSearch({ from: "/goals" });
   // const [activeTab, setActiveTab] = useState<GoalTab>("1M");
   const [activeDrawerContent, setActiveDrawerContent] = useState<AnalyticsDrawerContent | null>(null);
   const fatsChartRef = useRef<HTMLDivElement>(null);

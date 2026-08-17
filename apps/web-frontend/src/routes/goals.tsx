@@ -11,11 +11,5 @@ export const Route = createFileRoute("/goals")({
 
     return openFatsAnalytics ? { openFatsAnalytics } : {};
   },
-  component: GoalsRoute,
+  component: Goals,
 });
-
-function GoalsRoute() {
-  const { openFatsAnalytics } = Route.useSearch();
-
-  return <Goals openFatsAnalytics={openFatsAnalytics} />;
-}
