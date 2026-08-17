@@ -1,15 +1,11 @@
-import { CircleAlert } from "lucide-react";
 import type * as React from "react";
 
 import { cn } from "#/lib/utils";
+import { CircleAlert } from "lucide-react";
 
 const DEFAULT_WARNING = "Invalid email or password. Please try again.";
 
-function WarningBanner({
-  className,
-  children = DEFAULT_WARNING,
-  ...props
-}: React.ComponentProps<"div">) {
+function WarningBanner({ className, children = DEFAULT_WARNING, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       role="alert"

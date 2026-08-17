@@ -1,5 +1,3 @@
-import { Plus, Scale, Search } from "lucide-react";
-
 import { Button } from "#/shared/components/base/Button.tsx";
 import {
   Drawer,
@@ -9,6 +7,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "#/shared/components/base/drawer.tsx";
+import { Plus, Scale, Search } from "lucide-react";
 
 type QuickLogDrawerProps = {
   onSearchFood: () => void;
@@ -32,7 +31,11 @@ export function QuickLogDrawer({ onSearchFood }: QuickLogDrawerProps) {
           <DrawerDescription>Choose what you want to add to this day.</DrawerDescription>
         </DrawerHeader>
         <div className="grid gap-3 px-8 pb-8 pt-3">
-          <Button variant="ghost" className="h-14 justify-start gap-3 rounded-xl text-base" onClick={onSearchFood}>
+          <Button
+            variant="ghost"
+            className="h-14 justify-start gap-3 rounded-xl text-base"
+            onClick={onSearchFood}
+          >
             <Search aria-hidden className="size-5 text-primary" />
             Search food
           </Button>

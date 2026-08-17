@@ -1,5 +1,6 @@
-import { Typography } from "#/shared/components/base/typography/Typography.tsx";
 import type { ChartConfig } from "#/shared/components/base/chart.tsx";
+
+import { Typography } from "#/shared/components/base/typography/Typography.tsx";
 import {
   StatBarChart,
   type StatBarChartDatum,
@@ -29,12 +30,7 @@ const fatBarChartConfig = {
   },
 } satisfies ChartConfig;
 
-export function FatBarChart({
-  ariaLabel,
-  data,
-  onClick,
-  tooltipContent,
-}: FatBarChartProps) {
+export function FatBarChart({ ariaLabel, data, onClick, tooltipContent }: FatBarChartProps) {
   const chartData: StatBarChartDatum[] = data.map(({ eaten, label, limit }) => ({
     label,
     limit,
@@ -42,12 +38,7 @@ export function FatBarChart({
   }));
   const averageFatLimitPercent = data.length
     ? Math.round(
-        (data.reduce(
-          (total, day) => total + (day.limit ? day.eaten / day.limit : 0),
-          0,
-        ) /
-          data.length) *
-          100,
+        (data.reduce((total, day) => total + (day.limit ? day.eaten / day.limit : 0), 0) / data.length) * 100,
       )
     : 0;
 
@@ -62,9 +53,9 @@ export function FatBarChart({
     >
       <div className="flex space-between gap-3">
         <div>
-        <Typography variant="capsCardTitle" color="onSurface">
-          Fat
-        </Typography>
+          <Typography variant="capsCardTitle" color="onSurface">
+            Fat
+          </Typography>
         </div>
         <div className="flex-1 justify-end text-right">
           <Typography variant="capsCardTitle" color="primary">

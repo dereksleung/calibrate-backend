@@ -1,8 +1,9 @@
-import { Pencil } from "lucide-react";
-
 import { cn } from "#/lib/utils.ts";
 import { Typography } from "#/shared/components/base/typography/Typography.tsx";
+import { Pencil } from "lucide-react";
+
 import type { NutritionTotals, ProgressValue } from "../../log-page-helpers.ts";
+
 import { DAILY_TARGETS, MACRO_PROGRESS_COLORS } from "../../log-page-helpers.ts";
 
 type DailyProgress = {
@@ -18,7 +19,15 @@ type DailySummaryProps = {
   weight: number | null;
 };
 
-function ProgressBar({ progress, color, className }: { progress: ProgressValue; color: string; className?: string }) {
+function ProgressBar({
+  progress,
+  color,
+  className,
+}: {
+  progress: ProgressValue;
+  color: string;
+  className?: string;
+}) {
   return (
     <div className={cn("h-1.5 overflow-hidden rounded-full bg-surface-container-high", className)}>
       <div
@@ -67,17 +76,27 @@ export function DailySummary({ totals, progress, weight }: DailySummaryProps) {
       aria-labelledby="daily-summary-heading"
       className="rounded-[2rem] bg-surface-container-lowest px-8 py-9 shadow-[0_18px_45px_-30px_rgba(26,28,28,0.45)] ring-1 ring-on-surface/5 md:rounded-2xl md:px-12 md:py-10"
     >
-      <Typography id="daily-summary-heading" as="h2" variant="label" color="onSurfaceVariant" className="sr-only">
+      <Typography
+        id="daily-summary-heading"
+        as="h2"
+        variant="label"
+        color="onSurfaceVariant"
+        className="sr-only"
+      >
         Daily summary
       </Typography>
 
       <div className="grid gap-8 md:gap-10">
         <div className="flex flex-col">
           <div className="flex justify-between gap-2">
-            <Typography variant="labelSpaced" color="onSurface">Eaten</Typography>
+            <Typography variant="labelSpaced" color="onSurface">
+              Eaten
+            </Typography>
             <div className="flex flex-col gap-1">
               <div className="flex justify-end gap-2">
-                <Typography variant="labelSpaced" color="onSurface">Weight</Typography>
+                <Typography variant="labelSpaced" color="onSurface">
+                  Weight
+                </Typography>
                 <Pencil aria-hidden className="size-4 text-on-surface-variant/50" strokeWidth={1.5} />
               </div>
             </div>
@@ -98,9 +117,7 @@ export function DailySummary({ totals, progress, weight }: DailySummaryProps) {
               <p className="text-xl font-light text-on-surface md:text-2xl">
                 {weight.toFixed(1)} <span className="text-base text-on-surface-variant/70">lb</span>
               </p>
-            ) : (
-              null
-            )}
+            ) : null}
           </div>
           <div className="w-2/3 md:w-full">
             <ProgressBar

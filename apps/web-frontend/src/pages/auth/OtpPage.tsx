@@ -1,13 +1,13 @@
 import { apiTransport } from "#/shared/api/api-client";
 import { Button } from "#/shared/components/base/Button";
 import { WarningBanner } from "#/shared/components/base/WarningBanner";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "#/verticals/auth/components/InputOtp.tsx";
 import {
   createAccountEmailVerificationHandoff,
   createLoginRecoveryHandoff,
   createPasskeyEnrollmentHandoff,
   type AccountEmailVerificationHandoff,
 } from "#/verticals/auth/account-email-verification-handoff";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "#/verticals/auth/components/InputOtp.tsx";
 import { useRequestAccountEmailVerification, useVerifyAccountEmailVerification } from "@calibrate/api-client";
 import { useNavigate } from "@tanstack/react-router";
 import { MailCheck } from "lucide-react";
@@ -78,16 +78,24 @@ function OtpPage({ handoff }: OtpPageProps) {
       return;
     }
     try {
-      const response = await verifyAccountEmailVerification({ challengeId: handoff.challengeId, code: otpCode });
+      const response = await verifyAccountEmailVerification({
+        challengeId: handoff.challengeId,
+        code: otpCode,
+      });
       if (response.next === "passkey-registration") {
         const enrollment = createPasskeyEnrollmentHandoff(handoff.email, response);
-        await navigate({ to: "/auth/passkey-enrollment", state: (previous) => ({ ...previous, passkeyEnrollment: enrollment }) });
+        await navigate({
+          to: "/auth/passkey-enrollment",
+          state: (previous) => ({ ...previous, passkeyEnrollment: enrollment }),
+        });
       } else {
         const loginRecovery = createLoginRecoveryHandoff(handoff.email);
         await navigate({ to: "/auth/login-recovery", state: (previous) => ({ ...previous, loginRecovery }) });
       }
     } catch {
-      setVerificationError("This verification code is invalid or has expired. Request a new code and try again.");
+      setVerificationError(
+        "This verification code is invalid or has expired. Request a new code and try again.",
+      );
     }
   }
 

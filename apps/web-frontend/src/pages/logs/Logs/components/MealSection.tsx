@@ -1,7 +1,8 @@
-import { Plus, Utensils } from "lucide-react";
+import type { FoodEntryResponse, MealNameEnumType } from "@calibrate/api-contracts";
 
 import { Button } from "#/shared/components/base/Button.tsx";
-import type { FoodEntryResponse, MealNameEnumType } from "@calibrate/api-contracts";
+import { Plus, Utensils } from "lucide-react";
+
 import { getMealTotals } from "../../log-page-helpers.ts";
 
 type MealSectionProps = {
@@ -16,9 +17,15 @@ export function MealSection({ meal, title, entries, onAddFood }: MealSectionProp
   const headingId = `${meal.toLowerCase()}-heading`;
 
   return (
-    <section aria-labelledby={headingId} className="space-y-4 md:rounded-2xl md:bg-surface-container-lowest md:px-10 md:py-8 md:shadow-[0_18px_45px_-30px_rgba(26,28,28,0.45)] md:ring-1 md:ring-on-surface/5">
+    <section
+      aria-labelledby={headingId}
+      className="space-y-4 md:rounded-2xl md:bg-surface-container-lowest md:px-10 md:py-8 md:shadow-[0_18px_45px_-30px_rgba(26,28,28,0.45)] md:ring-1 md:ring-on-surface/5"
+    >
       <div className="flex items-end justify-between gap-4">
-        <h2 id={headingId} className="font-heading text-3xl font-light leading-tight text-on-surface md:text-2xl">
+        <h2
+          id={headingId}
+          className="font-heading text-3xl font-light leading-tight text-on-surface md:text-2xl"
+        >
           {title}
         </h2>
         <p className="text-xl font-light text-on-surface-variant/80 md:text-base">
@@ -36,7 +43,9 @@ export function MealSection({ meal, title, entries, onAddFood }: MealSectionProp
                     <p className="text-xl font-light leading-snug text-on-surface md:text-lg">{entry.name}</p>
                     <p className="mt-1 text-sm font-light text-on-surface-variant/70">{`${entry.chosenQuantity} ${entry.chosenUnit}`}</p>
                   </div>
-                  <p className="text-xl font-light text-on-surface-variant md:text-lg">{Math.round(entry.calories)}</p>
+                  <p className="text-xl font-light text-on-surface-variant md:text-lg">
+                    {Math.round(entry.calories)}
+                  </p>
                 </li>
               ))}
             </ul>

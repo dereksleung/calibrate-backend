@@ -1,8 +1,7 @@
+import { cn } from "#/lib/utils.ts";
+import { ChartContainer, type ChartConfig } from "#/shared/components/base/chart.tsx";
 import * as React from "react";
 import { Label, Pie, PieChart } from "recharts";
-
-import { ChartContainer, type ChartConfig } from "#/shared/components/base/chart.tsx";
-import { cn } from "#/lib/utils.ts";
 
 type EatenDonutChartProps = {
   eaten: number;

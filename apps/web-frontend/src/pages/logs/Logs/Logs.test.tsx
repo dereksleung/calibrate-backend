@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
+import { createQueryClient } from "#/shared/api/query-client.ts";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRouter } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createQueryClient } from "#/shared/api/query-client.ts";
 import { routeTree } from "../../../routeTree.gen.ts";
 import { coffeeFixture, oatmealFixture } from "../log-page-fixtures.ts";
 
@@ -44,10 +44,19 @@ beforeEach(() => {
     const url = typeof input === "string" ? input : "url" in input ? input.url : String(input);
     if (url.includes("/auth/session")) {
       return Promise.resolve(
-        new Response(JSON.stringify({
-          user: { id: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff", email: "person@example.com", tier: "FREE", createdAt: "2030-01-01T00:00:00.000Z", updatedAt: "2030-01-01T00:00:00.000Z" },
-          sessionTransport: "cookie",
-        }), { status: 200, headers: { "content-type": "application/json" } }),
+        new Response(
+          JSON.stringify({
+            user: {
+              id: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
+              email: "person@example.com",
+              tier: "FREE",
+              createdAt: "2030-01-01T00:00:00.000Z",
+              updatedAt: "2030-01-01T00:00:00.000Z",
+            },
+            sessionTransport: "cookie",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
       );
     }
     if (url.includes("/daylogs/2026-05-18")) {
@@ -55,7 +64,7 @@ beforeEach(() => {
         new Response(JSON.stringify(dayLogMay18Response), {
           status: 200,
           headers: { "content-type": "application/json" },
-        })
+        }),
       );
     }
 
@@ -81,7 +90,7 @@ function renderLogsRoute() {
   return render(
     <QueryClientProvider client={createQueryClient()}>
       <RouterProvider router={router} />
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
 }
 

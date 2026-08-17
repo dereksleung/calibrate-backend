@@ -29,7 +29,9 @@ http://localhost:3000
 ```
 
 ## Screenshots
+
 ### Dashboard page
+
 Initial page:
 <br></br>
 <img width="1820" height="932" alt="Screenshot 2026-05-03 at 6 17 09 PM" src="https://github.com/user-attachments/assets/97d5fe74-0583-4620-bf64-446ff2f40127" />
@@ -42,8 +44,8 @@ On clicking the High Impact Swap card's Learn More link -> panel with actionable
 Hovering over the Dashboard's Fats chart will show a tooltip saying you can click the chart to go to [a panel on the Goals page](#fats-analytics-panel), making that discoverable. Only the fats detail view mock UI is built right now.
 <br></br>
 
-
 ### Goals page
+
 Allows deeper drilling into stats and progress.
 
 Initial view:
@@ -56,6 +58,7 @@ Scrolling down - can see encouragement about journey, as well as charts about ma
 <br></br>
 
 #### Fats Analytics panel
+
 Clicking the Fats bar chart opens a panel with deeper data the user can find trends with.
 <br></br>
 Greatest sources of fat by food in the last month:
@@ -65,5 +68,3 @@ Greatest sources of fat by food in the last month:
 Largest changes in fat contributions from food between last month to this month:
 <br></br>
 <img width="1264" height="959" alt="Screenshot 2026-05-24 at 2 17 08 PM" src="https://github.com/user-attachments/assets/6f09793e-acd6-49f2-a8d1-a18b118ee441" />
-
-

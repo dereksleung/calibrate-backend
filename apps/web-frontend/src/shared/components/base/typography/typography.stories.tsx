@@ -1,10 +1,19 @@
-import type { Meta, StoryObj } from "@storybook/react-vite"
+import type { Meta, StoryObj } from "@storybook/react-vite";
 
-import "../../../../styles.css"
+import "../../../../styles.css";
+import { Typography } from "./Typography";
 
-import { Typography } from "./Typography"
-
-const variants = ["display", "headline", "headlineLg", "body", "bodyLg", "label", "labelMd", "labelSpaced", "capsCardTitle"] as const
+const variants = [
+  "display",
+  "headline",
+  "headlineLg",
+  "body",
+  "bodyLg",
+  "label",
+  "labelMd",
+  "labelSpaced",
+  "capsCardTitle",
+] as const;
 
 const colors = [
   "default",
@@ -30,11 +39,11 @@ const colors = [
   "onTertiaryFixedVariant",
   "inverseOnSurface",
   "inherit",
-] as const
+] as const;
 
-const semanticElements = ["p", "span", "h1", "h2", "h3", "h4", "h5", "h6"] as const
+const semanticElements = ["p", "span", "h1", "h2", "h3", "h4", "h5", "h6"] as const;
 
-type TypographyColor = (typeof colors)[number]
+type TypographyColor = (typeof colors)[number];
 
 const colorSurfaces: Record<TypographyColor, string> = {
   default: "bg-background",
@@ -60,9 +69,9 @@ const colorSurfaces: Record<TypographyColor, string> = {
   onTertiaryFixedVariant: "bg-tertiary-fixed",
   inverseOnSurface: "bg-inverse-surface",
   inherit: "bg-background text-foreground",
-}
+};
 
-const sampleText = "Calibrate typography"
+const sampleText = "Calibrate typography";
 
 const meta = {
   title: "Base/Typography",
@@ -93,13 +102,13 @@ const meta = {
     color: "default",
     children: sampleText,
   },
-} satisfies Meta<typeof Typography>
+} satisfies Meta<typeof Typography>;
 
-export default meta
+export default meta;
 
-type Story = StoryObj<typeof meta>
+type Story = StoryObj<typeof meta>;
 
-export const Playground: Story = {}
+export const Playground: Story = {};
 
 export const Variants: Story = {
   render: () => (
@@ -114,7 +123,7 @@ export const Variants: Story = {
       ))}
     </div>
   ),
-}
+};
 
 export const Colors: Story = {
   render: () => (
@@ -134,7 +143,7 @@ export const Colors: Story = {
       ))}
     </div>
   ),
-}
+};
 
 export const VariantColorMatrix: Story = {
   render: () => (
@@ -144,9 +153,7 @@ export const VariantColorMatrix: Story = {
           <Typography as="h2" variant="headline">
             {color}
           </Typography>
-          <div
-            className={`${colorSurfaces[color]} flex flex-col gap-4 rounded-lg border border-border p-4`}
-          >
+          <div className={`${colorSurfaces[color]} flex flex-col gap-4 rounded-lg border border-border p-4`}>
             {variants.map((variant) => (
               <Typography key={variant} variant={variant} color={color}>
                 {variant}: {sampleText}
@@ -157,7 +164,7 @@ export const VariantColorMatrix: Story = {
       ))}
     </div>
   ),
-}
+};
 
 export const SemanticElements: Story = {
   render: () => (
@@ -179,4 +186,4 @@ export const SemanticElements: Story = {
       </Typography>
     </div>
   ),
-}
+};

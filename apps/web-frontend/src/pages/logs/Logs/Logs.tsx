@@ -4,16 +4,16 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 
-import { DailySummary } from "./components/DailySummary.tsx";
-import { DateStepper } from "./components/DateStepper.tsx";
-import { MealSection } from "./components/MealSection.tsx";
-import { QuickLogDrawer } from "./components/QuickLogDrawer.tsx";
 import {
   MEAL_SECTIONS,
   getDailyProgress,
   getDailyTotals,
   normalizeDayLogForRender,
 } from "../log-page-helpers.ts";
+import { DailySummary } from "./components/DailySummary.tsx";
+import { DateStepper } from "./components/DateStepper.tsx";
+import { MealSection } from "./components/MealSection.tsx";
+import { QuickLogDrawer } from "./components/QuickLogDrawer.tsx";
 
 type LogsProps = {
   selectedDate: string;

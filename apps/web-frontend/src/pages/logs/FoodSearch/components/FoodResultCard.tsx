@@ -1,6 +1,6 @@
+import { cn } from "#/lib/utils.ts";
 import { Plus } from "lucide-react";
 
-import { cn } from "#/lib/utils.ts";
 import type { SelectedFoodForConfirmation } from "../../food-confirmation-state.ts";
 
 type FoodResultCardProps = {
@@ -14,7 +14,9 @@ export function FoodResultCard({ food, onSelect }: FoodResultCardProps) {
     `${food.quantityServing} ${food.servingLabel}`,
     food.brand,
     food.lastUsedLabel,
-  ].filter(Boolean).join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <li>
@@ -28,7 +30,9 @@ export function FoodResultCard({ food, onSelect }: FoodResultCardProps) {
         onClick={() => onSelect(food)}
       >
         <span className="min-w-0">
-          <span className="block truncate font-heading text-base font-semibold text-on-surface">{food.name}</span>
+          <span className="block truncate font-heading text-base font-semibold text-on-surface">
+            {food.name}
+          </span>
           <span className="mt-1 block truncate text-sm text-on-surface-variant/80">{details}</span>
         </span>
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary transition group-hover:bg-primary-container">

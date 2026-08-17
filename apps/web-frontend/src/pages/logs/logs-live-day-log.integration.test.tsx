@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
+import { createQueryClient } from "#/shared/api/query-client.ts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRouter } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createQueryClient } from "#/shared/api/query-client.ts";
 import { routeTree } from "../../routeTree.gen.ts";
 import { coffeeFixture, oatmealFixture } from "./log-page-fixtures.ts";
 
@@ -49,7 +49,7 @@ function renderLogsRoute(initialEntry: string, queryClient?: QueryClient) {
   return render(
     <QueryClientProvider client={queryClient ?? createQueryClient()}>
       <RouterProvider router={router} />
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -84,7 +84,7 @@ describe("logs live day log", () => {
           new Response(JSON.stringify(dayLog), {
             status: 200,
             headers: { "content-type": "application/json" },
-          })
+          }),
         );
       }
 
@@ -107,7 +107,7 @@ describe("logs live day log", () => {
           new Response(JSON.stringify(null), {
             status: 200,
             headers: { "content-type": "application/json" },
-          })
+          }),
         );
       }
 
@@ -137,13 +137,13 @@ describe("logs live day log", () => {
       new Response("server error", {
         status: 500,
         statusText: "Internal Server Error",
-      })
+      }),
     );
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify(dayLog), {
         status: 200,
         headers: { "content-type": "application/json" },
-      })
+      }),
     );
 
     const queryClient = new QueryClient({
@@ -183,8 +183,8 @@ describe("logs live day log", () => {
               snacks: [],
               weight: null,
             }),
-            { status: 200, headers: { "content-type": "application/json" } }
-          )
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
         );
       }
 
@@ -200,8 +200,8 @@ describe("logs live day log", () => {
               snacks: [],
               weight: null,
             }),
-            { status: 200, headers: { "content-type": "application/json" } }
-          )
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
         );
       }
 

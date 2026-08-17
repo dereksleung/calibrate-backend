@@ -1,6 +1,5 @@
-import type {
-  PasskeyAuthenticationOptionsResponse,
-} from "@calibrate/api-contracts";
+import type { PasskeyAuthenticationOptionsResponse } from "@calibrate/api-contracts";
+
 import {
   startAuthentication,
   WebAuthnAbortService,
@@ -10,10 +9,7 @@ import {
   browserSupportsWebAuthnAutofill,
 } from "@simplewebauthn/browser";
 
-export {
-  type PublicKeyCredentialRequestOptionsJSON,
-  type AuthenticationResponseJSON,
-}
+export { type PublicKeyCredentialRequestOptionsJSON, type AuthenticationResponseJSON };
 
 export function isBrowserPasskeyAuthenticationSupported(): boolean {
   return browserSupportsWebAuthn();

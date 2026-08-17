@@ -12,7 +12,7 @@ export const YesterdayRecap = () => {
         </Typography>
         {/* <h3 className="font-semibold text-lg">Yesterday Recap</h3> */}
       </div>
-      {/* TODO: Make text dynamic. 
+      {/* TODO: Make text dynamic.
       Just showing judgment presenting the most important metrics and data for a normal user trying to stay on track 
       with new habits and weight loss for now. */}
       <Typography size="sm" weight="light" color="onSurfaceVariant">

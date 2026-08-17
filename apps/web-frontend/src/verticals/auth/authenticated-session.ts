@@ -1,4 +1,5 @@
 import type { AuthenticatedSessionResponse } from "@calibrate/api-contracts";
+
 import { skipToken, useQuery, type QueryClient } from "@tanstack/react-query";
 
 export const authenticatedSessionQueryKey = ["authenticatedSession"] as const;
@@ -10,9 +11,7 @@ export function setAuthenticatedSession(
   queryClient.setQueryData(authenticatedSessionQueryKey, session);
 }
 
-export function getAuthenticatedSession(
-  queryClient: QueryClient,
-): AuthenticatedSessionResponse | undefined {
+export function getAuthenticatedSession(queryClient: QueryClient): AuthenticatedSessionResponse | undefined {
   return queryClient.getQueryData(authenticatedSessionQueryKey);
 }
 

@@ -1,15 +1,12 @@
-import * as React from "react";
-import { cva, type VariantProps } from "class-variance-authority";
-
 import { cn } from "#/lib/utils";
+import { cva, type VariantProps } from "class-variance-authority";
+import * as React from "react";
 
 const typographyVariants = cva("", {
   variants: {
     variant: {
-      display:
-        "font-heading text-[2.5rem] leading-[3rem] tracking-[-0.02em] font-[300] text-balance",
-      headline:
-        "font-headline-md text-[1.5rem] leading-[2rem] tracking-[-0.01em] font-[400] text-balance",
+      display: "font-heading text-[2.5rem] leading-[3rem] tracking-[-0.02em] font-[300] text-balance",
+      headline: "font-headline-md text-[1.5rem] leading-[2rem] tracking-[-0.01em] font-[400] text-balance",
       headlineLg:
         "font-headline-lg-mobile text-[1.5rem] leading-[2rem] tracking-[-0.01em] font-[400] text-balance lg:font-headline-lg lg:text-[2.5rem] lg:leading-[3rem] lg:tracking-[-0.02em] lg:font-[300]",
       body: "font-sans text-[1rem] leading-[1.5rem] font-[300]",
@@ -69,9 +66,7 @@ const typographyVariants = cva("", {
   },
 });
 
-type TypographyOwnProps<TElement extends React.ElementType> = VariantProps<
-  typeof typographyVariants
-> & {
+type TypographyOwnProps<TElement extends React.ElementType> = VariantProps<typeof typographyVariants> & {
   as?: TElement;
   className?: string;
 };

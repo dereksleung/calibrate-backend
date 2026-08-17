@@ -1,9 +1,9 @@
-import type { Meta, StoryObj } from "@storybook/react-vite"
+import type { Meta, StoryObj } from "@storybook/react-vite";
 
-import "../../../styles.css"
+import "../../../styles.css";
+import type { WeeklyDatum } from "./WeeklyBarChart";
 
-import type { WeeklyDatum } from "./WeeklyBarChart"
-import { WeeklyBarChart } from "./WeeklyBarChart"
+import { WeeklyBarChart } from "./WeeklyBarChart";
 
 const playgroundWeeklyData: WeeklyDatum[] = [
   { label: "MON", eaten: 1540, limit: 1650 },
@@ -13,7 +13,7 @@ const playgroundWeeklyData: WeeklyDatum[] = [
   { label: "FRI", eaten: 2160, limit: 1800 },
   { label: "SAT", eaten: 1160, limit: 1800 },
   { label: "SUN", eaten: 1060, limit: 1800 },
-]
+];
 
 const meta = {
   title: "Shared/Charts/WeeklyBarChart",
@@ -31,13 +31,13 @@ const meta = {
     seriesLabel: "Calories",
     className: "aspect-auto h-[17rem] w-full max-w-3xl",
   },
-} satisfies Meta<typeof WeeklyBarChart>
+} satisfies Meta<typeof WeeklyBarChart>;
 
-export default meta
+export default meta;
 
-type Story = StoryObj<typeof meta>
+type Story = StoryObj<typeof meta>;
 
-export const Playground: Story = {}
+export const Playground: Story = {};
 
 export const AllUnderLimit: Story = {
   args: {
@@ -51,7 +51,7 @@ export const AllUnderLimit: Story = {
       { label: "SUN", eaten: 1400, limit: 2000 },
     ],
   },
-}
+};
 
 export const AllOverLimit: Story = {
   args: {
@@ -65,7 +65,7 @@ export const AllOverLimit: Story = {
       { label: "SUN", eaten: 2050, limit: 2000 },
     ],
   },
-}
+};
 
 export const MixedLimitsPerDay: Story = {
   args: {
@@ -79,4 +79,4 @@ export const MixedLimitsPerDay: Story = {
       { label: "SUN", eaten: 2000, limit: 2000 },
     ],
   },
-}
+};

@@ -19,9 +19,11 @@ describe("FoodSearchPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /select Zero Sugar Oat/i }));
 
-    expect(onSelectFood).toHaveBeenCalledWith(expect.objectContaining({
-      food: expect.objectContaining({ name: "Zero Sugar Oat" }),
-    }));
+    expect(onSelectFood).toHaveBeenCalledWith(
+      expect.objectContaining({
+        food: expect.objectContaining({ name: "Zero Sugar Oat" }),
+      }),
+    );
   });
 
   it("renders glass-card skeletons while recent foods load", () => {

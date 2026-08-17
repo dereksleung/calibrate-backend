@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import "../../../styles.css";
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./Tabs";
 
 const meta = {

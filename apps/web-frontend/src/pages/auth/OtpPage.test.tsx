@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OtpPage } from "./OtpPage";
@@ -36,9 +37,21 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 });
 
 vi.mock("#/verticals/auth/components/InputOtp.tsx", () => ({
-  InputOTP: ({ children, onChange, value }: { children: ReactNode; onChange: (value: string) => void; value: string }) => (
+  InputOTP: ({
+    children,
+    onChange,
+    value,
+  }: {
+    children: ReactNode;
+    onChange: (value: string) => void;
+    value: string;
+  }) => (
     <div>
-      <input aria-label="Verification code" value={value} onChange={(event) => onChange(event.target.value)} />
+      <input
+        aria-label="Verification code"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
       {children}
     </div>
   ),
@@ -93,7 +106,10 @@ describe("OtpPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /verify code/i }));
 
     await waitFor(() => {
-      expect(mockVerifyMutateAsync).toHaveBeenCalledWith({ challengeId: handoff.challengeId, code: "012345" });
+      expect(mockVerifyMutateAsync).toHaveBeenCalledWith({
+        challengeId: handoff.challengeId,
+        code: "012345",
+      });
     });
     expect(mockNavigate).toHaveBeenCalledWith({
       to: "/auth/passkey-enrollment",

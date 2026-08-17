@@ -1,10 +1,10 @@
-import * as React from "react";
-import { useMemo } from "react";
-import { cva, type VariantProps } from "class-variance-authority";
-
-import { cn } from "@/lib/utils";
 import { Label } from "#/shared/components/base/Label";
 import { Separator } from "#/shared/components/base/Separator";
+import { cva, type VariantProps } from "class-variance-authority";
+import * as React from "react";
+import { useMemo } from "react";
+
+import { cn } from "@/lib/utils";
 
 function FieldSet({ className, ...props }: React.ComponentProps<"fieldset">) {
   return (
@@ -181,10 +181,7 @@ function FieldSeparator({
     <div
       data-slot="field-separator"
       data-content={!!children}
-      className={cn(
-        "relative -my-2 h-5 text-sm group-data-[variant=outline]/field-group:-mb-2",
-        className,
-      )}
+      className={cn("relative -my-2 h-5 text-sm group-data-[variant=outline]/field-group:-mb-2", className)}
       {...props}
     >
       <Separator className="absolute inset-0 top-1/2" />
@@ -206,32 +203,27 @@ function FieldError({
   errors,
   ...props
 }: React.ComponentProps<"div"> & {
-  errors?: Array<{ message?: string } | undefined>
+  errors?: Array<{ message?: string } | undefined>;
 }) {
   const content = useMemo(() => {
     if (children) {
-      return children
+      return children;
     }
     if (!errors?.length) {
-      return null
+      return null;
     }
-    const uniqueErrors = [
-      ...new Map(errors.map((error) => [error?.message, error])).values(),
-    ]
+    const uniqueErrors = [...new Map(errors.map((error) => [error?.message, error])).values()];
     if (uniqueErrors?.length == 1) {
-      return uniqueErrors[0]?.message
+      return uniqueErrors[0]?.message;
     }
     return (
       <ul className="ml-4 flex list-disc flex-col gap-1">
-        {uniqueErrors.map(
-          (error, index) =>
-            error?.message && <li key={index}>{error.message}</li>
-        )}
+        {uniqueErrors.map((error, index) => error?.message && <li key={index}>{error.message}</li>)}
       </ul>
-    )
-  }, [children, errors])
+    );
+  }, [children, errors]);
   if (!content) {
-    return null
+    return null;
   }
   return (
     <div
@@ -242,7 +234,7 @@ function FieldError({
     >
       {content}
     </div>
-  )
+  );
 }
 
 export {

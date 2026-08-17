@@ -1,8 +1,6 @@
 import type { PasskeyRegistrationOptionsResponse, RegistrationResponseJSON } from "@calibrate/api-contracts";
-import {
-  startRegistration,
-  type PublicKeyCredentialCreationOptionsJSON,
-} from "@simplewebauthn/browser";
+
+import { startRegistration, type PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/browser";
 
 export interface BrowserPasskeyRegistrationAdapter {
   createPasskey(options: PasskeyRegistrationOptionsResponse): Promise<RegistrationResponseJSON>;
@@ -34,7 +32,10 @@ export async function showPlatformUiForClientPasskeyFailedToRegisterOnServer({
   credentialId: string;
   rpId: string;
 }): Promise<void> {
-  if (typeof window === "undefined" || typeof window.PublicKeyCredential?.signalUnknownCredential !== "function") {
+  if (
+    typeof window === "undefined" ||
+    typeof window.PublicKeyCredential?.signalUnknownCredential !== "function"
+  ) {
     return;
   }
 

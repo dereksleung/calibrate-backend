@@ -101,9 +101,7 @@ describe("Footer", () => {
       await renderFooter();
 
       expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/");
-      expect(screen.getByRole("link", { name: "Logs" }).getAttribute("href")).toBe(
-        "/logs?date=2026-07-10",
-      );
+      expect(screen.getByRole("link", { name: "Logs" }).getAttribute("href")).toBe("/logs?date=2026-07-10");
       expect(screen.getByRole("link", { name: "Goals" }).getAttribute("href")).toBe("/goals");
     });
 

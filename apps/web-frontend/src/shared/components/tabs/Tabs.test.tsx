@@ -41,9 +41,7 @@ describe("Tabs", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Create Account" }));
 
-    expect(screen.getByRole("tab", { name: "Create Account" }).getAttribute("aria-selected")).toBe(
-      "true",
-    );
+    expect(screen.getByRole("tab", { name: "Create Account" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("tabpanel").textContent).toBe("Create your account");
   });
 });

@@ -1,5 +1,10 @@
 // @vitest-environment jsdom
 
+import { createQueryClient } from "#/shared/api/query-client.ts";
+import {
+  authenticatedSessionQueryKey,
+  setAuthenticatedSession,
+} from "#/verticals/auth/authenticated-session.ts";
 import { QueryClientProvider } from "@tanstack/react-query";
 import {
   RouterContextProvider,
@@ -10,12 +15,6 @@ import {
 } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { createQueryClient } from "#/shared/api/query-client.ts";
-import {
-  authenticatedSessionQueryKey,
-  setAuthenticatedSession,
-} from "#/verticals/auth/authenticated-session.ts";
 
 import Header from "./Header.tsx";
 
@@ -68,12 +67,7 @@ const signupLoginRoute = createRoute({
   component: () => null,
 });
 
-const routeTree = rootRoute.addChildren([
-  indexRoute,
-  logsRoute,
-  goalsRoute,
-  signupLoginRoute,
-]);
+const routeTree = rootRoute.addChildren([indexRoute, logsRoute, goalsRoute, signupLoginRoute]);
 
 const authenticatedSession = {
   user: {
@@ -86,10 +80,7 @@ const authenticatedSession = {
   sessionTransport: "cookie" as const,
 };
 
-async function renderHeader(
-  initialEntry = "/",
-  options?: { authenticated?: boolean },
-) {
+async function renderHeader(initialEntry = "/", options?: { authenticated?: boolean }) {
   const queryClient = createQueryClient();
   if (options?.authenticated) {
     setAuthenticatedSession(queryClient, authenticatedSession);
@@ -146,9 +137,7 @@ describe("Header", () => {
       await renderHeader();
 
       expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/");
-      expect(screen.getByRole("link", { name: "Logs" }).getAttribute("href")).toBe(
-        "/logs?date=2026-07-10",
-      );
+      expect(screen.getByRole("link", { name: "Logs" }).getAttribute("href")).toBe("/logs?date=2026-07-10");
       expect(screen.getByRole("link", { name: "Goals" }).getAttribute("href")).toBe("/goals");
     });
 

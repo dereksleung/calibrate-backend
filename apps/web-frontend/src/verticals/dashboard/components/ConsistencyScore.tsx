@@ -2,7 +2,7 @@ import { Card } from "#/shared/components/base/Card.tsx";
 import { Typography } from "#/shared/components/base/typography/Typography.tsx";
 import { ChartColumnIncreasing } from "lucide-react";
 
-/* TODO: Make text dynamic. 
+/* TODO: Make text dynamic.
   Just showing judgment presenting the most important metrics and data for a normal user trying to stay on track 
   with new habits and weight loss for now. */
 export const ConsistencyScore = () => {

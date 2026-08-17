@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from "recharts";
 
 import { cn } from "#/lib/utils.ts";
 import { Card, CardContent } from "#/shared/components/base/Card.tsx";
@@ -9,11 +8,8 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "#/shared/components/base/chart.tsx";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "#/shared/components/base/tooltip/Tooltip.tsx";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#/shared/components/base/tooltip/Tooltip.tsx";
+import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from "recharts";
 
 type StatBarChartDatum = {
   label: string;
@@ -41,9 +37,7 @@ export function StatBarChart({
   valueUnit,
 }: StatBarChartProps) {
   const limit = data[0]?.limit ?? 0;
-  const maxValue = data.length
-    ? Math.max(...data.flatMap(({ value, limit }) => [value, limit]))
-    : 0;
+  const maxValue = data.length ? Math.max(...data.flatMap(({ value, limit }) => [value, limit])) : 0;
   const yAxisMax = Math.ceil((maxValue * 1.1) / 10) * 10;
 
   const chartCard = (
@@ -72,13 +66,7 @@ export function StatBarChart({
         {children}
 
         <div className="mt-4 min-w-0">
-          <ChartContainer
-            config={chartConfig}
-            className={cn(
-              "w-full",
-              onClick && "cursor-pointer",
-            )}
-          >
+          <ChartContainer config={chartConfig} className={cn("w-full", onClick && "cursor-pointer")}>
             <BarChart
               accessibilityLayer
               data={data}
@@ -87,11 +75,7 @@ export function StatBarChart({
               barCategoryGap="35%"
               className="flex-1"
             >
-              <YAxis
-                domain={[0, yAxisMax]}
-                padding={{ top: 8 }}
-                width="auto"
-              />
+              <YAxis domain={[0, yAxisMax]} padding={{ top: 8 }} width="auto" />
               <XAxis
                 dataKey="label"
                 axisLine={{ stroke: "var(--color-border)" }}
@@ -111,17 +95,11 @@ export function StatBarChart({
                 content={
                   <ChartTooltipContent
                     hideIndicator
-                    labelFormatter={(_, payload) =>
-                      payload[0]?.payload?.label ?? ""
-                    }
+                    labelFormatter={(_, payload) => payload[0]?.payload?.label ?? ""}
                     formatter={(value, _, item) => {
-                      const payload = item.payload as
-                        | StatBarChartDatum
-                        | undefined;
+                      const payload = item.payload as StatBarChartDatum | undefined;
                       const percentOfLimit = payload
-                        ? Math.round(
-                            (payload.value / (payload.limit || 1)) * 100,
-                          )
+                        ? Math.round((payload.value / (payload.limit || 1)) * 100)
                         : 0;
                       const unitLabel = valueUnit ?? "";
 

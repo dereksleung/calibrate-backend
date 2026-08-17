@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 
+import { createQueryClient } from "#/shared/api/query-client.ts";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRouter } from "@tanstack/react-router";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createQueryClient } from "#/shared/api/query-client.ts";
-import { formatCompactDateHeading, formatDateHeading } from "./log-page-helpers.ts";
 import { routeTree } from "../../routeTree.gen.ts";
+import { formatCompactDateHeading, formatDateHeading } from "./log-page-helpers.ts";
 
 vi.mock("@tanstack/react-devtools", () => ({
   TanStackDevtools: () => null,
@@ -37,7 +37,7 @@ beforeEach(() => {
         new Response(JSON.stringify(null), {
           status: 200,
           headers: { "content-type": "application/json" },
-        })
+        }),
       );
     }
 
@@ -63,7 +63,7 @@ function renderLogsRoute(initialEntry: string) {
   return render(
     <QueryClientProvider client={createQueryClient()}>
       <RouterProvider router={router} />
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
 }
 

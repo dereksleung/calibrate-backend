@@ -32,7 +32,6 @@ describe("Field", () => {
     expect(input.className).toContain("focus-visible:ring-primary/20");
   });
 
-
   it("deduplicates errors and can render them as a banner", () => {
     render(
       <FieldError

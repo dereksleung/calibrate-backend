@@ -56,7 +56,10 @@ export function parsePasskeyEnrollmentHandoff(value: unknown): PasskeyEnrollment
 }
 
 export function createLoginRecoveryHandoff(email: string): LoginRecoveryHandoff {
-  return { email: RequestAccountEmailVerificationRequestBodySchema.parse({ email }).email, next: "login-or-recovery" };
+  return {
+    email: RequestAccountEmailVerificationRequestBodySchema.parse({ email }).email,
+    next: "login-or-recovery",
+  };
 }
 
 export function parseLoginRecoveryHandoff(value: unknown): LoginRecoveryHandoff | null {

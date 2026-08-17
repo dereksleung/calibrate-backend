@@ -1,17 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+
 import { Lock, Mail, UserRound } from "lucide-react";
 
 import "../../../styles.css";
-
-import {
-  Field,
-  FieldInputWrapper,
-  FieldError,
-  FieldGroup,
-  FieldIcon,
-  FieldInput,
-  FieldLabel,
-} from "./Field";
+import { Field, FieldInputWrapper, FieldError, FieldGroup, FieldIcon, FieldInput, FieldLabel } from "./Field";
 
 const meta = {
   title: "Shared/Field",
@@ -105,12 +97,15 @@ export const ErrorState: Story = {
             <Lock />
           </FieldIcon>
         </FieldInputWrapper>
-        <FieldError 
+        <FieldError
           errors={[
-            { message: "Password must be at least 8 characters long Longer error Longer error Longer error Longer error." },
+            {
+              message:
+                "Password must be at least 8 characters long Longer error Longer error Longer error Longer error.",
+            },
             { message: "Password must contain at least one uppercase letter." },
             { message: "Password must contain at least one number." },
-          ]} 
+          ]}
         />
       </Field>
     </FieldGroup>

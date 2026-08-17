@@ -1,10 +1,10 @@
-import { QueryClientProvider } from "@tanstack/react-query";
-import { RouterProvider, createMemoryHistory, createRootRoute, createRouter } from "@tanstack/react-router";
+import type { PasskeyEnrollmentHandoff } from "#/verticals/auth/account-email-verification-handoff";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ComponentProps } from "react";
 
 import { createQueryClient } from "#/shared/api/query-client";
-import type { PasskeyEnrollmentHandoff } from "#/verticals/auth/account-email-verification-handoff";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { RouterProvider, createMemoryHistory, createRootRoute, createRouter } from "@tanstack/react-router";
 
 import "../../styles.css";
 import { PasskeyEnrollmentPage } from "./PasskeyEnrollmentPage";

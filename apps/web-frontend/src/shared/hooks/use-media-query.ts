@@ -14,8 +14,7 @@ export function useMediaQuery(query: string): boolean {
     [query],
   );
 
-  const getSnapshot = () =>
-    typeof window !== "undefined" && window.matchMedia(query).matches;
+  const getSnapshot = () => typeof window !== "undefined" && window.matchMedia(query).matches;
 
   const getServerSnapshot = () => false;
 

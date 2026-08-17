@@ -1,9 +1,8 @@
-import { useState } from "react";
-import { ArrowDown, ArrowUpRight } from "lucide-react";
-
 import { cn } from "#/lib/utils.ts";
 import { Card, CardContent } from "#/shared/components/base/Card.tsx";
 import { Typography } from "#/shared/components/base/typography/Typography.tsx";
+import { ArrowDown, ArrowUpRight } from "lucide-react";
+import { useState } from "react";
 
 const fatSources = [
   {
@@ -152,8 +151,7 @@ export function FatsAnalytics() {
               aria-pressed={activeTab === "total"}
               className={cn(
                 "rounded-full px-6 py-3 text-on-surface-variant focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
-                activeTab === "total" &&
-                  "bg-white text-primary shadow-[0_12px_24px_-20px_rgba(0,0,0,0.65)]",
+                activeTab === "total" && "bg-white text-primary shadow-[0_12px_24px_-20px_rgba(0,0,0,0.65)]",
               )}
               onClick={() => setActiveTab("total")}
             >
@@ -171,8 +169,7 @@ export function FatsAnalytics() {
               aria-pressed={activeTab === "trend"}
               className={cn(
                 "rounded-full px-6 py-3 text-on-surface-variant focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
-                activeTab === "trend" &&
-                  "bg-white text-primary shadow-[0_12px_24px_-20px_rgba(0,0,0,0.65)]",
+                activeTab === "trend" && "bg-white text-primary shadow-[0_12px_24px_-20px_rgba(0,0,0,0.65)]",
               )}
               onClick={() => setActiveTab("trend")}
             >
@@ -192,12 +189,7 @@ export function FatsAnalytics() {
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-2">
         {activeTab === "total" ? (
           <section className="flex flex-col gap-4">
-            <Typography
-              as="h2"
-              variant="label"
-              color="muted"
-              className="text-center tracking-[0.18em]"
-            >
+            <Typography as="h2" variant="label" color="muted" className="text-center tracking-[0.18em]">
               Total Fat By Food For Last 28 Days
             </Typography>
 
@@ -207,18 +199,9 @@ export function FatsAnalytics() {
                   <div key={source.name} className="flex flex-col gap-3">
                     <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
                       <div className="size-12 overflow-hidden rounded-xl bg-surface-container-low">
-                        <img
-                          alt={source.imageAlt}
-                          className="size-full object-cover"
-                          src={source.imageUrl}
-                        />
+                        <img alt={source.imageAlt} className="size-full object-cover" src={source.imageUrl} />
                       </div>
-                      <Typography
-                        as="p"
-                        variant="bodyLg"
-                        color="default"
-                        className="truncate"
-                      >
+                      <Typography as="p" variant="bodyLg" color="default" className="truncate">
                         {source.name}
                       </Typography>
                       <Typography
@@ -244,12 +227,7 @@ export function FatsAnalytics() {
           </section>
         ) : (
           <section className="flex flex-col gap-4">
-            <Typography
-              as="h2"
-              variant="label"
-              color="muted"
-              className="text-center tracking-[0.18em]"
-            >
+            <Typography as="h2" variant="label" color="muted" className="text-center tracking-[0.18em]">
               Fats by food from last month to this month
             </Typography>
 
@@ -261,28 +239,14 @@ export function FatsAnalytics() {
                 >
                   <CardContent className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-4 py-4">
                     <div className="size-12 overflow-hidden rounded-xl bg-surface-container-low ring-1 ring-outline-variant/40">
-                      <img
-                        alt={source.imageAlt}
-                        className="size-full object-cover"
-                        src={source.imageUrl}
-                      />
+                      <img alt={source.imageAlt} className="size-full object-cover" src={source.imageUrl} />
                     </div>
-                    <Typography
-                      as="p"
-                      variant="body"
-                      color="default"
-                      className="truncate"
-                    >
+                    <Typography as="p" variant="body" color="default" className="truncate">
                       {source.name}
                     </Typography>
                     <div className="flex items-center justify-end gap-2 text-primary">
                       <ArrowUpRight aria-hidden="true" className="size-4" />
-                      <Typography
-                        as="p"
-                        variant="bodyLg"
-                        color="primary"
-                        className="whitespace-nowrap"
-                      >
+                      <Typography as="p" variant="bodyLg" color="primary" className="whitespace-nowrap">
                         {source.change}
                       </Typography>
                     </div>

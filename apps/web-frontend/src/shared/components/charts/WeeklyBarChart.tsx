@@ -47,7 +47,7 @@ export const EatenLimitBarShape = ({
   const limitY = fullBarY + fullBarHeight * (1 - payload.limit / yAxisMax);
   const isOverLimit = payload.eaten > payload.limit;
   const fill = isOverLimit ? "var(--color-red-600)" : "var(--color-primary-fixed)";
-  
+
   return (
     <g>
       <rect x={x - width / 2} y={y} width={width * 2} height={height} rx={width} fill={fill} />
@@ -69,11 +69,7 @@ export const EatenLimitBarShape = ({
   );
 };
 
-export const WeeklyBarChart = ({
-  weeklyData,
-  className,
-  seriesLabel = "Calories",
-}: WeeklyBarChartProps) => {
+export const WeeklyBarChart = ({ weeklyData, className, seriesLabel = "Calories" }: WeeklyBarChartProps) => {
   const maxValue = weeklyData.length
     ? Math.max(...weeklyData.flatMap(({ eaten, limit }) => [eaten, limit]))
     : 0;
@@ -88,10 +84,7 @@ export const WeeklyBarChart = ({
   const isMobile = useIsMobile();
 
   return (
-    <ChartContainer
-      aria-label={`Weekly ${seriesLabel.toLowerCase()} eaten and limits`}
-      config={chartConfig}
-    >
+    <ChartContainer aria-label={`Weekly ${seriesLabel.toLowerCase()} eaten and limits`} config={chartConfig}>
       <BarChart
         accessibilityLayer
         data={weeklyData}

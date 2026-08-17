@@ -1,3 +1,5 @@
+import type { PasskeyEnrollmentHandoff } from "#/verticals/auth/account-email-verification-handoff";
+
 import { apiTransport } from "#/shared/api/api-client";
 import { Button } from "#/shared/components/base/Button";
 import { WarningBanner } from "#/shared/components/base/WarningBanner";
@@ -9,7 +11,6 @@ import {
   showPlatformUiForClientPasskeyFailedToRegisterOnServer,
   type BrowserPasskeyRegistrationAdapter,
 } from "#/verticals/auth/browser-passkey-registration-adapter";
-import type { PasskeyEnrollmentHandoff } from "#/verticals/auth/account-email-verification-handoff";
 import {
   ApiError,
   parsePasskeyRegistrationError,
@@ -51,9 +52,7 @@ export function PasskeyEnrollmentPage({
     useState(false);
   const [uiState, setUiState] = useState<EnrollmentUiState>(() => {
     if (initialUiState) return initialUiState;
-    return new Date(handoff.expiresAt).getTime() <= Date.now()
-      ? { kind: "expired" }
-      : { kind: "ready" };
+    return new Date(handoff.expiresAt).getTime() <= Date.now() ? { kind: "expired" } : { kind: "ready" };
   });
 
   const { isPending: isRequestOptionsPending, mutateAsync: requestOptions } = useMutation({
@@ -176,16 +175,15 @@ export function PasskeyEnrollmentPage({
       >
         <h1 className="font-heading text-3xl font-light text-primary">Set up your passkey</h1>
         <p className="mt-md text-sm text-on-surface-variant">
-          Create a passkey for{" "}
-          <span className="font-semibold text-on-background">{handoff.email}</span> to finish
-          signing up.
+          Create a passkey for <span className="font-semibold text-on-background">{handoff.email}</span> to
+          finish signing up.
         </p>
 
         {isClientPasskeyFailedToRegisterOnServer && (
           <div className="mt-lg space-y-md">
             <WarningBanner className="mt-lg">
-              Your passkey was created on this device, but it was not registered with our server.
-              Please delete the existing one and try again.
+              Your passkey was created on this device, but it was not registered with our server. Please
+              delete the existing one and try again.
             </WarningBanner>
             <Button className="w-full" disabled={isPending} onClick={() => void runCeremony()}>
               Try again
@@ -208,8 +206,7 @@ export function PasskeyEnrollmentPage({
 
         {uiState.kind === "unsupported" && (
           <WarningBanner className="mt-lg">
-            This browser does not support passkey creation. Try a current version of Chrome, Safari,
-            or Edge.
+            This browser does not support passkey creation. Try a current version of Chrome, Safari, or Edge.
           </WarningBanner>
         )}
 
@@ -225,8 +222,8 @@ export function PasskeyEnrollmentPage({
         {uiState.kind === "ENROLLMENT_AUTHORIZATION_REQUIRED" && (
           <div className="mt-lg space-y-md">
             <WarningBanner>
-              Your enrollment authorization expired or can no longer be used. Verify your email
-              again to continue.
+              Your enrollment authorization expired or can no longer be used. Verify your email again to
+              continue.
             </WarningBanner>
             <Button className="w-full" onClick={() => void navigate({ to: "/signup-login" })}>
               Start again
@@ -236,16 +233,13 @@ export function PasskeyEnrollmentPage({
 
         {uiState.kind === "ORIGIN_NOT_ALLOWED" && (
           <WarningBanner className="mt-lg">
-            Passkey setup cannot continue from this site. Open Calibrate from your usual web
-            address.
+            Passkey setup cannot continue from this site. Open Calibrate from your usual web address.
           </WarningBanner>
         )}
 
         {uiState.kind === "cancelled" && (
           <div className="mt-lg space-y-md">
-            <p className="text-sm text-on-surface-variant">
-              Passkey creation was cancelled or timed out.
-            </p>
+            <p className="text-sm text-on-surface-variant">Passkey creation was cancelled or timed out.</p>
             <Button className="w-full" disabled={isPending} onClick={() => void runCeremony()}>
               Try again
             </Button>
@@ -290,9 +284,7 @@ export function PasskeyEnrollmentPage({
                 onChange={(event) => setRememberDevice(event.target.checked)}
               />
               <span>
-                <span className="font-semibold text-on-background">
-                  Keep me signed in on this device
-                </span>
+                <span className="font-semibold text-on-background">Keep me signed in on this device</span>
                 <span className="mt-xs block text-xs text-on-surface-variant/80">
                   On a shared device, leave this unchecked.
                 </span>

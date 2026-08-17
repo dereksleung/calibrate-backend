@@ -1,3 +1,6 @@
+import type { ReactNode } from "react";
+
+import { cn } from "#/lib/utils";
 import { Card } from "#/shared/components/base/Card.tsx";
 import {
   Drawer,
@@ -9,9 +12,7 @@ import {
 } from "#/shared/components/base/drawer.tsx";
 import { Typography } from "#/shared/components/base/typography/Typography.tsx";
 import { useIsMobile } from "#/shared/hooks/use-media-query.ts";
-import { cn } from "#/lib/utils";
 import { ArrowLeftRight, EyeOff, Lightbulb } from "lucide-react";
-import type { ReactNode } from "react";
 
 const smartSwaps = [
   "Swap whole milk for almond milk in your coffee to save 50cal.",
@@ -30,33 +31,14 @@ const fruitBackground = (
     fill="none"
     viewBox="0 0 176 176"
   >
-    <path
-      className="fill-current"
-      d="M98 51c-1-22 13-36 35-35 1 23-13 36-35 35Z"
-    />
-    <path
-      className="stroke-current"
-      d="M101 56c8-21 20-31 36-36"
-      strokeLinecap="round"
-      strokeWidth="14"
-    />
-    <circle
-      className="stroke-current"
-      cx="78"
-      cy="106"
-      r="51"
-      strokeWidth="14"
-    />
+    <path className="fill-current" d="M98 51c-1-22 13-36 35-35 1 23-13 36-35 35Z" />
+    <path className="stroke-current" d="M101 56c8-21 20-31 36-36" strokeLinecap="round" strokeWidth="14" />
+    <circle className="stroke-current" cx="78" cy="106" r="51" strokeWidth="14" />
   </svg>
 );
 
 export const SmartSwap = ({ children, className }: TipCardProps) => (
-  <div
-    className={cn(
-      "rounded-3xl border-l-4 border-primary bg-card px-5 py-4 shadow-sm",
-      className,
-    )}
-  >
+  <div className={cn("rounded-3xl border-l-4 border-primary bg-card px-5 py-4 shadow-sm", className)}>
     <Typography as="p" color="onSurface" className="text-lg leading-7">
       {children}
     </Typography>
@@ -106,25 +88,14 @@ export const HighImpactSwap = () => {
         {fruitBackground}
         <div className="relative z-10 flex gap-3 text-on-primary-container">
           <ArrowLeftRight className="mt-1" />
-          <Typography
-            as="h2"
-            variant="cardTitle"
-            color="onPrimaryContainer"
-            className="self-start"
-          >
+          <Typography as="h2" variant="cardTitle" color="onPrimaryContainer" className="self-start">
             High-Impact Swap
           </Typography>
         </div>
         {/* TODO: Make text dynamic.
           Just showing judgment presenting the most important metrics and data for a normal user trying to stay on track
           with new habits and weight loss for now. */}
-        <Typography
-          as="p"
-          color="inherit"
-          size="sm"
-          weight="light"
-          className="relative z-10"
-        >
+        <Typography as="p" color="inherit" size="sm" weight="light" className="relative z-10">
           Reducing your snack almonds by 20g would save 80cal.
         </Typography>
         <DrawerTrigger asChild>
@@ -174,15 +145,13 @@ export const HighImpactSwap = () => {
             </div>
 
             <HiddenContributor>
-              "Cooking oils and dressings added an average of{" "}
-              <span className="font-bold">250kcal</span> to your dinners this
-              week."
+              "Cooking oils and dressings added an average of <span className="font-bold">250kcal</span> to
+              your dinners this week."
             </HiddenContributor>
           </section>
 
           <PrimaryBgTipCard>
-            Tip: Using an oil sprayer can reduce fat intake by up to 15g per
-            meal.
+            Tip: Using an oil sprayer can reduce fat intake by up to 15g per meal.
           </PrimaryBgTipCard>
         </div>
       </DrawerContent>
