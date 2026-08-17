@@ -17,7 +17,7 @@ A calorie tracker application, because I've gotten into healthier eating, joggin
 
 ## Frontend Current State
 
-The current UI is partly a prototype built with mock data, with the Logs page able to load data for a day and add new food entries if you run the frontend and backend in development and sign up a user. Some pages do not load live data yet like the Dashboard or Goals pages.
+The current UI is partly a prototype built with mock data, with the Logs page able to load data for a day and add new food entries if you run the frontend and backend in development and sign up a user. The Goals page does not yet load live data, the Overview (Dashboard) page loads live data for its charts, but the Daily Insights area is mock UI.
 
 One goal is to show product judgment: take what could easily become dense, data-heavy areas in the Dashboard and Goals pages, and keep them simple enough to be useful. The target user is not an expert mathematician or nutrition analyst, rather they are people wanting to change themselves, who may need help building new habits, and need to understand what to do next, and what is working or not working. The most important product work is surfacing actions and actionable insights that help them keep momentum with new habits, while suggesting small tweaks they may not have realized they can do that will help them get results.
 
