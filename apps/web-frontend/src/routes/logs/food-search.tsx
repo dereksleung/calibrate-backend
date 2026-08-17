@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { FoodSearch } from "#/pages/logs/FoodSearch.tsx";
+import { FoodSearch } from "#/pages/logs/FoodSearch/FoodSearch.tsx";
 import { normalizeFoodSearchRouteSearch } from "#/pages/logs/log-page-helpers.ts";
 
 export const Route = createFileRoute("/logs/food-search")({

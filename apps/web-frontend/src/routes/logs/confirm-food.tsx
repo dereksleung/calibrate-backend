@@ -1,4 +1,4 @@
-import { ConfirmFood } from "#/pages/logs/ConfirmFood.tsx";
+import { ConfirmFood } from "#/pages/logs/ConfirmFood/ConfirmFood.tsx";
 import { parseFoodConfirmationState } from "#/pages/logs/food-confirmation-state.ts";
 import { normalizeFoodSearchRouteSearch } from "#/pages/logs/log-page-helpers.ts";
 import { apiTransport } from "#/shared/api/api-client.ts";

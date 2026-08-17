@@ -2,8 +2,8 @@ import { Pencil } from "lucide-react";
 
 import { cn } from "#/lib/utils.ts";
 import { Typography } from "#/shared/components/base/typography/Typography.tsx";
-import type { NutritionTotals, ProgressValue } from "../log-page-helpers.ts";
-import { DAILY_TARGETS, MACRO_PROGRESS_COLORS } from "../log-page-helpers.ts";
+import type { NutritionTotals, ProgressValue } from "../../log-page-helpers.ts";
+import { DAILY_TARGETS, MACRO_PROGRESS_COLORS } from "../../log-page-helpers.ts";
 
 type DailyProgress = {
   calories: ProgressValue;

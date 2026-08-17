@@ -1,6 +1,6 @@
 import { Outlet, createFileRoute, useMatchRoute } from '@tanstack/react-router'
 
-import { Logs } from '#/pages/logs/Logs.tsx'
+import { Logs } from '#/pages/logs/Logs/Logs.tsx'
 import { normalizeLogsSearch } from '#/pages/logs/log-page-helpers.ts'
 
 export const Route = createFileRoute('/logs')({

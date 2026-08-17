@@ -5,7 +5,7 @@ import { useFoodSearch } from "@calibrate/api-client";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
-import type { FoodConfirmationState, SelectedFoodForConfirmation } from "./food-confirmation-state.ts";
+import type { FoodConfirmationState, SelectedFoodForConfirmation } from "../food-confirmation-state.ts";
 
 import { FoodSearchPage } from "./components/FoodSearchPage.tsx";
 

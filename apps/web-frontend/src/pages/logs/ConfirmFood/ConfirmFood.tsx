@@ -1,6 +1,6 @@
 import type { CreateFoodEntryRequest } from "@calibrate/api-contracts";
 import { ConfirmFoodForm } from "./components/ConfirmFoodForm.tsx";
-import type { FoodConfirmationState } from "./food-confirmation-state.ts";
+import type { FoodConfirmationState } from "../food-confirmation-state.ts";
 
 type ConfirmFoodProps = {
   confirmation: FoodConfirmationState;

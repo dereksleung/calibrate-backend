@@ -1,6 +1,6 @@
-import type { ScaledFoodNutrition } from "./confirm-food-nutrition.ts";
+import type { ScaledFoodNutrition } from "../confirm-food-nutrition.ts";
 
-import { DAILY_TARGETS, MACRO_PROGRESS_COLORS } from "../log-page-helpers.ts";
+import { DAILY_TARGETS, MACRO_PROGRESS_COLORS } from "../../log-page-helpers.ts";
 
 type FoodNutritionPanelsProps = {
   nutrition: ScaledFoodNutrition;

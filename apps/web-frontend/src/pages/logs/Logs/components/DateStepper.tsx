@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "#/shared/components/base/Button.tsx";
 import { Typography } from "#/shared/components/base/typography/Typography.tsx";
-import { addDaysToIsoDate, formatCompactDateHeading, formatDateHeading, isToday } from "../log-page-helpers.ts";
+import { addDaysToIsoDate, formatCompactDateHeading, formatDateHeading, isToday } from "../../log-page-helpers.ts";
 
 type DateStepperProps = {
   selectedDate: string;

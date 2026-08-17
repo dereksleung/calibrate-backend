@@ -2,7 +2,7 @@ import { Plus, Utensils } from "lucide-react";
 
 import { Button } from "#/shared/components/base/Button.tsx";
 import type { FoodEntryResponse, MealNameEnumType } from "@calibrate/api-contracts";
-import { getMealTotals } from "../log-page-helpers.ts";
+import { getMealTotals } from "../../log-page-helpers.ts";
 
 type MealSectionProps = {
   meal: MealNameEnumType;

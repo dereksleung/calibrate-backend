@@ -6,8 +6,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createQueryClient } from "#/shared/api/query-client.ts";
-import { routeTree } from "../../routeTree.gen.ts";
-import { coffeeFixture, oatmealFixture } from "./log-page-fixtures.ts";
+import { routeTree } from "../../../routeTree.gen.ts";
+import { coffeeFixture, oatmealFixture } from "../log-page-fixtures.ts";
 
 vi.mock("@tanstack/react-devtools", () => ({
   TanStackDevtools: () => null,

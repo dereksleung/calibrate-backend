@@ -1,7 +1,7 @@
 import { WarningBanner } from "#/shared/components/base/WarningBanner.tsx";
 import { Search } from "lucide-react";
 
-import type { FoodConfirmationState, SelectedFoodForConfirmation } from "../food-confirmation-state.ts";
+import type { FoodConfirmationState, SelectedFoodForConfirmation } from "../../food-confirmation-state.ts";
 
 import { FoodResultCard } from "./FoodResultCard.tsx";
 

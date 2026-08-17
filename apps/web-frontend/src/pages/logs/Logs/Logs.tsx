@@ -13,7 +13,7 @@ import {
   getDailyProgress,
   getDailyTotals,
   normalizeDayLogForRender,
-} from "./log-page-helpers.ts";
+} from "../log-page-helpers.ts";
 
 type LogsProps = {
   selectedDate: string;

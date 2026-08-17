@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 
 import { cn } from "#/lib/utils.ts";
-import type { SelectedFoodForConfirmation } from "../food-confirmation-state.ts";
+import type { SelectedFoodForConfirmation } from "../../food-confirmation-state.ts";
 
 type FoodResultCardProps = {
   food: SelectedFoodForConfirmation;

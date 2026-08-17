@@ -4,9 +4,9 @@ import { Button } from "#/shared/components/base/Button.tsx";
 import { ArrowLeft, ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import type { FoodConfirmationState } from "../food-confirmation-state.ts";
+import type { FoodConfirmationState } from "../../food-confirmation-state.ts";
 
-import { getFoodUnitOptions, scaleFoodNutrition } from "./confirm-food-nutrition.ts";
+import { getFoodUnitOptions, scaleFoodNutrition } from "../confirm-food-nutrition.ts";
 import { DailyGoalProgress, NutritionAtGlance, NutritionFacts } from "./FoodNutritionPanels.tsx";
 
 type ConfirmFoodFormProps = {
