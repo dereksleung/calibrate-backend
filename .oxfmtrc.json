@@ -2,7 +2,18 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "printWidth": 110,
   "sortPackageJson": false,
-  "ignorePatterns": ["build", "coverage", ".cursor", ".vscode"],
+  "ignorePatterns": [
+    "build",
+    "coverage",
+    ".cursor",
+    ".vscode",
+    "dist",
+    "node_modules",
+    "package-lock.json",
+    "package.json",
+    ".agents",
+    ".claude"
+  ],
   "sortImports": {
     "groups": [
       "type-import",

@@ -18,8 +18,8 @@
     "typecheck": "cd ../.. && oxlint --type-aware --type-check --tsconfig apps/web-frontend/tsconfig.json apps/web-frontend",
     "lint": "cd ../.. && oxlint --config .oxlintrc.json apps/web-frontend",
     "lint:fix": "cd ../.. && oxlint --fix --config .oxlintrc.json apps/web-frontend",
-    "fmt": "cd ../.. && oxfmt --config .oxlintrc.json apps/web-frontend",
-    "fmt:check": "cd ../.. && oxfmt --check --config .oxlintrc.json apps/web-frontend"
+    "fmt": "cd ../.. && oxfmt --config .oxfmtrc.json apps/web-frontend",
+    "fmt:check": "cd ../.. && oxfmt --check --config .oxfmtrc.json apps/web-frontend"
   },
   "dependencies": {
     "@calibrate/api-client": "*",
