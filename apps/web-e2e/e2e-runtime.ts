@@ -1,11 +1,11 @@
+import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+
 import {
   canBindLocalhost,
   deriveDevBindings,
   selectPortPair,
   type DevPortPair,
 } from "@calibrate/dev-bindings";
-import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { FileMigrationProvider, Kysely, Migrator, PostgresDialect } from "kysely";
 import { spawn } from "node:child_process";
@@ -92,9 +92,7 @@ function getFirstE2ePort(startPort: number): number {
   return startPort % 2 === 0 ? startPort : startPort + 1;
 }
 
-export async function selectE2ePortPair(
-  options: E2ePortSelectionOptions = {},
-): Promise<E2ePorts> {
+export async function selectE2ePortPair(options: E2ePortSelectionOptions = {}): Promise<E2ePorts> {
   const firstPort = getFirstE2ePort(options.startPort ?? E2E_PORT_POOL_START);
   const lastFrontendPort = options.lastFrontendPort ?? E2E_PORT_POOL_LAST_FRONTEND;
   if (!Number.isInteger(lastFrontendPort) || lastFrontendPort < firstPort || lastFrontendPort > 65_534) {

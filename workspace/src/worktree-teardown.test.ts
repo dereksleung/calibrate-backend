@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  parseDatabaseArgument,
-  resolveTeardownDatabaseName,
-} from "./worktree-teardown.js";
+import { parseDatabaseArgument, resolveTeardownDatabaseName } from "./worktree-teardown.js";
 
 describe("worktree teardown database arguments", () => {
   it("accepts separated and equals-form database arguments", () => {

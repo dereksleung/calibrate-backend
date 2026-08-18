@@ -124,7 +124,7 @@ Will use the backend to explore/practice various backend topics.
 
 Several linked git worktrees on one machine can share the existing Compose Postgres on `127.0.0.1:5433`. Each checkout gets its own database name, sticky frontend/backend ports, and matching API/CORS/WebAuthn URLs.
 
-From any linked worktree:
+From the primary or a linked worktree:
 
 ```bash
 npx nx run workspace:worktree-setup
@@ -138,7 +138,14 @@ Setup is idempotent. It will:
 - write gitignored `.worktree-dev.json` with the chosen ports and origins
 - print copy-paste `backend:dev` and `web:dev` commands with the required env overrides
 
-Run the printed commands in separate terminals. Host processes always talk to Postgres at `DB_HOST=127.0.0.1` and `DB_PORT=5433`.
+If no dotenvx key is available in this worktree, the primary checkout, or
+`DOTENV_PRIVATE_KEY`, setup stops without provisioning anything. Setup does not
+start Vite or Express; run the printed commands in separate terminals. Host
+processes always talk to Postgres at `DB_HOST=127.0.0.1` and `DB_PORT=5433`.
+
+The selected adjacent frontend/backend port pair is claimed in
+`~/.calibrate/worktree-ports` by worktree path and reused when it is still
+available. Teardown intentionally leaves that claim in place.
 
 When you are done with a linked worktree database:
 
@@ -146,48 +153,33 @@ When you are done with a linked worktree database:
 npx nx run workspace:worktree-teardown -- --database calibrate_wt_<slug>_<hash>
 ```
 
-Teardown drops only the named `calibrate_wt_*` database, deletes this worktree's `.worktree-dev.json`, and leaves the shared Postgres container running. Do not run `docker compose down` for worktree cleanup.
+Teardown drops only this linked worktree's `calibrate_wt_*` database, deletes
+this worktree's `.worktree-dev.json`, and leaves the shared Postgres container
+running. It refuses the primary `.env` database, `postgres`, `template0`,
+`template1`, and databases belonging to another worktree. Do not run `docker
+compose down` for worktree cleanup.
 
 The primary checkout keeps the `DB_NAME` from `.env`. Linked worktrees use `calibrate_wt_<slug>_<hash>` so same-named folders on different paths cannot collide.
 
 ## Backend
 
-### Run locally with Docker
+### Run locally
 
-1. Run `npm ci` if you haven't yet.
-2. Start Postgres first:
+Use [Git worktree setup](#git-worktrees-shared-postgres). It starts only the
+shared Postgres service, creates and migrates the selected database, and prints
+the host `backend:dev` command. The Compose `backend` service is not part of
+this worktree workflow.
 
-```bash
-npx dotenvx run -- docker compose up -d postgres
-```
+### Initial dotenv configuration
 
-3. Run database migrations.
-
-```bash
-npx dotenvx run --overload --env DB_HOST=127.0.0.1 DB_PORT=5433 -- npx nx run backend:kysely migrate:latest
-```
-
-4. Start the backend.
-
-```bash
-npx dotenvx run -- docker compose up backend
-```
-
-### From Scratch
-
-1. Install PostgreSQL if needed.
-   [Official installers here](https://www.postgresql.org/download/), [instructions on how to use them here](https://www.enterprisedb.com/docs/supported-open-source/postgresql/installing/).
-   If you are installing PostgreSQL for the first time with an installer, it likely will ask you
-   to set a superuser password, and a port number for the PostgreSQL server to listen for incoming connections. Note them.
-
-2. Add a `.env` file to the project root. Set the following environment variables in it as strings, to the correct values. If you just installed PostgreSQL for the first time, the `DB_NAME` and `DB_USER` are "postgres".
+1. Add a `.env` file to the project root. Set the following environment variables in it as strings, to the correct values. `DB_NAME` is the primary checkout database; shared local Postgres listens on `127.0.0.1:5433`.
 
 ```
-DB_NAME="postgres"
-DB_HOST="localhost"
-DB_PORT="5432"
+DB_NAME="<primary_checkout_database>"
+DB_HOST="127.0.0.1"
+DB_PORT="5433"
 DB_USER="postgres"
-DB_PASSWORD="<password_from_earlier>"
+DB_PASSWORD="<local_postgres_password>"
 JWT_KEY_ID="local-dev"
 JWT_ACCESS_TOKEN_TTL_SECONDS="900"
 JWT_ISSUER="http://localhost:3001/"
@@ -208,29 +200,31 @@ EMAIL_SERVICE_CREDENTIAL="<brevo_api_key>"
 of the backend (`0` for direct local development). It controls which address
 Express exposes as the requesting IP; it does not authenticate the client.
 `WEBAUTHN_ORIGIN` must match the frontend origin used for passkey ceremonies
-(`http://localhost:3000` when running the web app locally). Use independently
-generated values for `OTP_HMAC_KEY` and `EMAIL_REQUEST_IP_HMAC_KEY`.
+(`http://localhost:3000` is the primary checkout default). Worktree setup
+overrides the frontend port, `VITE_API_BASE_URL`, `CORS_ORIGIN`, and
+`WEBAUTHN_ORIGIN` for the selected worktree pair. Use independently generated
+values for `OTP_HMAC_KEY` and `EMAIL_REQUEST_IP_HMAC_KEY`.
 
-3. Generate an Ed25519 private key .pem file using `openssl genpkey -algorithm ED25519 -out jwt-ed25519-private.pem`.
+2. Generate an Ed25519 private key .pem file using `openssl genpkey -algorithm ED25519 -out jwt-ed25519-private.pem`.
 
-4. Copy the .pem file contents to the .env file like JWT_PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n(the_private_key)\n-----END PRIVATE KEY-----". It will be encrypted using dotenvx, which is a project dependency.
+3. Copy the .pem file contents to the .env file like JWT_PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n(the_private_key)\n-----END PRIVATE KEY-----". It will be encrypted using dotenvx, which is a project dependency.
 
-5. Run `npm ci` in the project root.
+4. Run `npm ci` in the project root.
 
-6. Run `npx dotenvx encrypt`. It should generate a .env.keys file with a private key, and encrypt the values in .env.
+5. Run `npx dotenvx encrypt`. It should generate a .env.keys file with a private key, and encrypt the values in .env.
    Dotenvx docs [here](https://dotenvx.com/docs/learn/encrypting/introduction)
 
-7. Run `npx nx run backend:kysely migrate:latest`. Documentation for kysely's CLI [here](https://github.com/kysely-org/kysely-ctl), see "Project-scoped installation", as it is not installed globally.
+6. Run `npx nx run workspace:worktree-setup` to provision Postgres, create the worktree database, run migrations, and print the dev commands.
 
-8. Run `npx nx run backend:dev`.
+7. Run the printed `backend:dev` and `web:dev` commands in separate terminals.
 
-9. Other commands can be run like `npx nx run (project_name):(command_name) (args)`. Project names are found in `apps/app-folder/package.json`'s `name` field, the available command names comes from the `scripts` field.
+8. Other commands can be run like `npx nx run (project_name):(command_name) (args)`. Project names are found in `apps/app-folder/package.json`'s `name` field, the available command names comes from the `scripts` field.
 
 ### Testing signup locally without Brevo
 
 When the web frontend is running on the HTTP loopback origin configured by the
-backend's `WEBAUTHN_ORIGIN` (`http://localhost:3000` by default), the signup
-page shows a local-development-only section with an
+backend's `WEBAUTHN_ORIGIN` (the frontend origin printed by worktree setup),
+the signup page shows a local-development-only section with an
 **Authorize create passkey** button. Use it to create a disposable
 `@example.test` account and continue directly to the existing passkey setup
 page. This bypass is denied in production and does not create a deliverable
@@ -239,20 +233,20 @@ Nx documentation [here](https://nx.dev/docs/getting-started/tutorials/running-ta
 
 ### Inspecting authenticated pages locally without a passkey
 
-For a quick manual check of the dashboard or other protected pages, start the
-local services in separate terminals:
+For a quick manual check of the dashboard or other protected pages, provision
+the current worktree first:
 
 ```bash
-npx nx run backend:kysely migrate:latest
-npx nx run backend:dev
-VITE_API_BASE_URL=http://localhost:3001/api/v1 npx nx run web:dev
+npx nx run workspace:worktree-setup
 ```
 
-Open `http://localhost:3000/calibrate-monorepo/signup-login` in the agent browser and click
-**Start local test session**. The server creates the disposable local fixture
-session and the browser keeps the normal access and refresh cookies; no
-passkey is created or stored. The button is available only from the local
-loopback development UI, and the backend remains the authoritative boundary.
+Run the printed backend and frontend commands in separate terminals, then open
+the printed frontend URL at `/calibrate-monorepo/signup-login` in the agent
+browser and click **Start local test session**. The server creates the
+disposable local fixture session and the browser keeps the normal access and
+refresh cookies; no passkey is created or stored. The button is available only
+from the local loopback development UI, and the backend remains the
+authoritative boundary.
 
 Use **Authorize create passkey** when the task is specifically about passkey
 registration or the real WebAuthn flow. The local test session does not satisfy
@@ -282,14 +276,6 @@ Do not use `apps/backend` as the build context. Docker cannot copy files outside
 
 ### Running Frontend Locally
 
-1. Start the dev server:
-
-```bash
-npx nx run web:dev
-```
-
-The app runs at:
-
-```text
-http://localhost:3000
-```
+Use [Git worktree setup](#git-worktrees-shared-postgres), then run the printed
+`web:dev` command. The frontend URL is the `frontendUrl` in
+`.worktree-dev.json` and may differ between worktrees.

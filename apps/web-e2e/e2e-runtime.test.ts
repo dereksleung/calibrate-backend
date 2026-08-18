@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   createE2eEnvironment,
@@ -15,7 +15,9 @@ const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
   process.env = { ...originalEnvironment };
-  await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { force: true, recursive: true })));
+  await Promise.all(
+    temporaryDirectories.splice(0).map((directory) => rm(directory, { force: true, recursive: true })),
+  );
 });
 
 async function createTemporaryDirectory(): Promise<string> {

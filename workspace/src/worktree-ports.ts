@@ -66,6 +66,14 @@ function isErrorWithCode(error: unknown, code: string): boolean {
   return error instanceof Error && "code" in error && error.code === code;
 }
 
+async function removeTemporaryFile(filePath: string): Promise<void> {
+  try {
+    await unlink(filePath);
+  } catch (error: unknown) {
+    if (!isErrorWithCode(error, "ENOENT")) throw error;
+  }
+}
+
 async function claimPortPair(
   pair: DevPortPair,
   worktreeKey: string,
@@ -85,11 +93,10 @@ async function claimPortPair(
   await mkdir(claimDirectory, { recursive: true });
   const temporaryPath = `${claimPath}.${randomUUID()}.tmp`;
   try {
-    await writeFile(
-      temporaryPath,
-      `${JSON.stringify({ worktreeKey, ...pair } satisfies PortClaim)}\n`,
-      { encoding: "utf8", flag: "wx" },
-    );
+    await writeFile(temporaryPath, `${JSON.stringify({ worktreeKey, ...pair } satisfies PortClaim)}\n`, {
+      encoding: "utf8",
+      flag: "wx",
+    });
     try {
       await link(temporaryPath, claimPath);
       return true;
@@ -99,11 +106,7 @@ async function claimPortPair(
       return competingClaim?.worktreeKey === worktreeKey;
     }
   } finally {
-    try {
-      await unlink(temporaryPath);
-    } catch (error: unknown) {
-      if (!isErrorWithCode(error, "ENOENT")) throw error;
-    }
+    await removeTemporaryFile(temporaryPath);
   }
 }
 
@@ -124,7 +127,7 @@ export async function resolveStickyPortPair(
   const claimDirectory = options.claimDirectory ?? getWorktreePortClaimDirectory();
   const worktreeKey = getWorktreeKey(worktreeRoot);
 
-  if (previous && isValidPortPair(previous) && await claimPortPair(previous, worktreeKey, claimDirectory)) {
+  if (previous && isValidPortPair(previous) && (await claimPortPair(previous, worktreeKey, claimDirectory))) {
     return previous;
   }
 

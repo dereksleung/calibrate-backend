@@ -7,9 +7,7 @@ describe("worktree teardown guard", () => {
   const currentWorktreeDbName = "calibrate_wt_feature_a1b2c3d4";
 
   it("allows only the current linked worktree database name", () => {
-    expect(
-      isTeardownDatabaseAllowed(currentWorktreeDbName, primaryDbName, currentWorktreeDbName),
-    ).toBe(true);
+    expect(isTeardownDatabaseAllowed(currentWorktreeDbName, primaryDbName, currentWorktreeDbName)).toBe(true);
     expect(
       isTeardownDatabaseAllowed("calibrate_wt_other_a1b2c3d4", primaryDbName, currentWorktreeDbName),
     ).toBe(false);
@@ -21,15 +19,13 @@ describe("worktree teardown guard", () => {
   });
 
   it("explains why a database name cannot be dropped", () => {
-    expect(explainTeardownRefusal(primaryDbName, primaryDbName, undefined)).toContain("primary checkout database");
+    expect(explainTeardownRefusal(primaryDbName, primaryDbName, undefined)).toContain(
+      "primary checkout database",
+    );
     expect(explainTeardownRefusal("postgres", primaryDbName, undefined)).toContain("system database");
     expect(explainTeardownRefusal("some_other_db", primaryDbName, undefined)).toContain("calibrate_wt_*");
     expect(
-      explainTeardownRefusal(
-        "calibrate_wt_other_a1b2c3d4",
-        primaryDbName,
-        currentWorktreeDbName,
-      ),
+      explainTeardownRefusal("calibrate_wt_other_a1b2c3d4", primaryDbName, currentWorktreeDbName),
     ).toContain("this worktree");
   });
 });

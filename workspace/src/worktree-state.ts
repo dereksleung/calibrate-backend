@@ -1,4 +1,5 @@
 import type { DevBindings } from "@calibrate/dev-bindings";
+
 import { randomUUID } from "node:crypto";
 import { access, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -21,6 +22,16 @@ async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
+async function removeTemporaryFile(filePath: string): Promise<void> {
+  try {
+    await unlink(filePath);
+  } catch (error: unknown) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+      throw error;
+    }
+  }
+}
+
 export function getWorktreeStatePath(worktreeRoot: string): string {
   return path.join(worktreeRoot, WORKTREE_STATE_FILE);
 }
@@ -40,13 +51,7 @@ export async function writeWorktreeState(worktreeRoot: string, state: WorktreeDe
     await writeFile(temporaryPath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
     await rename(temporaryPath, statePath);
   } finally {
-    try {
-      await unlink(temporaryPath);
-    } catch (error: unknown) {
-      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
-        throw error;
-      }
-    }
+    await removeTemporaryFile(temporaryPath);
   }
 }
 

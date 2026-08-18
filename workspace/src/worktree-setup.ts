@@ -6,11 +6,7 @@ import { Pool } from "pg";
 
 import { ensureEnvKeys } from "./env-keys.js";
 import { isPrimaryWorktree } from "./git-worktree.js";
-import {
-  isTcpPortOpen,
-  shouldStartComposePostgres,
-  waitForPostgresReady,
-} from "./postgres-health.js";
+import { isTcpPortOpen, shouldStartComposePostgres, waitForPostgresReady } from "./postgres-health.js";
 import {
   COMPOSE_PROJECT_NAME,
   dotenvEnvAssignment,

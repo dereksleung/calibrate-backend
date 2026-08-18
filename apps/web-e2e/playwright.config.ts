@@ -3,9 +3,10 @@ import { defineConfig, devices } from "@playwright/test";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { WEB_PUBLIC_BASE_URL } from "../web-frontend/src/config/public-base-path.ts";
-import { deriveDevBindings } from "../../packages/dev-bindings/src/derive-dev-bindings.ts";
 import type { DevPortPair } from "../../packages/dev-bindings/src/ports.ts";
+
+import { deriveDevBindings } from "../../packages/dev-bindings/src/derive-dev-bindings.ts";
+import { WEB_PUBLIC_BASE_URL } from "../web-frontend/src/config/public-base-path.ts";
 
 function readE2ePorts(): DevPortPair | undefined {
   const frontend = process.env.E2E_FRONTEND_PORT;

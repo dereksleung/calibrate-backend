@@ -36,12 +36,12 @@ ADR-0001 lists Argon2 and jose JWTs as examples of infrastructure technologies. 
 
 Use the following distinct credentials and clocks:
 
-| Credential or state | Purpose | Inactivity lifetime | Absolute lifetime | Rotation or renewal |
-| --- | --- | --- | --- | --- |
-| WebAuthn passkey | User authentication and re-authentication | Not applicable | Until removed or revoked | Add or remove through an authenticated credential-management ceremony |
-| Access session | Authorize ordinary API requests | 30 minutes | 8 hours | Replaced by a successful refresh; activity may slide inactivity only up to the fixed absolute expiry |
-| Remembered-device family | Permit silent creation of new access sessions | 7 days | 30 days | Refresh use slides inactivity, capped by the fixed absolute expiry |
-| Refresh token | One-time bearer secret within a remembered-device family | Inherits the family limit | Inherits the family limit | Rotated after every successful use |
+| Credential or state      | Purpose                                                  | Inactivity lifetime       | Absolute lifetime         | Rotation or renewal                                                                                  |
+| ------------------------ | -------------------------------------------------------- | ------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| WebAuthn passkey         | User authentication and re-authentication                | Not applicable            | Until removed or revoked  | Add or remove through an authenticated credential-management ceremony                                |
+| Access session           | Authorize ordinary API requests                          | 30 minutes                | 8 hours                   | Replaced by a successful refresh; activity may slide inactivity only up to the fixed absolute expiry |
+| Remembered-device family | Permit silent creation of new access sessions            | 7 days                    | 30 days                   | Refresh use slides inactivity, capped by the fixed absolute expiry                                   |
+| Refresh token            | One-time bearer secret within a remembered-device family | Inherits the family limit | Inherits the family limit | Rotated after every successful use                                                                   |
 
 The access-session limits and remembered-device limits serve different purposes. The 30-minute inactivity and 8-hour absolute access-session limits follow the short web-session model described by OWASP. The 7-day inactivity and 30-day absolute limits apply only to silent renewal. They do not make one access credential valid for seven or 30 days.
 
@@ -304,7 +304,13 @@ WebAuthn credentials are bound to a relying-party ID and accepted origins. Produ
 
 Production serves the frontend and API from the same canonical origin, with API routes under `/api/v1`. Staging uses a distinct origin and relying-party ID, so staging and production passkeys are intentionally separate.
 
-Local development serves the frontend from `http://localhost:3000` and the API from `http://localhost:3001`. The server explicitly configures the localhost WebAuthn origin and relying-party ID and enables credentialed CORS only for the exact frontend origin. No environment trusts wildcard or sibling origins under `onrender.com`.
+The primary local checkout defaults to the frontend at `http://localhost:3000`
+and the API at `http://localhost:3001`. Linked worktrees use the sticky
+frontend/backend port pair assigned by `workspace:worktree-setup`, and derive
+their API base URL, CORS origin, and WebAuthn origin from that pair. The server
+explicitly configures the loopback WebAuthn origin and relying-party ID and
+enables credentialed CORS only for the exact frontend origin. No environment
+trusts wildcard or sibling origins under `onrender.com`.
 
 Cookie-authenticated state-changing requests, including refresh, validate an exact configured `Origin` and reject missing, `null`, or unexpected values. `SameSite` cookies add defense in depth but do not replace origin validation. HTTPS is mandatory outside the localhost development exception.
 

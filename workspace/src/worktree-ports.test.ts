@@ -1,15 +1,17 @@
-import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { releaseWorktreePortClaims, resolveStickyPortPair } from "./worktree-ports.js";
 
 const claimDirectories: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(claimDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
+  await Promise.all(
+    claimDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
+  );
 });
 
 async function createClaimDirectory(): Promise<string> {

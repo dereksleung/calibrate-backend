@@ -2,7 +2,6 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { ensureEnvKeys } from "./env-keys.js";
@@ -51,9 +50,7 @@ describe("ensureEnvKeys", () => {
       process.env.DOTENV_PRIVATE_KEY = originalDotenvPrivateKey;
     }
 
-    await Promise.all(
-      fixtures.splice(0).map((fixture) => rm(fixture, { force: true, recursive: true })),
-    );
+    await Promise.all(fixtures.splice(0).map((fixture) => rm(fixture, { force: true, recursive: true })));
   });
 
   it("copies .env.keys from the primary checkout listed by git", async () => {
@@ -63,16 +60,12 @@ describe("ensureEnvKeys", () => {
 
     await ensureEnvKeys(fixture.linked);
 
-    await expect(readFile(path.join(fixture.linked, ".env.keys"), "utf8")).resolves.toBe(
-      keyContents,
-    );
+    await expect(readFile(path.join(fixture.linked, ".env.keys"), "utf8")).resolves.toBe(keyContents);
   });
 
   it("fails closed when no local, process, or listed-checkout key exists", async () => {
     const fixture = await createGitWorktreeFixture();
 
-    await expect(ensureEnvKeys(fixture.linked)).rejects.toThrow(
-      "Missing dotenvx private key",
-    );
+    await expect(ensureEnvKeys(fixture.linked)).rejects.toThrow("Missing dotenvx private key");
   });
 });
