@@ -6,7 +6,11 @@ import { Pool } from "pg";
 
 import { ensureEnvKeys } from "./env-keys.js";
 import { isPrimaryWorktree } from "./git-worktree.js";
-import { isTcpPortOpen, shouldStartComposePostgres } from "./postgres-health.js";
+import {
+  isTcpPortOpen,
+  shouldStartComposePostgres,
+  waitForPostgresReady,
+} from "./postgres-health.js";
 import { COMPOSE_PROJECT_NAME, printDevCommands, SHARED_DB_HOST, SHARED_DB_PORT } from "./print-dev-commands.js";
 import { deriveLinkedWorktreeDatabaseName } from "./worktree-database-name.js";
 import { resolveStickyPortPair } from "./worktree-ports.js";
@@ -36,17 +40,34 @@ async function ensureSharedPostgres(): Promise<void> {
   const isOpen = await isTcpPortOpen(SHARED_DB_HOST, SHARED_DB_PORT);
   if (!shouldStartComposePostgres(isOpen)) {
     console.log(`Shared Postgres already accepting connections on ${SHARED_DB_HOST}:${SHARED_DB_PORT}.`);
-    return;
+  } else {
+    console.log(`Starting shared Postgres with COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}...`);
+    execSync("npx dotenvx run -- docker compose up -d postgres", {
+      cwd: workspaceRoot,
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        COMPOSE_PROJECT_NAME,
+      },
+    });
   }
 
-  console.log(`Starting shared Postgres with COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}...`);
-  execSync("npx dotenvx run -- docker compose up -d postgres", {
-    cwd: workspaceRoot,
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      COMPOSE_PROJECT_NAME,
-    },
+  const connectionOptions = {
+    database: "postgres",
+    host: SHARED_DB_HOST,
+    port: SHARED_DB_PORT,
+    user: getDotenvValue("DB_USER"),
+    password: getDotenvValue("DB_PASSWORD"),
+    connectionTimeoutMillis: 1_000,
+  };
+
+  await waitForPostgresReady(async () => {
+    const pool = new Pool(connectionOptions);
+    try {
+      await pool.query("SELECT 1");
+    } finally {
+      await pool.end();
+    }
   });
 }
 
