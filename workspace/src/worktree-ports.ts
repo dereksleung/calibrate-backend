@@ -74,7 +74,8 @@ async function claimPortPair(
   const claimPath = getClaimPath(claimDirectory, pair);
   const existingClaim = await readPortClaim(claimPath);
   if (existingClaim) {
-    return existingClaim.worktreeKey === worktreeKey;
+    if (existingClaim.worktreeKey !== worktreeKey) return false;
+    return (await canBindLocalhost(pair.frontend)) && (await canBindLocalhost(pair.backend));
   }
 
   if (!(await canBindLocalhost(pair.frontend)) || !(await canBindLocalhost(pair.backend))) {
