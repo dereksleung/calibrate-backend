@@ -1,0 +1,30 @@
+{
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "name": "workspace",
+  "projectType": "library",
+  "sourceRoot": "workspace/src",
+  "tags": ["scope:workspace"],
+  "targets": {
+    "worktree-setup": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "tsx workspace/src/worktree-setup.ts"
+      }
+    },
+    "worktree-teardown": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "tsx workspace/src/worktree-teardown.ts"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "command": "vitest run workspace/src"
+      }
+    }
+  }
+}

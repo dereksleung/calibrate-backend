@@ -1,3 +1,4 @@
+import { deriveDevBindings, selectPortPair, type DevPortPair } from "@calibrate/dev-bindings";
 import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
@@ -5,7 +6,6 @@ import { FileMigrationProvider, Kysely, Migrator, PostgresDialect } from "kysely
 import { spawn } from "node:child_process";
 import { generateKeyPairSync, randomBytes, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
-import { createServer } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
@@ -15,7 +15,7 @@ const MAX_PORT_ATTEMPTS = 5;
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const migrationFolder = path.join(workspaceRoot, "apps/backend/src/infrastructure/persistence/migrations");
 
-export type E2ePorts = { frontend: number; backend: number };
+export type E2ePorts = DevPortPair;
 type DatabaseConnectionConfig = {
   database: string;
   host: string;
@@ -25,32 +25,10 @@ type DatabaseConnectionConfig = {
   maxConnections: number;
 };
 
-export async function canBindLocalhost(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const server = createServer();
-    server.once("error", () => resolve(false));
-    server.listen(port, "localhost", () => {
-      server.close((error) => resolve(error === undefined));
-    });
-  });
-}
-
-export async function selectPortPair(startPort = 3000): Promise<E2ePorts> {
-  const firstPort = startPort % 2 === 0 ? startPort : startPort + 1;
-
-  for (let frontend = firstPort; frontend <= 65_534; frontend += 2) {
-    const backend = frontend + 1;
-    if ((await canBindLocalhost(frontend)) && (await canBindLocalhost(backend))) {
-      return { frontend, backend };
-    }
-  }
-
-  throw new Error("No adjacent localhost port pair is available for E2E");
-}
+export { canBindLocalhost, selectPortPair } from "@calibrate/dev-bindings";
 
 export function createE2eEnvironment(database: DatabaseConnectionConfig, ports: E2ePorts): NodeJS.ProcessEnv {
-  const frontendUrl = `http://localhost:${ports.frontend}`;
-  const backendUrl = `http://localhost:${ports.backend}`;
+  const bindings = deriveDevBindings(ports);
   const privateKeyPem = generateKeyPairSync("ed25519")
     .privateKey.export({ type: "pkcs8", format: "pem" })
     .toString();
@@ -58,7 +36,7 @@ export function createE2eEnvironment(database: DatabaseConnectionConfig, ports: 
   return {
     ...process.env,
     CALIBRATE_E2E: "1",
-    CORS_ORIGIN: frontendUrl,
+    CORS_ORIGIN: bindings.corsOrigin,
     DB_HOST: database.host,
     DB_NAME: database.database,
     DB_PASSWORD: database.password,
@@ -77,8 +55,8 @@ export function createE2eEnvironment(database: DatabaseConnectionConfig, ports: 
     OTP_HMAC_CURRENT_KEY_VERSION: "1",
     PORT: String(ports.backend),
     TRUST_PROXY_HOPS: "0",
-    VITE_API_BASE_URL: `${backendUrl}/api/v1`,
-    WEBAUTHN_ORIGIN: frontendUrl,
+    VITE_API_BASE_URL: bindings.viteApiBaseUrl,
+    WEBAUTHN_ORIGIN: bindings.webauthnOrigin,
     WEBAUTHN_RP_ID: "localhost",
   };
 }

@@ -1,0 +1,31 @@
+{
+  "name": "@calibrate/dev-bindings",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "nx": {
+    "targets": {
+      "test": {
+        "executor": "nx:run-commands",
+        "cache": true,
+        "options": {
+          "cwd": "packages/dev-bindings",
+          "command": "vitest run src"
+        }
+      },
+      "typecheck": {
+        "executor": "nx:run-commands",
+        "cache": true,
+        "options": {
+          "cwd": "packages/dev-bindings",
+          "command": "tsc --noEmit -p tsconfig.json"
+        }
+      }
+    }
+  }
+}

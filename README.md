@@ -120,6 +120,36 @@ Will use the backend to explore/practice various backend topics.
 
 1. Run `npm ci` in the project root.
 
+## Git worktrees (shared Postgres)
+
+Several linked git worktrees on one machine can share the existing Compose Postgres on `127.0.0.1:5433`. Each checkout gets its own database name, sticky frontend/backend ports, and matching API/CORS/WebAuthn URLs.
+
+From any linked worktree:
+
+```bash
+npx nx run workspace:worktree-setup
+```
+
+Setup is idempotent. It will:
+
+- copy `.env.keys` from the primary checkout when this worktree does not have it yet
+- start the shared Postgres container only when `127.0.0.1:5433` is not already accepting connections (`COMPOSE_PROJECT_NAME=calibrate-shared`)
+- create and migrate this worktree's database
+- write gitignored `.worktree-dev.json` with the chosen ports and origins
+- print copy-paste `backend:dev` and `web:dev` commands with the required env overrides
+
+Run the printed commands in separate terminals. Host processes always talk to Postgres at `DB_HOST=127.0.0.1` and `DB_PORT=5433`.
+
+When you are done with a linked worktree database:
+
+```bash
+npx nx run workspace:worktree-teardown -- --database calibrate_wt_<slug>_<hash>
+```
+
+Teardown drops only the named `calibrate_wt_*` database, deletes this worktree's `.worktree-dev.json`, and leaves the shared Postgres container running. Do not run `docker compose down` for worktree cleanup.
+
+The primary checkout keeps the `DB_NAME` from `.env`. Linked worktrees use `calibrate_wt_<slug>_<hash>` so same-named folders on different paths cannot collide.
+
 ## Backend
 
 ### Run locally with Docker
