@@ -4,15 +4,20 @@ export const SHARED_DB_HOST = "127.0.0.1";
 export const SHARED_DB_PORT = 5433;
 export const COMPOSE_PROJECT_NAME = "calibrate-shared";
 
+export function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\"'\"'")}'`;
+}
+
 export function formatBackendDevCommand(bindings: DevBindings, dbName: string): string {
   return [
     "npx dotenvx run --overload",
-    `--env DB_HOST=${SHARED_DB_HOST}`,
-    `--env DB_PORT=${SHARED_DB_PORT}`,
-    `--env DB_NAME=${dbName}`,
-    `--env PORT=${bindings.ports.backend}`,
-    `--env CORS_ORIGIN=${bindings.corsOrigin}`,
-    `--env WEBAUTHN_ORIGIN=${bindings.webauthnOrigin}`,
+    "--env CALIBRATE_E2E=",
+    `--env DB_HOST=${shellQuote(SHARED_DB_HOST)}`,
+    `--env DB_PORT=${shellQuote(String(SHARED_DB_PORT))}`,
+    `--env DB_NAME=${shellQuote(dbName)}`,
+    `--env PORT=${shellQuote(String(bindings.ports.backend))}`,
+    `--env CORS_ORIGIN=${shellQuote(bindings.corsOrigin)}`,
+    `--env WEBAUTHN_ORIGIN=${shellQuote(bindings.webauthnOrigin)}`,
     "-- npx nx run backend:dev",
   ].join(" ");
 }
@@ -20,8 +25,9 @@ export function formatBackendDevCommand(bindings: DevBindings, dbName: string): 
 export function formatWebDevCommand(bindings: DevBindings): string {
   return [
     "npx dotenvx run --overload",
-    `--env VITE_API_BASE_URL=${bindings.viteApiBaseUrl}`,
-    `-- npx nx run web:dev -- --port ${bindings.ports.frontend}`,
+    "--env CALIBRATE_E2E=",
+    `--env VITE_API_BASE_URL=${shellQuote(bindings.viteApiBaseUrl)}`,
+    `-- npx nx run web:dev -- --port ${shellQuote(String(bindings.ports.frontend))}`,
   ].join(" ");
 }
 

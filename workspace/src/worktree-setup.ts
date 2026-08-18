@@ -1,5 +1,5 @@
 import { deriveDevBindings } from "@calibrate/dev-bindings";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
@@ -17,12 +17,19 @@ import { resolveStickyPortPair } from "./worktree-ports.js";
 import { readWorktreeState, writeWorktreeState } from "./worktree-state.js";
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
+
+export function createSetupEnvironment(environment: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const setupEnvironment = { ...environment };
+  delete setupEnvironment.CALIBRATE_E2E;
+  return setupEnvironment;
+}
 
 function getDotenvValue(name: string): string {
-  const value = execSync(`npx dotenvx get ${name}`, {
+  const value = execFileSync(npxCommand, ["dotenvx", "get", name], {
     cwd: workspaceRoot,
     encoding: "utf8",
-    env: process.env,
+    env: createSetupEnvironment(),
   }).trim();
 
   if (!value) {
@@ -42,11 +49,11 @@ async function ensureSharedPostgres(): Promise<void> {
     console.log(`Shared Postgres already accepting connections on ${SHARED_DB_HOST}:${SHARED_DB_PORT}.`);
   } else {
     console.log(`Starting shared Postgres with COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}...`);
-    execSync("npx dotenvx run -- docker compose up -d postgres", {
+    execFileSync(npxCommand, ["dotenvx", "run", "--", "docker", "compose", "up", "-d", "postgres"], {
       cwd: workspaceRoot,
       stdio: "inherit",
       env: {
-        ...process.env,
+        ...createSetupEnvironment(),
         COMPOSE_PROJECT_NAME,
       },
     });
@@ -95,18 +102,31 @@ async function createDatabaseIfMissing(dbName: string): Promise<void> {
 }
 
 function runMigrations(dbName: string): void {
-  execSync(
+  execFileSync(
+    npxCommand,
     [
-      "npx dotenvx run --overload",
-      `--env DB_NAME=${dbName}`,
-      `--env DB_HOST=${SHARED_DB_HOST}`,
-      `--env DB_PORT=${SHARED_DB_PORT}`,
-      "-- npx nx run backend:kysely migrate:latest",
-    ].join(" "),
+      "dotenvx",
+      "run",
+      "--overload",
+      "--env",
+      `DB_NAME=${dbName}`,
+      "--env",
+      `DB_HOST=${SHARED_DB_HOST}`,
+      "--env",
+      `DB_PORT=${SHARED_DB_PORT}`,
+      "--env",
+      "CALIBRATE_E2E=",
+      "--",
+      "npx",
+      "nx",
+      "run",
+      "backend:kysely",
+      "migrate:latest",
+    ],
     {
       cwd: workspaceRoot,
       stdio: "inherit",
-      env: process.env,
+      env: createSetupEnvironment(),
     },
   );
 }
