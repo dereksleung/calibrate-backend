@@ -11,7 +11,9 @@ import {
   deleteWorktreeState,
   getWorktreeStatePath,
   readWorktreeState,
+  type WorktreeDevState,
 } from "./worktree-state.js";
+import { releaseWorktreePortClaims } from "./worktree-ports.js";
 import {
   explainTeardownRefusal,
   isTeardownDatabaseAllowed,
@@ -37,10 +39,65 @@ function quoteIdentifier(identifier: string): string {
   return `"${identifier.replaceAll('"', '""')}"`;
 }
 
-function parseDatabaseArgument(argv: string[]): string | undefined {
-  const index = argv.indexOf("--database");
-  if (index === -1) return undefined;
-  return argv[index + 1];
+export type DatabaseArgument =
+  | { kind: "omitted" }
+  | { kind: "provided"; value: string }
+  | { kind: "invalid"; message: string };
+
+export function parseDatabaseArgument(argv: string[]): DatabaseArgument {
+  let result: DatabaseArgument = { kind: "omitted" };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    let value: string | undefined;
+
+    if (argument === "--database") {
+      value = argv[index + 1];
+      if (!value || value.startsWith("--")) {
+        return {
+          kind: "invalid",
+          message: "Invalid --database argument. Pass --database <name>.",
+        };
+      }
+      index += 1;
+    } else if (argument.startsWith("--database=")) {
+      value = argument.slice("--database=".length);
+      if (!value) {
+        return {
+          kind: "invalid",
+          message: "Invalid --database argument. Pass --database <name>.",
+        };
+      }
+    } else {
+      continue;
+    }
+
+    if (result.kind !== "omitted") {
+      return {
+        kind: "invalid",
+        message: "Invalid --database argument. Pass --database once.",
+      };
+    }
+
+    result = { kind: "provided", value };
+  }
+
+  return result;
+}
+
+export async function resolveTeardownDatabaseName(
+  argv: string[],
+  readState: () => Promise<WorktreeDevState | null> = () => readWorktreeState(workspaceRoot),
+): Promise<string | undefined> {
+  const databaseArgument = parseDatabaseArgument(argv);
+  if (databaseArgument.kind === "invalid") {
+    throw new Error(databaseArgument.message);
+  }
+  if (databaseArgument.kind === "provided") {
+    return databaseArgument.value;
+  }
+
+  return (await readState())?.dbName;
 }
 
 async function dropDatabase(dbName: string): Promise<void> {
@@ -61,10 +118,9 @@ async function dropDatabase(dbName: string): Promise<void> {
 }
 
 export async function runWorktreeTeardown(argv = process.argv.slice(2)): Promise<void> {
+  const databaseName = await resolveTeardownDatabaseName(argv);
   await ensureEnvKeys(workspaceRoot);
 
-  const state = await readWorktreeState(workspaceRoot);
-  const databaseName = parseDatabaseArgument(argv) ?? state?.dbName;
   if (!databaseName) {
     throw new Error(
       `Missing worktree database name. Pass --database <name> or run worktree-setup in this checkout first (${getWorktreeStatePath(workspaceRoot)}).`,
@@ -83,6 +139,7 @@ export async function runWorktreeTeardown(argv = process.argv.slice(2)): Promise
 
   await dropDatabase(databaseName);
   await deleteWorktreeState(workspaceRoot);
+  await releaseWorktreePortClaims(workspaceRoot);
   console.log("Deleted .worktree-dev.json. Shared Postgres is still running.");
 }
 

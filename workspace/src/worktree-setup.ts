@@ -141,15 +141,17 @@ function resolveDatabaseName(): string {
 
 export async function runWorktreeSetup(): Promise<void> {
   await ensureEnvKeys(workspaceRoot);
+  const previousState = await readWorktreeState(workspaceRoot);
+  const ports = await resolveStickyPortPair(previousState?.bindings.ports, 3000, {
+    worktreeRoot: workspaceRoot,
+  });
+  const bindings = deriveDevBindings(ports);
+
   await ensureSharedPostgres();
 
   const dbName = resolveDatabaseName();
   await createDatabaseIfMissing(dbName);
   runMigrations(dbName);
-
-  const previousState = await readWorktreeState(workspaceRoot);
-  const ports = await resolveStickyPortPair(previousState?.bindings.ports);
-  const bindings = deriveDevBindings(ports);
 
   await writeWorktreeState(workspaceRoot, {
     dbName,
