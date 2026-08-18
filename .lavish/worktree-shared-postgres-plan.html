@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shared Postgres worktree plan</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --surface: #f9f9f9;
+        --surface-low: #f3f3f4;
+        --ink: #1a1c1c;
+        --muted: #434840;
+        --line: #c3c8bd;
+        --primary: #334f2b;
+        --primary-soft: #caecbc;
+        --error: #ba1a1a;
+        --warning: #8a5000;
+        --white: #ffffff;
+      }
+      *, *::before, *::after { box-sizing: border-box; }
+      :where(.grid, .flex) > * { min-width: 0; }
+      :where(p, h1, h2, h3, h4, li, td, th, code, label) { overflow-wrap: anywhere; }
+      body {
+        margin: 0;
+        background: var(--surface);
+        color: var(--ink);
+        font: 16px/1.55 Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+      main { width: min(1160px, calc(100% - 32px)); margin: 0 auto; padding: 56px 0 88px; }
+      h1, h2, h3 { font-family: Manrope, Georgia, "Times New Roman", serif; line-height: 1.12; margin: 0; }
+      h1 { max-width: 18ch; font-size: clamp(2.4rem, 6vw, 4.4rem); font-weight: 400; }
+      h2 { font-size: 1.7rem; font-weight: 400; margin-bottom: 16px; }
+      h3 { font-size: 1.18rem; font-weight: 500; }
+      p { max-width: 78ch; margin: 0; }
+      .eyebrow {
+        color: var(--primary);
+        font-size: 0.76rem;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .hero { border-bottom: 1px solid var(--line); padding-bottom: 42px; }
+      .hero p { margin-top: 24px; color: var(--muted); font-size: 1.13rem; }
+      .pill {
+        display: inline-block;
+        border-radius: 999px;
+        background: var(--primary-soft);
+        color: #174600;
+        padding: 4px 10px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        margin-bottom: 16px;
+      }
+      .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; }
+      .section { margin-top: 48px; }
+      .card {
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: var(--white);
+        padding: 24px;
+        box-shadow: 0 8px 28px rgba(26, 28, 28, 0.06);
+      }
+      .card p { color: var(--muted); margin-top: 8px; }
+      .stat { grid-column: span 3; }
+      .stat strong {
+        display: block;
+        color: var(--primary);
+        font-family: Manrope, Georgia, serif;
+        font-size: 2.1rem;
+        font-weight: 400;
+      }
+      .stat span { color: var(--muted); font-size: 0.9rem; }
+      .wide { grid-column: span 12; }
+      .half { grid-column: span 6; }
+      .third { grid-column: span 4; }
+      .callout {
+        border-left: 4px solid var(--primary);
+        border-radius: 0 14px 14px 0;
+        background: #f0f8eb;
+        padding: 18px 20px;
+      }
+      .callout strong { color: #174600; }
+      .risk { border-left-color: var(--warning); background: #fff7e9; }
+      .risk strong { color: var(--warning); }
+      .danger { border-left-color: var(--error); background: #fff2f0; }
+      .danger strong { color: var(--error); }
+      code {
+        border-radius: 5px;
+        background: var(--surface-low);
+        padding: 2px 5px;
+        font: 0.9em ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .route {
+        padding: 18px 20px;
+        border-radius: 12px;
+        background: #1d211d;
+        color: #e8f5df;
+        font: 500 clamp(0.82rem, 2vw, 0.98rem) / 1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+        overflow-wrap: anywhere;
+      }
+      table { width: 100%; border-collapse: collapse; }
+      th, td {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        padding: 14px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+      th { color: var(--muted); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; }
+      td:first-child { font-weight: 700; }
+      .table-wrap { overflow-x: auto; }
+      .phase {
+        border-top: 1px solid var(--line);
+        padding: 24px 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr);
+        gap: 24px;
+      }
+      .phase:first-of-type { border-top: 0; }
+      .phase-meta { color: var(--muted); font-size: 0.9rem; }
+      .phase ul, .card ul { margin: 10px 0 0; padding-left: 20px; }
+      .phase li, .card li { color: var(--muted); }
+      .mermaid {
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 22px 12px;
+        overflow: auto;
+      }
+      fieldset {
+        border: 0;
+        margin: 0;
+        padding: 0;
+        min-width: 0;
+      }
+      legend { font-weight: 700; margin-bottom: 10px; }
+      .choice {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 10px 0;
+        color: var(--muted);
+      }
+      .choice input { margin-top: 4px; flex: none; }
+      .choice strong { color: var(--ink); }
+      .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+      button {
+        border: 0;
+        border-radius: 999px;
+        background: var(--primary);
+        color: white;
+        padding: 10px 16px;
+        font: 700 0.9rem Inter, sans-serif;
+        cursor: pointer;
+      }
+      button.secondary { background: var(--surface-low); color: var(--ink); }
+      .queued { display: none; margin-top: 10px; color: #174600; font-size: 0.9rem; font-weight: 700; }
+      form.is-queued .queued { display: block; }
+      .toc a { color: var(--primary); text-decoration: none; font-weight: 600; }
+      .toc ol { margin: 12px 0 0; padding-left: 20px; }
+      .toc li { margin: 6px 0; }
+      .footnote { color: var(--muted); font-size: 0.9rem; }
+      @media (max-width: 760px) {
+        main { width: min(100% - 24px, 1160px); padding-top: 32px; }
+        .stat, .half, .third { grid-column: span 12; }
+        .phase { grid-template-columns: 1fr; gap: 10px; }
+      }
+    </style>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.esm.min.mjs";
+
+      const pageIsDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const renderMermaid = async () => {
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: pageIsDark() ? "dark" : "base",
+          securityLevel: "strict",
+          themeVariables: pageIsDark()
+            ? {}
+            : {
+                primaryColor: "#caecbc",
+                primaryTextColor: "#1a1c1c",
+                primaryBorderColor: "#334f2b",
+                lineColor: "#334f2b",
+                secondaryColor: "#f3f3f4",
+                tertiaryColor: "#ffffff",
+              },
+        });
+        await mermaid.run({ querySelector: ".mermaid" });
+      };
+      await renderMermaid();
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+        document.querySelectorAll(".mermaid").forEach((node) => {
+          node.removeAttribute("data-processed");
+          if (node.dataset.source) node.textContent = node.dataset.source;
+        });
+        renderMermaid();
+      });
+    </script>
+  </head>
+  <body>
+    <main>
+      <header class="hero">
+        <span class="pill">Local development · git worktrees</span>
+        <p class="eyebrow">Implementation plan</p>
+        <h1>One Postgres. A database per worktree.</h1>
+        <p>
+          Keep the existing Compose Postgres on <code>127.0.0.1:5433</code>. Give each checkout its own
+          <code>DB_NAME</code>, free frontend/backend ports, and matching API/CORS/WebAuthn URLs. Setup
+          and teardown run <em>inside</em> that worktree — no shared daemon, no extra folder, no
+          Testcontainers lifecycle.
+        </p>
+      </header>
+
+      <section class="section" id="scope">
+        <div class="callout">
+          <strong>First-cut scope.</strong>
+          This plan exists to unblock several git worktrees on one machine with the smallest change that
+          actually works. One shared Postgres, one database name per linked worktree, sticky app ports,
+          and printed <code>nx</code> commands. We are not introducing a local orchestrator, per-worktree
+          Compose stacks, Testcontainers-as-dev-DB, a reverse proxy that hides ports, or direnv/Dev
+          Container isolation. Those are normal later upgrades if the service graph grows. The first cut
+          stays simple on purpose.
+        </div>
+        <p class="footnote" style="margin-top: 16px">
+          That shape matches common industry local-dev practice: isolate by catalog not by extra servers,
+          inject env at process start, confirm before DROP, pin Compose project name, keep Testcontainers
+          for tests. Heavier tools (Dev Containers, Tilt, a localhost reverse proxy so WebAuthn always
+          sees port 3000) are valid — they are just more than this cut needs.
+        </p>
+      </section>
+
+      <section class="section grid" aria-label="Plan summary">
+        <article class="card stat">
+          <strong>1</strong>
+          <span>Shared Postgres listener on 5433</span>
+        </article>
+        <article class="card stat">
+          <strong>N</strong>
+          <span>Named databases, not extra ports</span>
+        </article>
+        <article class="card stat">
+          <strong>2</strong>
+          <span>App ports found per worktree</span>
+        </article>
+        <article class="card stat">
+          <strong>0</strong>
+          <span>Central orchestrator processes</span>
+        </article>
+      </section>
+
+      <section class="section grid" id="decisions">
+        <div class="wide">
+          <h2>Locked decisions</h2>
+          <p class="footnote">All implementation choices are locked, including the shared package name.</p>
+        </div>
+        <article class="card third"><span class="pill">Decided</span><h3>Setup provisions only</h3><p>Create/migrate DB, write <code>.worktree-dev.json</code>, print two <code>nx</code> commands. Does not spawn Vite or Express.</p></article>
+        <article class="card third"><span class="pill">Decided</span><h3>Sticky app ports</h3><p>Reuse the pair in that worktree’s gitignored state file when those ports are still free.</p></article>
+        <article class="card third"><span class="pill">Decided</span><h3>Main keeps <code>.env</code> <code>DB_NAME</code></h3><p>Linked worktrees get <code>calibrate_wt_&lt;slug&gt;_&lt;hash&gt;</code>. Primary checkout data stays put.</p></article>
+        <article class="card third"><span class="pill">Decided</span><h3>Teardown drops one database</h3><p>Never <code>compose down</code>. Delete this worktree’s state file. Leave the shared Postgres running.</p></article>
+        <article class="card third"><span class="pill">Decided</span><h3>Type-to-confirm drop</h3><p>Only <code>calibrate_wt_*</code> names, passed as an argument. Refuse the main dotenv database name.</p></article>
+        <article class="card third"><span class="pill">Decided</span><h3>Nx targets</h3><p><code>npx nx run workspace:worktree-setup</code> and <code>workspace:worktree-teardown</code>.</p></article>
+        <article class="card third"><span class="pill">Decided</span><h3><code>@calibrate/dev-bindings</code></h3><p>Shared port pair plus URL/env field derivation. Not a dump for Testcontainers, Compose, or DROP DATABASE.</p></article>
+      </section>
+
+      <section class="section" id="current">
+        <h2>Current vs proposed</h2>
+        <div class="table-wrap card" style="padding: 0">
+          <table>
+            <thead>
+              <tr>
+                <th>Piece</th>
+                <th>Today</th>
+                <th>After this plan</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Postgres</td>
+                <td>Compose service, host <code>5433</code>, one <code>DB_NAME</code> from dotenvx</td>
+                <td>Same listener and volume. Extra databases created inside it</td>
+              </tr>
+              <tr>
+                <td>Frontend</td>
+                <td><code>vite dev --port 3000</code>; hops if busy</td>
+                <td>Explicit free port, injected at spawn</td>
+              </tr>
+              <tr>
+                <td>Backend</td>
+                <td><code>PORT || 3001</code>; dies with <code>EADDRINUSE</code></td>
+                <td>Explicit free port, injected at spawn</td>
+              </tr>
+              <tr>
+                <td>API URL / CORS / WebAuthn</td>
+                <td>Hardcoded <code>3001</code> / <code>3000</code></td>
+                <td>Derived from that worktree’s pair</td>
+              </tr>
+              <tr>
+                <td>Port + origin helpers</td>
+                <td>Duplicated in E2E runtime if copied</td>
+                <td><code>@calibrate/dev-bindings</code>; E2E and worktree-dev both import it</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="architecture">
+        <h2>What stays shared, what does not</h2>
+        <p class="footnote" style="margin-bottom: 16px">
+          Databases are names on one TCP port. Worktrees never need a registry of who owns 5433.
+        </p>
+        <div class="mermaid">
+flowchart TD
+  host[Host loopback]
+  pg[Compose Postgres on 5433]
+  mainDb[Primary database]
+  wtDb[Worktree database]
+  mainUi[Main Vite]
+  mainApi[Main Express]
+  wtUi[Worktree Vite]
+  wtApi[Worktree Express]
+  host --> pg
+  pg --> mainDb
+  pg --> wtDb
+  mainUi --> mainApi
+  mainApi --> mainDb
+  wtUi --> wtApi
+  wtApi --> wtDb
+        </div>
+      </section>
+
+      <section class="section" id="compose-name">
+        <h2>Compose project name, in Docker terms</h2>
+        <p style="margin-bottom: 16px">
+          Docker Compose does not start “Postgres on the machine.” It starts a <strong>named project</strong>:
+          a private network, containers, and volumes whose names all start with that project id.
+          If you omit <code>-p</code> / <code>COMPOSE_PROJECT_NAME</code>, Compose uses the
+          <strong>folder name</strong> of the checkout. That is fine for one clone. It is wrong when two
+          git worktrees both run <code>docker compose up</code>.
+        </p>
+        <div class="grid">
+          <div class="card half">
+            <h3>Without a fixed name</h3>
+            <p>
+              Main folder <code>clean-architecture-backend</code> creates project
+              <code>clean-architecture-backend</code> and publishes host port <code>5433</code>.
+              Worktree folder <code>feature-auth</code> creates a <em>second</em> project and also tries
+              to publish <code>5433</code>. Docker refuses: that host port is taken. You now have two
+              attempted Postgreses, not one shared server.
+            </p>
+          </div>
+          <div class="card half">
+            <h3>With <code>COMPOSE_PROJECT_NAME=calibrate-shared</code></h3>
+            <p>
+              Every worktree asks Compose to operate on the <em>same</em> project. The first setup that
+              finds <code>5433</code> closed actually starts the container. Later setups see Postgres
+              already accepting connections and skip <code>up</code>. Same network, same volume, same
+              host door <code>127.0.0.1:5433</code>.
+            </p>
+          </div>
+        </div>
+        <div class="card" style="margin-top: 20px">
+          <h3>Yes: Compose Postgres + host <code>backend:dev</code></h3>
+          <p>
+            That split is already how this repo works. Postgres runs in Docker. Express runs on your Mac
+            via <code>npx nx run backend:dev</code>. They meet on the <strong>published host port</strong>,
+            not on the container-internal name <code>postgres</code>.
+          </p>
+          <div class="table-wrap" style="margin-top: 12px">
+            <table>
+              <thead>
+                <tr>
+                  <th>Who is connecting</th>
+                  <th>Host</th>
+                  <th>Port</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Another container in the same Compose file</td>
+                  <td><code>postgres</code> (DNS on the Compose network)</td>
+                  <td><code>5432</code> inside the container</td>
+                </tr>
+                <tr>
+                  <td><code>npx nx run backend:dev</code>, Kysely, <code>psql</code> on your Mac</td>
+                  <td><code>127.0.0.1</code></td>
+                  <td><code>5433</code> (the mapping in <code>compose.yaml</code>)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="margin-top: 14px">
+            Setup will print <code>DB_HOST=127.0.0.1 DB_PORT=5433 DB_NAME=…</code> on the backend command.
+            The Node process then uses the same <code>pg</code> pool it uses today. The container is a
+            real Postgres; API read/write works as long as that env is set when you start
+            <code>backend:dev</code>.
+          </p>
+        </div>
+        <p class="route" style="margin-top: 20px">
+          COMPOSE_PROJECT_NAME=calibrate-shared<br />
+          npx dotenvx run -- docker compose up -d postgres
+        </p>
+      </section>
+
+      <section class="section" id="setup">
+        <h2>Setup script</h2>
+        <div class="mermaid">
+sequenceDiagram
+  participant Dev as Developer in a worktree
+  participant Setup as worktree-setup
+  participant Port as Port picker
+  participant Pg as Shared Postgres :5433
+  participant Mig as Kysely
+  participant State as .worktree-dev.json
+
+  Dev->>Setup: run from this checkout
+  Setup->>Setup: copy .env.keys from primary worktree if missing
+  Setup->>Pg: connect with dotenvx DB_USER/PASSWORD
+  alt 5433 closed
+    Setup->>Pg: compose up -d postgres (project calibrate-shared)
+  end
+  Setup->>Setup: derive DB_NAME
+  Setup->>Pg: CREATE DATABASE if missing
+  Setup->>Port: reuse sticky pair or bind-check a new pair
+  Setup->>Mig: migrate:latest with DB_NAME overload
+  Setup->>State: write db, ports, origins
+  Setup->>Dev: print nx commands with env
+        </div>
+        <div class="card" style="margin-top: 20px">
+          <h3>Env the printed commands must set</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Variable</th>
+                  <th>Source</th>
+                  <th>Who reads it</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>DB_HOST</code> / <code>DB_PORT</code></td>
+                  <td>Always <code>127.0.0.1</code> / <code>5433</code></td>
+                  <td>Backend, Kysely</td>
+                </tr>
+                <tr>
+                  <td><code>DB_NAME</code></td>
+                  <td>Derived or <code>.env</code> for main</td>
+                  <td>Backend, Kysely</td>
+                </tr>
+                <tr>
+                  <td><code>PORT</code></td>
+                  <td>Chosen backend port</td>
+                  <td>Express</td>
+                </tr>
+                <tr>
+                  <td><code>CORS_ORIGIN</code> / <code>WEBAUTHN_ORIGIN</code></td>
+                  <td><code>http://localhost:&lt;frontend&gt;</code></td>
+                  <td>Backend</td>
+                </tr>
+                <tr>
+                  <td><code>VITE_API_BASE_URL</code></td>
+                  <td><code>http://localhost:&lt;backend&gt;/api/v1</code></td>
+                  <td>Vite at boot</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="margin-top: 16px">
+            JWT, OTP HMAC, and email credentials stay in dotenvx. Setup uses
+            <code>dotenvx run --overload --env …</code> so we never set <code>CALIBRATE_E2E=1</code>.
+          </p>
+        </div>
+        <div class="callout" style="margin-top: 20px">
+          <strong>Setup copies <code>.env.keys</code> into the worktree.</strong>
+          That file is gitignored, so a new worktree will not have it. Encrypted <code>.env</code> is
+          useless without the key. Before any dotenvx call, setup looks up the primary checkout with
+          <code>git worktree list</code> and copies <code>.env.keys</code> from there if it is missing
+          here. It never commits the key. If the primary has no key either, fail with “set
+          <code>DOTENV_PRIVATE_KEY</code> or copy <code>.env.keys</code>” instead of treating ciphertext
+          as a database password.
+        </div>
+      </section>
+
+      <section class="section" id="teardown">
+        <h2>Teardown script</h2>
+        <div class="grid">
+          <div class="card half">
+            <h3>Does</h3>
+            <ul>
+              <li>Read this worktree’s state file (or require <code>--database</code>)</li>
+              <li>Refuse names that are not <code>calibrate_wt_*</code> (and refuse the main <code>.env</code> <code>DB_NAME</code>)</li>
+              <li><code>DROP DATABASE … WITH (FORCE)</code> so leftover backend connections cannot block it</li>
+              <li>Delete <code>.worktree-dev.json</code></li>
+            </ul>
+          </div>
+          <div class="card half">
+            <h3>Does not</h3>
+            <ul>
+              <li>Stop the shared Compose Postgres</li>
+              <li>Delete the <code>postgres_data</code> volume</li>
+              <li>Drop <code>postgres</code>, <code>template0</code>, or the primary checkout’s existing database</li>
+              <li>Reach into another worktree except to copy <code>.env.keys</code> at setup</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout danger" style="margin-top: 20px">
+          <strong>FORCE disconnects anyone still on that database.</strong> That is the point of teardown
+          after a worktree is done. It must never be aimed at the shared listener itself.
+        </div>
+      </section>
+
+      <section class="section" id="files">
+        <h2>Where the code would live</h2>
+        <div class="phase">
+          <div>
+            <p class="eyebrow">Phase 1</p>
+            <h3>Shared localhost helpers</h3>
+            <p class="phase-meta">One package, two callers. Do not move E2E secrets or worktree DROP DATABASE into it.</p>
+          </div>
+          <div>
+            <ul>
+              <li>Create <code>@calibrate/dev-bindings</code></li>
+              <li>Move <code>canBindLocalhost</code> and <code>selectPortPair</code> out of <code>apps/web-e2e/e2e-runtime.ts</code></li>
+              <li>Add <code>deriveDevBindings(ports)</code>: frontend URL, backend URL, <code>VITE_API_BASE_URL</code>, <code>CORS_ORIGIN</code>, <code>WEBAUTHN_ORIGIN</code>. E2E and worktree-dev both call this so those strings cannot drift.</li>
+              <li>Leave in E2E: Testcontainers, throwaway JWT/OTP keys, <code>CALIBRATE_E2E=1</code>, blank email credential</li>
+              <li>Leave in worktree-dev: <code>.env.keys</code> copy, <code>CREATE</code>/<code>DROP DATABASE</code>, sticky <code>.worktree-dev.json</code>, Compose project name</li>
+            </ul>
+          </div>
+        </div>
+        <div class="phase">
+          <div>
+            <p class="eyebrow">Phase 2</p>
+            <h3>Setup</h3>
+            <p class="phase-meta">Idempotent: safe to re-run in the same worktree.</p>
+          </div>
+          <div>
+            <ul>
+              <li>Copy <code>.env.keys</code> from the primary worktree if this checkout does not have it</li>
+              <li>Ensure Postgres on 5433, using <code>COMPOSE_PROJECT_NAME=calibrate-shared</code> only if needed</li>
+              <li><code>CREATE DATABASE</code> via <code>pg</code> connected to maintenance DB <code>postgres</code></li>
+              <li><code>npx dotenvx run --overload --env DB_NAME=… DB_HOST=127.0.0.1 DB_PORT=5433 -- npx nx run backend:kysely migrate:latest</code></li>
+              <li>Write <code>.worktree-dev.json</code>; gitignore it</li>
+              <li>Print copy-paste <code>backend:dev</code> and <code>web:dev</code> lines with env</li>
+            </ul>
+          </div>
+        </div>
+        <div class="phase">
+          <div>
+            <p class="eyebrow">Phase 3</p>
+            <h3>Teardown + docs</h3>
+            <p class="phase-meta">Destructive, scoped, documented.</p>
+          </div>
+          <div>
+            <ul>
+              <li>Nx targets <code>workspace:worktree-setup</code> / <code>workspace:worktree-teardown</code></li>
+              <li>README: worktree workflow, automatic <code>.env.keys</code> copy, “do not compose down”</li>
+              <li>E2E runtime imports the shared port helpers instead of keeping a second copy</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="package-name">
+        <h2>Shared package shape</h2>
+        <div class="card">
+          <h3><code>@calibrate/dev-bindings</code></h3>
+          <p>
+            In: a frontend/backend port pair. Out: those ports plus frontend URL, backend URL,
+            <code>VITE_API_BASE_URL</code>, <code>CORS_ORIGIN</code>, and <code>WEBAUTHN_ORIGIN</code>.
+            <code>web-e2e</code> and worktree-setup both import this so origin strings cannot drift.
+            JWT minting, Testcontainers, <code>CREATE DATABASE</code>, and <code>.env.keys</code> stay
+            in their callers.
+          </p>
+        </div>
+      </section>
+
+      <section class="section" id="risks">
+        <h2>Risks and non-goals</h2>
+        <div class="grid">
+          <div class="card third">
+            <h3>New worktrees lack <code>.env.keys</code></h3>
+            <p>
+              Setup copies the key from the primary worktree automatically. Still fail closed if neither
+              checkout has it, rather than feeding dotenvx ciphertext to Postgres.
+            </p>
+          </div>
+          <div class="card third">
+            <h3>Same folder name, two paths</h3>
+            <p>
+              Basename-only <code>DB_NAME</code> can collide. A short hash of the absolute worktree path
+              belongs in the derived name even if we keep human-readable slugs.
+            </p>
+          </div>
+          <div class="card third">
+            <h3>Compose.yaml drift</h3>
+            <p>
+              If two branches change the Postgres service and both call <code>compose up</code> with the
+              same project name, Compose may recreate the container. Setup should skip <code>up</code> when
+              5433 is already healthy.
+            </p>
+          </div>
+        </div>
+        <div class="callout risk" style="margin-top: 20px">
+          <strong>Out of scope:</strong> per-worktree Redis/mail/object storage, Testcontainers reuse,
+          Dockerizing Vite, or a machine-wide port registry. E2E only switches its port helpers onto
+          the shared package; it does not share Testcontainers or <code>CALIBRATE_E2E</code> setup.
+          Extra Compose services wait until more <em>containers</em> actually need coordinating.
+        </div>
+      </section>
+    </main>
+    <script>
+      function queueChoice(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const question = form.getAttribute("data-lavish-question");
+        const answer = new FormData(form).get("answer");
+        if (!answer || !window.lavish) return false;
+        window.lavish.queuePrompt(question + ": " + answer, {
+          tag: "choice",
+          text: question + ": " + answer,
+          element: form,
+          queueKey: question,
+          data: { question, answer },
+        });
+        form.classList.add("is-queued");
+        return false;
+      }
+    </script>
+  </body>
+</html>
