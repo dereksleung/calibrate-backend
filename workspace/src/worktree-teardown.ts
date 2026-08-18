@@ -69,7 +69,10 @@ export function parseDatabaseArgument(argv: string[]): DatabaseArgument {
         };
       }
     } else {
-      continue;
+      return {
+        kind: "invalid",
+        message: "Unexpected worktree teardown argument. Use --database <name>.",
+      };
     }
 
     if (result.kind !== "omitted") {

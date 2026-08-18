@@ -21,6 +21,12 @@ describe("worktree teardown database arguments", () => {
     expect(parseDatabaseArgument(["--database"])).toMatchObject({ kind: "invalid" });
     expect(parseDatabaseArgument(["--database="])).toMatchObject({ kind: "invalid" });
     expect(parseDatabaseArgument(["--database", "--other"])).toMatchObject({ kind: "invalid" });
+    expect(parseDatabaseArgument(["--databse", "calibrate_wt_feature_a1b2c3d4"])).toMatchObject({
+      kind: "invalid",
+    });
+    expect(parseDatabaseArgument(["--database", "calibrate_wt_feature_a1b2c3d4", "extra"])).toMatchObject({
+      kind: "invalid",
+    });
   });
 
   it("does not read state when an explicit database is supplied", async () => {
@@ -32,6 +38,18 @@ describe("worktree teardown database arguments", () => {
         throw new Error("corrupt state");
       }),
     ).resolves.toBe("calibrate_wt_feature_a1b2c3d4");
+    expect(stateRead).toBe(false);
+  });
+
+  it("rejects unexpected arguments before reading state", async () => {
+    let stateRead = false;
+
+    await expect(
+      resolveTeardownDatabaseName(["--databse", "calibrate_wt_feature_a1b2c3d4"], async () => {
+        stateRead = true;
+        return null;
+      }),
+    ).rejects.toThrow("Unexpected worktree teardown argument");
     expect(stateRead).toBe(false);
   });
 
