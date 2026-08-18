@@ -11,7 +11,13 @@ import {
   shouldStartComposePostgres,
   waitForPostgresReady,
 } from "./postgres-health.js";
-import { COMPOSE_PROJECT_NAME, printDevCommands, SHARED_DB_HOST, SHARED_DB_PORT } from "./print-dev-commands.js";
+import {
+  COMPOSE_PROJECT_NAME,
+  dotenvEnvAssignment,
+  printDevCommands,
+  SHARED_DB_HOST,
+  SHARED_DB_PORT,
+} from "./print-dev-commands.js";
 import { deriveLinkedWorktreeDatabaseName } from "./worktree-database-name.js";
 import { resolveStickyPortPair } from "./worktree-ports.js";
 import { readWorktreeState, writeWorktreeState } from "./worktree-state.js";
@@ -41,6 +47,10 @@ function getDotenvValue(name: string): string {
 
 function quoteIdentifier(identifier: string): string {
   return `"${identifier.replaceAll('"', '""')}"`;
+}
+
+export function isPostgresDuplicateDatabaseError(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "42P04";
 }
 
 async function ensureSharedPostgres(): Promise<void> {
@@ -90,8 +100,13 @@ async function createDatabaseIfMissing(dbName: string): Promise<void> {
   try {
     const existing = await pool.query("SELECT 1 FROM pg_database WHERE datname = $1", [dbName]);
     if (existing.rowCount === 0) {
-      await pool.query(`CREATE DATABASE ${quoteIdentifier(dbName)}`);
-      console.log(`Created database ${dbName}.`);
+      try {
+        await pool.query(`CREATE DATABASE ${quoteIdentifier(dbName)}`);
+        console.log(`Created database ${dbName}.`);
+      } catch (error: unknown) {
+        if (!isPostgresDuplicateDatabaseError(error)) throw error;
+        console.log(`Database ${dbName} already exists.`);
+      }
       return;
     }
 
@@ -101,7 +116,7 @@ async function createDatabaseIfMissing(dbName: string): Promise<void> {
   }
 }
 
-function runMigrations(dbName: string): void {
+function runMigrations(dbNameAssignment: string): void {
   execFileSync(
     npxCommand,
     [
@@ -109,7 +124,7 @@ function runMigrations(dbName: string): void {
       "run",
       "--overload",
       "--env",
-      `DB_NAME=${dbName}`,
+      dbNameAssignment,
       "--env",
       `DB_HOST=${SHARED_DB_HOST}`,
       "--env",
@@ -146,12 +161,13 @@ export async function runWorktreeSetup(): Promise<void> {
     worktreeRoot: workspaceRoot,
   });
   const bindings = deriveDevBindings(ports);
+  const dbName = resolveDatabaseName();
+  const dbNameAssignment = dotenvEnvAssignment("DB_NAME", dbName);
 
   await ensureSharedPostgres();
 
-  const dbName = resolveDatabaseName();
   await createDatabaseIfMissing(dbName);
-  runMigrations(dbName);
+  runMigrations(dbNameAssignment);
 
   await writeWorktreeState(workspaceRoot, {
     dbName,

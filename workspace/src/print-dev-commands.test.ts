@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 import {
+  dotenvEnvAssignment,
   formatBackendDevCommand,
   formatWebDevCommand,
   shellQuote,
@@ -20,7 +21,7 @@ describe("print dev commands", () => {
     };
 
     expect(formatBackendDevCommand(bindings, "calibrate_wt_feature_ab12cd34")).toContain(
-      "DB_NAME='calibrate_wt_feature_ab12cd34'",
+      shellQuote(dotenvEnvAssignment("DB_NAME", "calibrate_wt_feature_ab12cd34")),
     );
     expect(formatBackendDevCommand(bindings, "calibrate_wt_feature_ab12cd34")).toContain("PORT='3011'");
     expect(formatBackendDevCommand(bindings, "calibrate_wt_feature_ab12cd34")).toContain(
@@ -38,5 +39,20 @@ describe("print dev commands", () => {
     });
 
     expect(output).toBe(value);
+  });
+
+  it("keeps dotenv metacharacters literal in the generated assignment", () => {
+    const assignment = dotenvEnvAssignment("DB_NAME", "foo$BAR#baz");
+    const output = execFileSync("sh", ["-c", `printf '%s' ${shellQuote(assignment)}`], {
+      encoding: "utf8",
+    });
+
+    expect(output).toBe("DB_NAME='foo$BAR#baz'");
+  });
+
+  it("rejects dotenv values that cannot be represented literally", () => {
+    expect(() => dotenvEnvAssignment("DB_NAME", "foo'bar")).toThrow(
+      "DB_NAME contains unsupported dotenv characters.",
+    );
   });
 });

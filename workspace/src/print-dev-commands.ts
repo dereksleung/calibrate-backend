@@ -8,13 +8,21 @@ export function shellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\"'\"'")}'`;
 }
 
+export function dotenvEnvAssignment(name: string, value: string): string {
+  if (value.includes("'") || value.includes("\r") || value.includes("\n")) {
+    throw new Error(`${name} contains unsupported dotenv characters.`);
+  }
+
+  return `${name}='${value}'`;
+}
+
 export function formatBackendDevCommand(bindings: DevBindings, dbName: string): string {
   return [
     "npx dotenvx run --overload",
     "--env CALIBRATE_E2E=",
     `--env DB_HOST=${shellQuote(SHARED_DB_HOST)}`,
     `--env DB_PORT=${shellQuote(String(SHARED_DB_PORT))}`,
-    `--env DB_NAME=${shellQuote(dbName)}`,
+    `--env ${shellQuote(dotenvEnvAssignment("DB_NAME", dbName))}`,
     `--env PORT=${shellQuote(String(bindings.ports.backend))}`,
     `--env CORS_ORIGIN=${shellQuote(bindings.corsOrigin)}`,
     `--env WEBAUTHN_ORIGIN=${shellQuote(bindings.webauthnOrigin)}`,
