@@ -1,6 +1,6 @@
 import { canBindLocalhost, type DevPortPair } from "@calibrate/dev-bindings";
-import { createHash } from "node:crypto";
-import { mkdir, open, readdir, readFile, unlink } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { link, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -82,21 +82,27 @@ async function claimPortPair(
   }
 
   await mkdir(claimDirectory, { recursive: true });
+  const temporaryPath = `${claimPath}.${randomUUID()}.tmp`;
   try {
-    const file = await open(claimPath, "wx");
+    await writeFile(
+      temporaryPath,
+      `${JSON.stringify({ worktreeKey, ...pair } satisfies PortClaim)}\n`,
+      { encoding: "utf8", flag: "wx" },
+    );
     try {
-      await file.writeFile(
-        `${JSON.stringify({ worktreeKey, ...pair } satisfies PortClaim)}\n`,
-        "utf8",
-      );
-    } finally {
-      await file.close();
+      await link(temporaryPath, claimPath);
+      return true;
+    } catch (error: unknown) {
+      if (!isErrorWithCode(error, "EEXIST")) throw error;
+      const competingClaim = await readPortClaim(claimPath);
+      return competingClaim?.worktreeKey === worktreeKey;
     }
-    return true;
-  } catch (error: unknown) {
-    if (!isErrorWithCode(error, "EEXIST")) throw error;
-    const competingClaim = await readPortClaim(claimPath);
-    return competingClaim?.worktreeKey === worktreeKey;
+  } finally {
+    try {
+      await unlink(temporaryPath);
+    } catch (error: unknown) {
+      if (!isErrorWithCode(error, "ENOENT")) throw error;
+    }
   }
 }
 

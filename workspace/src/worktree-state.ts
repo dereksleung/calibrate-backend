@@ -1,5 +1,6 @@
 import type { DevBindings } from "@calibrate/dev-bindings";
-import { access, readFile, unlink, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { access, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export const WORKTREE_STATE_FILE = ".worktree-dev.json";
@@ -33,7 +34,20 @@ export async function readWorktreeState(worktreeRoot: string): Promise<WorktreeD
 }
 
 export async function writeWorktreeState(worktreeRoot: string, state: WorktreeDevState): Promise<void> {
-  await writeFile(getWorktreeStatePath(worktreeRoot), `${JSON.stringify(state, null, 2)}\n`, "utf8");
+  const statePath = getWorktreeStatePath(worktreeRoot);
+  const temporaryPath = `${statePath}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporaryPath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+    await rename(temporaryPath, statePath);
+  } finally {
+    try {
+      await unlink(temporaryPath);
+    } catch (error: unknown) {
+      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+        throw error;
+      }
+    }
+  }
 }
 
 export async function deleteWorktreeState(worktreeRoot: string): Promise<void> {
