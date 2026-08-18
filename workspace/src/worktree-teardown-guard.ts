@@ -2,14 +2,23 @@ import { isLinkedWorktreeDatabaseName } from "./worktree-database-name.js";
 
 const SYSTEM_DATABASES = new Set(["postgres", "template0", "template1"]);
 
-export function isTeardownDatabaseAllowed(databaseName: string, primaryDbName: string): boolean {
+export function isTeardownDatabaseAllowed(
+  databaseName: string,
+  primaryDbName: string,
+  expectedWorktreeDbName: string | undefined,
+): boolean {
+  if (!expectedWorktreeDbName || databaseName !== expectedWorktreeDbName) return false;
   if (!isLinkedWorktreeDatabaseName(databaseName)) return false;
   if (SYSTEM_DATABASES.has(databaseName)) return false;
   if (databaseName === primaryDbName) return false;
   return true;
 }
 
-export function explainTeardownRefusal(databaseName: string, primaryDbName: string): string {
+export function explainTeardownRefusal(
+  databaseName: string,
+  primaryDbName: string,
+  expectedWorktreeDbName: string | undefined,
+): string {
   if (databaseName === primaryDbName) {
     return `Refusing to drop the primary checkout database "${databaseName}".`;
   }
@@ -18,6 +27,12 @@ export function explainTeardownRefusal(databaseName: string, primaryDbName: stri
   }
   if (!isLinkedWorktreeDatabaseName(databaseName)) {
     return `Refusing to drop "${databaseName}". Only calibrate_wt_* databases created by worktree-setup may be dropped.`;
+  }
+  if (!expectedWorktreeDbName) {
+    return `Refusing to drop "${databaseName}". Teardown is only available for linked worktrees.`;
+  }
+  if (databaseName !== expectedWorktreeDbName) {
+    return `Refusing to drop "${databaseName}". Only this worktree's database "${expectedWorktreeDbName}" may be dropped.`;
   }
   return `Refusing to drop "${databaseName}".`;
 }

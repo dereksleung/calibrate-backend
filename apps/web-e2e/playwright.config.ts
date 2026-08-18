@@ -4,13 +4,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { WEB_PUBLIC_BASE_URL } from "../web-frontend/src/config/public-base-path.ts";
+import { deriveDevBindings } from "../../packages/dev-bindings/src/derive-dev-bindings.ts";
+import type { DevPortPair } from "../../packages/dev-bindings/src/ports.ts";
 
-type E2ePorts = {
-  backend: number;
-  frontend: number;
-};
-
-function readE2ePorts(): E2ePorts | undefined {
+function readE2ePorts(): DevPortPair | undefined {
   const frontend = process.env.E2E_FRONTEND_PORT;
   const backend = process.env.E2E_BACKEND_PORT;
 
@@ -37,9 +34,9 @@ function requireE2ePort(name: string, value: string | undefined): number {
 const configPath = fileURLToPath(import.meta.url);
 const workspaceRoot = resolve(dirname(configPath), "../..");
 const ports = readE2ePorts();
-const frontendUrl = ports ? `http://localhost:${ports.frontend}` : "http://127.0.0.1:0";
+const bindings = ports ? deriveDevBindings(ports) : undefined;
+const frontendUrl = bindings?.frontendUrl ?? "http://127.0.0.1:0";
 const frontendBaseUrl = new URL(WEB_PUBLIC_BASE_URL, frontendUrl).toString();
-const backendUrl = ports ? `http://localhost:${ports.backend}` : undefined;
 const screenshot = process.env.CALIBRATE_E2E_CAPTURE_SCREENSHOTS === "1" ? "on" : "only-on-failure";
 
 export default defineConfig({
@@ -50,7 +47,7 @@ export default defineConfig({
     screenshot,
     trace: "retain-on-failure",
   },
-  webServer: ports
+  webServer: bindings
     ? [
         {
           name: "frontend",
@@ -60,19 +57,19 @@ export default defineConfig({
           timeout: 120_000,
           cwd: workspaceRoot,
           env: {
-            E2E_FRONTEND_PORT: String(ports.frontend),
-            VITE_API_BASE_URL: `${backendUrl}/api/v1`,
+            E2E_FRONTEND_PORT: String(bindings.ports.frontend),
+            VITE_API_BASE_URL: bindings.viteApiBaseUrl,
           },
         },
         {
           name: "backend",
           command: "npx nx run backend:e2e-dev",
-          url: `${backendUrl}/health`,
+          url: `${bindings.backendUrl}/health`,
           reuseExistingServer: false,
           timeout: 120_000,
           cwd: workspaceRoot,
           env: {
-            PORT: String(ports.backend),
+            PORT: String(bindings.ports.backend),
           },
         },
       ]

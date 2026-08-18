@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
 
 import { ensureEnvKeys } from "./env-keys.js";
+import { isPrimaryWorktree } from "./git-worktree.js";
+import { deriveLinkedWorktreeDatabaseName } from "./worktree-database-name.js";
 import { SHARED_DB_HOST, SHARED_DB_PORT } from "./print-dev-commands.js";
 import {
   deleteWorktreeState,
@@ -69,9 +71,14 @@ export async function runWorktreeTeardown(argv = process.argv.slice(2)): Promise
     );
   }
 
+  const expectedWorktreeDbName = isPrimaryWorktree(workspaceRoot)
+    ? undefined
+    : deriveLinkedWorktreeDatabaseName(workspaceRoot);
   const primaryDbName = getDotenvValue("DB_NAME");
-  if (!isTeardownDatabaseAllowed(databaseName, primaryDbName)) {
-    throw new Error(explainTeardownRefusal(databaseName, primaryDbName));
+  if (!isTeardownDatabaseAllowed(databaseName, primaryDbName, expectedWorktreeDbName)) {
+    throw new Error(
+      explainTeardownRefusal(databaseName, primaryDbName, expectedWorktreeDbName),
+    );
   }
 
   await dropDatabase(databaseName);
