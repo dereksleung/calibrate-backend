@@ -13,7 +13,6 @@ import {
   readWorktreeState,
   type WorktreeDevState,
 } from "./worktree-state.js";
-import { releaseWorktreePortClaims } from "./worktree-ports.js";
 import {
   explainTeardownRefusal,
   isTeardownDatabaseAllowed,
@@ -142,7 +141,6 @@ export async function runWorktreeTeardown(argv = process.argv.slice(2)): Promise
 
   await dropDatabase(databaseName);
   await deleteWorktreeState(workspaceRoot);
-  await releaseWorktreePortClaims(workspaceRoot);
   console.log("Deleted .worktree-dev.json. Shared Postgres is still running.");
 }
 
