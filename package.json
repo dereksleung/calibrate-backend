@@ -25,6 +25,7 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@nx/playwright": "22.7.0",
+    "@nx/plugin": "22.7.0",
     "@nx/storybook": "22.7.0",
     "@nx/vite": "22.7.0",
     "@nx/vitest": "22.7.0",
