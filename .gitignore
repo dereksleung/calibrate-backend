@@ -6,6 +6,8 @@ dist
 *.tsbuildinfo
 .env.keys*
 .env.local
+.worktree-dev.json
+.worktree-dev.json.*.tmp
 .local.env
 
 

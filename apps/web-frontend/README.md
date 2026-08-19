@@ -16,17 +16,9 @@ shadcn/ui is useful here for helping build battle-tested, accessible, polished U
 
 ## Running Locally
 
-Start the dev server:
-
-```bash
-npx nx run web:dev
-```
-
-The app runs at:
-
-```text
-http://localhost:3000
-```
+From the repository root, follow the [shared Postgres worktree setup](../../README.md#git-worktrees-shared-postgres).
+It prints the worktree-specific `web:dev` command and frontend URL; linked
+worktrees should not assume the default `localhost:3000` port.
 
 ## Screenshots
 

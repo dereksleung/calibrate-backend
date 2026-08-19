@@ -15,7 +15,7 @@ Use `.no-mistakes.yaml` as the gate contract. Do not rely on an agent skill to s
 - Use Playwright for automated browser testing, not the Desktop Browser plugin or CDP.
 - Create a standalone `web-e2e` Nx project, then configure it with the Nx Playwright generator. Configure the inferred inner Playwright target as `web-e2e:parameterize-playwright`; make `web-e2e:e2e` the normal, full E2E command that provisions disposable dependencies and invokes that inner target.
 - Use Playwright’s `webServer` array to start and health-check the frontend and backend processes.
-- Have `web-e2e:e2e` select an isolated frontend/backend port pair for each run and pass it into both Playwright-managed servers. Never use fixed `3000`/`3001` ports in the E2E runtime.
+- Have `web-e2e:e2e` select an isolated frontend/backend port pair for each run and pass it into both Playwright-managed servers. Never use fixed `3000`/`3001` ports in the E2E runtime. Use the dedicated `40,000`–`49,999` E2E pool so E2E runs do not compete with worktree development ports or persisted worktree claims.
 - Derive the frontend `baseURL`, frontend API base URL, backend CORS allowlist, and `WEBAUTHN_ORIGIN` from the selected localhost frontend port, so each worktree talks only to its own processes.
 - The `web-e2e:e2e` wrapper builds one `e2eEnv` object and passes it as the child-process environment when it invokes `web-e2e:parameterize-playwright`; it does not write a generated dotenv file.
 - `CALIBRATE_E2E=1` enables E2E-only configuration. In this mode, backend E2E values must read from `process.env` before dotenvx so a local `.env` cannot override the isolated database, ports, or no-op email mode.
@@ -149,19 +149,12 @@ export default defineConfig({
 
 **Port-selection implementation:**
 
-```ts
-async function selectPortPair(startPort = 3000): Promise<{ frontendPort: number; backendPort: number }> {
-  for (let frontendPort = startPort; frontendPort <= 65_534; frontendPort += 2) {
-    const backendPort = frontendPort + 1;
-    if ((await canBindLocalhost(frontendPort)) && (await canBindLocalhost(backendPort))) {
-      return { frontendPort, backendPort };
-    }
-  }
-  throw new Error("No adjacent localhost port pair is available for E2E");
-}
-```
-
-`canBindLocalhost` must briefly bind and close a Node `net.Server` on the exact localhost address the app servers use. Run the selector immediately before spawning `web-e2e:parameterize-playwright`. Because a probe cannot reserve a port after it closes, if either Playwright-managed server reports `EADDRINUSE`, tear down the attempt and retry the complete E2E run from the next even port pair.
+The E2E runtime selects adjacent even/odd pairs in the dedicated frontend pool
+`40,000`–`49,998` (with the backend on the next port), skips persisted
+worktree claims in `~/.calibrate/worktree-ports`, and probes both ports before
+starting Playwright. The exact implementation and retry bounds live in
+`apps/web-e2e/e2e-runtime.ts`; keep this plan focused on the isolation
+invariant rather than duplicating that code.
 
 ```ts
 const e2eEnv = {

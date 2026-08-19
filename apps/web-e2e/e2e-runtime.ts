@@ -1,21 +1,30 @@
 import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 
+import {
+  canBindLocalhost,
+  deriveDevBindings,
+  selectPortPair,
+  type DevPortPair,
+} from "@calibrate/dev-bindings";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { FileMigrationProvider, Kysely, Migrator, PostgresDialect } from "kysely";
 import { spawn } from "node:child_process";
 import { generateKeyPairSync, randomBytes, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
-import { createServer } from "node:net";
+import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
 
 const POSTGRES_IMAGE = "postgres:18";
 const MAX_PORT_ATTEMPTS = 5;
+const E2E_PORT_POOL_START = 40_000;
+const E2E_PORT_POOL_LAST_FRONTEND = 49_998;
+const WORKTREE_PORT_CLAIM_DIRECTORY = path.join(homedir(), ".calibrate", "worktree-ports");
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const migrationFolder = path.join(workspaceRoot, "apps/backend/src/infrastructure/persistence/migrations");
 
-export type E2ePorts = { frontend: number; backend: number };
+export type E2ePorts = DevPortPair;
 type DatabaseConnectionConfig = {
   database: string;
   host: string;
@@ -25,32 +34,87 @@ type DatabaseConnectionConfig = {
   maxConnections: number;
 };
 
-export async function canBindLocalhost(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const server = createServer();
-    server.once("error", () => resolve(false));
-    server.listen(port, "localhost", () => {
-      server.close((error) => resolve(error === undefined));
-    });
-  });
+export { canBindLocalhost, selectPortPair };
+
+export type E2ePortSelectionOptions = {
+  claimDirectory?: string;
+  lastFrontendPort?: number;
+  startPort?: number;
+};
+
+function isErrorWithCode(error: unknown, code: string): boolean {
+  return error instanceof Error && "code" in error && error.code === code;
 }
 
-export async function selectPortPair(startPort = 3000): Promise<E2ePorts> {
-  const firstPort = startPort % 2 === 0 ? startPort : startPort + 1;
+function parseClaimedPortPair(fileName: string): DevPortPair | undefined {
+  const match = /^(\d+)-(\d+)\.json$/.exec(fileName);
+  if (!match) return undefined;
 
-  for (let frontend = firstPort; frontend <= 65_534; frontend += 2) {
+  const frontend = Number(match[1]);
+  const backend = Number(match[2]);
+  if (
+    !Number.isSafeInteger(frontend) ||
+    !Number.isSafeInteger(backend) ||
+    frontend < 1 ||
+    backend > 65_535 ||
+    backend !== frontend + 1
+  ) {
+    return undefined;
+  }
+
+  return { frontend, backend };
+}
+
+async function readClaimedPortPairs(claimDirectory: string): Promise<Set<string>> {
+  let entries;
+  try {
+    entries = await fs.readdir(claimDirectory, { withFileTypes: true });
+  } catch (error: unknown) {
+    if (isErrorWithCode(error, "ENOENT")) return new Set();
+    throw error;
+  }
+
+  const claimedPairs = new Set<string>();
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+
+    const pair = parseClaimedPortPair(entry.name);
+    if (pair) claimedPairs.add(`${pair.frontend}-${pair.backend}`);
+  }
+  return claimedPairs;
+}
+
+function getFirstE2ePort(startPort: number): number {
+  if (!Number.isInteger(startPort) || startPort < 1 || startPort > 65_534) {
+    throw new Error("startPort must be an integer between 1 and 65534");
+  }
+
+  return startPort % 2 === 0 ? startPort : startPort + 1;
+}
+
+export async function selectE2ePortPair(options: E2ePortSelectionOptions = {}): Promise<E2ePorts> {
+  const firstPort = getFirstE2ePort(options.startPort ?? E2E_PORT_POOL_START);
+  const lastFrontendPort = options.lastFrontendPort ?? E2E_PORT_POOL_LAST_FRONTEND;
+  if (!Number.isInteger(lastFrontendPort) || lastFrontendPort < firstPort || lastFrontendPort > 65_534) {
+    throw new Error("lastFrontendPort must be an integer between the start port and 65534");
+  }
+
+  const claimDirectory = options.claimDirectory ?? WORKTREE_PORT_CLAIM_DIRECTORY;
+  const claimedPairs = await readClaimedPortPairs(claimDirectory);
+  for (let frontend = firstPort; frontend <= lastFrontendPort; frontend += 2) {
     const backend = frontend + 1;
+    if (claimedPairs.has(`${frontend}-${backend}`)) continue;
+
     if ((await canBindLocalhost(frontend)) && (await canBindLocalhost(backend))) {
       return { frontend, backend };
     }
   }
 
-  throw new Error("No adjacent localhost port pair is available for E2E");
+  throw new Error("No E2E localhost port pair is available in the E2E port pool");
 }
 
 export function createE2eEnvironment(database: DatabaseConnectionConfig, ports: E2ePorts): NodeJS.ProcessEnv {
-  const frontendUrl = `http://localhost:${ports.frontend}`;
-  const backendUrl = `http://localhost:${ports.backend}`;
+  const bindings = deriveDevBindings(ports);
   const privateKeyPem = generateKeyPairSync("ed25519")
     .privateKey.export({ type: "pkcs8", format: "pem" })
     .toString();
@@ -58,7 +122,7 @@ export function createE2eEnvironment(database: DatabaseConnectionConfig, ports: 
   return {
     ...process.env,
     CALIBRATE_E2E: "1",
-    CORS_ORIGIN: frontendUrl,
+    CORS_ORIGIN: bindings.corsOrigin,
     DB_HOST: database.host,
     DB_NAME: database.database,
     DB_PASSWORD: database.password,
@@ -77,8 +141,8 @@ export function createE2eEnvironment(database: DatabaseConnectionConfig, ports: 
     OTP_HMAC_CURRENT_KEY_VERSION: "1",
     PORT: String(ports.backend),
     TRUST_PROXY_HOPS: "0",
-    VITE_API_BASE_URL: `${backendUrl}/api/v1`,
-    WEBAUTHN_ORIGIN: frontendUrl,
+    VITE_API_BASE_URL: bindings.viteApiBaseUrl,
+    WEBAUTHN_ORIGIN: bindings.webauthnOrigin,
     WEBAUTHN_RP_ID: "localhost",
   };
 }
@@ -204,7 +268,7 @@ export async function run(): Promise<void> {
 
   try {
     for (let attempt = 0; attempt < MAX_PORT_ATTEMPTS; attempt += 1) {
-      const ports = await selectPortPair(3000 + attempt * 2);
+      const ports = await selectE2ePortPair({ startPort: E2E_PORT_POOL_START + attempt * 2 });
       const result = await runNx(
         createE2eEnvironment(config, ports),
         createPlaywrightTargetArguments(playwrightArguments),

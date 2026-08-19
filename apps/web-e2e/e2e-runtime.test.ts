@@ -1,12 +1,30 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createE2eEnvironment, createPlaywrightTargetArguments, selectPortPair } from "./e2e-runtime.js";
+import {
+  createE2eEnvironment,
+  createPlaywrightTargetArguments,
+  selectE2ePortPair,
+  selectPortPair,
+} from "./e2e-runtime.js";
 
 const originalEnvironment = { ...process.env };
+const temporaryDirectories: string[] = [];
 
-afterEach(() => {
+afterEach(async () => {
   process.env = { ...originalEnvironment };
+  await Promise.all(
+    temporaryDirectories.splice(0).map((directory) => rm(directory, { force: true, recursive: true })),
+  );
 });
+
+async function createTemporaryDirectory(): Promise<string> {
+  const directory = await mkdtemp(path.join(tmpdir(), "calibrate-e2e-runtime-"));
+  temporaryDirectories.push(directory);
+  return directory;
+}
 
 describe("E2E runtime", () => {
   it("creates an isolated environment for the selected application ports", () => {
@@ -45,6 +63,40 @@ describe("E2E runtime", () => {
     expect(ports.frontend).toBeGreaterThanOrEqual(43_100);
     expect(ports.frontend % 2).toBe(0);
     expect(ports.backend).toBe(ports.frontend + 1);
+  });
+
+  it("selects E2E ports from the dedicated pool", async () => {
+    const ports = await selectE2ePortPair({ claimDirectory: await createTemporaryDirectory() });
+
+    expect(ports.frontend).toBeGreaterThanOrEqual(40_000);
+    expect(ports.frontend).toBeLessThanOrEqual(49_998);
+    expect(ports.frontend % 2).toBe(0);
+    expect(ports.backend).toBe(ports.frontend + 1);
+  });
+
+  it("skips persisted worktree port claims and tolerates a missing claim directory", async () => {
+    const claimDirectory = await createTemporaryDirectory();
+    await writeFile(
+      path.join(claimDirectory, "43100-43101.json"),
+      JSON.stringify({ backend: 43_101, frontend: 43_100, worktreeKey: "worktree" }),
+    );
+
+    await expect(
+      selectE2ePortPair({
+        claimDirectory,
+        lastFrontendPort: 43_104,
+        startPort: 43_100,
+      }),
+    ).resolves.toEqual({ backend: 43_103, frontend: 43_102 });
+
+    const missingClaimDirectory = path.join(await createTemporaryDirectory(), "worktree-ports");
+    await expect(
+      selectE2ePortPair({
+        claimDirectory: missingClaimDirectory,
+        lastFrontendPort: 43_100,
+        startPort: 43_100,
+      }),
+    ).resolves.toEqual({ backend: 43_101, frontend: 43_100 });
   });
 
   it("forwards E2E CLI arguments to the inferred Playwright target", () => {
