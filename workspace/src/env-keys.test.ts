@@ -32,7 +32,7 @@ async function createGitWorktreeFixture(): Promise<GitWorktreeFixture> {
   runGit(primary, ["config", "user.name", "Calibrate test"]);
   runGit(primary, ["config", "user.email", "calibrate-test@example.com"]);
   runGit(primary, ["commit", "-m", "fixture"]);
-  runGit(primary, ["worktree", "add", linked, "HEAD"]);
+  runGit(primary, ["worktree", "add", "--detach", "--no-checkout", linked, "HEAD"]);
 
   return { root, primary, linked };
 }

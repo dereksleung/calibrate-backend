@@ -14,7 +14,7 @@ import type { AddressInfo } from "node:net";
 
 import { User } from "@domain/entities/user.js";
 import express from "express";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, Mocked, vi } from "vitest";
 
 import { AuthController } from "../../controllers/auth-controller.js";
 import { createAuthRoutes } from "../auth-routes.js";
@@ -47,7 +47,7 @@ describe("local development auth route", () => {
     familyInactivityExpiresAt: new Date("2030-01-08T00:00:00.000Z"),
     familyAbsoluteExpiresAt: new Date("2030-01-31T00:00:00.000Z"),
   };
-  const localTestSessionService: ILocalDevelopmentTestSessionService = {
+  const localTestSessionService: Mocked<ILocalDevelopmentTestSessionService> = {
     create: vi.fn(async () => localTestSession),
   };
   const sessionRestorationService = {
