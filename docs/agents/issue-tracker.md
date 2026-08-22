@@ -1,24 +1,30 @@
 # Issue tracker: Local Markdown
 
-Issues, PRDs, and implementation planning artifacts for this repo live as markdown files in `docs/tasks/`.
+Issues and specs for this repo live as markdown files in `.scratch/`.
 
 ## Conventions
 
-- One feature or workstream per directory: `docs/tasks/<feature-slug>/`
+- One feature per directory: `docs/tasks/<feature-slug>/`
 - The PRD is `docs/tasks/<feature-slug>/PRD.md`
-- Individual implementation tasks are `docs/tasks/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`
-- Grouped implementation task plans may also live under `docs/tasks/<feature-slug>/`. These plans can contain many related implementation tasks plus dependency information between those tasks. Treat these as planning artifacts, not necessarily single Matt Pocock-style issues.
-- Matt Pocock triage state is recorded as a `Status for Matt Pocock skills:` line near the top of each Matt Pocock issue file (see `triage-labels.md` for the status strings)
-- Comments and conversation history append to the bottom of the file under a `## Comments` heading when the artifact is an issue-style task
+- Implementation issues are one file per ticket at `docs/tasks/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`, never a single combined tickets file
+- Triage state is recorded as a `Status for Matt Pocock skills:` line near the top of each issue file (see `triage-labels.md` for the role strings)
+- Comments and conversation history append to the bottom of the file under a `## Comments` heading
 
 ## When a skill says "publish to the issue tracker"
 
-Create a new file under `docs/tasks/<feature-slug>/` (creating the directory if needed). Use the artifact shape expected by the skill:
-
-- PRDs go in `PRD.md`.
-- Individual implementation issues go in `issues/<NN>-<slug>.md`.
-- Grouped implementation plans, including plans produced by Addy Osmani-style planning skills, can use a descriptive markdown file name under the feature directory and should preserve dependency information between tasks.
+Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
 
 ## When a skill says "fetch the relevant ticket"
 
 Read the file at the referenced path. The user will normally pass the path or the issue number directly.
+
+## Wayfinding operations
+
+Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
+
+- **Map**: `.scratch/<effort>/map.md` (the Notes / Decisions-so-far / Fog body).
+- **Child ticket**: `.scratch/<effort>/issues/NN-<slug>.md`, numbered from `01`, with the question in the body. A `Type:` line records the ticket type (`research`/`prototype`/`grilling`/`task`); a `Status:` line records `claimed`/`resolved`.
+- **Blocking**: a `Blocked by: NN, NN` line near the top. A ticket is unblocked when every file it lists is `resolved`.
+- **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
+- **Claim**: set `Status: claimed` and save before any work.
+- **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
