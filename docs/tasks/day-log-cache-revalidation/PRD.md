@@ -6,7 +6,7 @@ Status for Matt Pocock skills: ready-for-agent
 
 Returning to Dashboard or Goals repeatedly makes the browser request and rebuild a rolling seven-day view even when most Day Logs are already known locally and have not changed. A later return on the same day should not require transferring or rehydrating unchanged Day Logs. On the next calendar day, the browser already has six overlapping dates but currently has no way to validate that overlap cheaply. The app also has no durable, user-isolated offline read cache for recently synchronized wellness data.
 
-The solution must improve perceived load time and reduce unnecessary aggregate rehydration without exposing one user's wellness data to another user of the same browser, weakening the existing cookie-backed session model, or making offline writes part of this story.
+Calibrate's anticipated usage is daily, with concurrent request spikes around mealtimes as users record food and revisit their stats. The solution must therefore reduce repeated backend range loading and aggregate rehydration during those peaks, while improving perceived load time without exposing one user's wellness data to another user of the same browser, weakening the existing cookie-backed session model, or making offline writes part of this story.
 
 ## Solution
 
