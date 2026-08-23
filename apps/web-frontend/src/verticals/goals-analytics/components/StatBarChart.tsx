@@ -14,7 +14,7 @@ import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from "recharts";
 type StatBarChartDatum = {
   label: string;
   limit: number;
-  value: number;
+  value: number | null;
 };
 
 type StatBarChartProps = {
@@ -37,7 +37,9 @@ export function StatBarChart({
   valueUnit,
 }: StatBarChartProps) {
   const limit = data[0]?.limit ?? 0;
-  const maxValue = data.length ? Math.max(...data.flatMap(({ value, limit }) => [value, limit])) : 0;
+  const maxValue = data.length
+    ? Math.max(...data.flatMap(({ value, limit }) => (value === null ? [limit] : [value, limit])))
+    : 0;
   const yAxisMax = Math.ceil((maxValue * 1.1) / 10) * 10;
 
   const chartCard = (
@@ -98,9 +100,10 @@ export function StatBarChart({
                     labelFormatter={(_, payload) => payload[0]?.payload?.label ?? ""}
                     formatter={(value, _, item) => {
                       const payload = item.payload as StatBarChartDatum | undefined;
-                      const percentOfLimit = payload
-                        ? Math.round((payload.value / (payload.limit || 1)) * 100)
-                        : 0;
+                      const percentOfLimit =
+                        payload && payload.value !== null
+                          ? Math.round((payload.value / (payload.limit || 1)) * 100)
+                          : 0;
                       const unitLabel = valueUnit ?? "";
 
                       return (

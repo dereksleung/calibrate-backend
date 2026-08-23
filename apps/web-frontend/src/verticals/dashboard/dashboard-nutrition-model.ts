@@ -1,13 +1,12 @@
 import type { WeeklyDatum } from "#/shared/components/charts/WeeklyBarChart.tsx";
 import type { DayLogRangeResponse } from "@calibrate/api-contracts";
 
+import { getLocalWeekdayAbbreviation, getRollingSevenDayDateRange } from "#/shared/date/local-date-range.ts";
 import {
   DAILY_TARGETS,
   getDayLogNutritionTotals,
   type NutritionTotals,
 } from "#/shared/nutrition/nutrition-totals.ts";
-
-const DAY_LABELS = ["Sn", "M", "T", "W", "Th", "F", "Sa"] as const;
 
 export type DashboardNutritionMetric = keyof NutritionTotals;
 
@@ -33,19 +32,14 @@ const METRIC_CONFIGURATIONS: readonly NutritionMetricConfiguration[] = [
   { metric: "totalCarbohydrateGrams", title: "Carbs", unit: "gram" },
 ];
 
-export function getDashboardNutritionDateRange(now = new Date()): { startDate: string; endDate: string } {
-  const endDate = formatLocalDate(now);
-  const start = new Date(now);
-  start.setDate(start.getDate() - 6);
-
-  return { startDate: formatLocalDate(start), endDate };
-}
+/** @deprecated Use the shared rolling range helper for new consumers. */
+export const getDashboardNutritionDateRange = getRollingSevenDayDateRange;
 
 export function buildDashboardNutritionModels(response: DayLogRangeResponse): DashboardNutritionModels {
   return METRIC_CONFIGURATIONS.reduce<Partial<DashboardNutritionModels>>((models, configuration) => {
     const limit = DAILY_TARGETS[configuration.metric];
     const weeklyData = response.days.map((day) => ({
-      label: getDayLabel(day.date),
+      label: getLocalWeekdayAbbreviation(day.date),
       eaten: getDayLogNutritionTotals(day.dayLog)[configuration.metric],
       limit,
     }));
@@ -60,17 +54,4 @@ export function buildDashboardNutritionModels(response: DayLogRangeResponse): Da
 
     return models;
   }, {}) as DashboardNutritionModels;
-}
-
-function formatLocalDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function getDayLabel(date: string): string {
-  const [year, month, day] = date.split("-").map(Number);
-  return DAY_LABELS[new Date(year, month - 1, day).getDay()];
 }

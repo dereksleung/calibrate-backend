@@ -6,8 +6,8 @@ import {
   type StatBarChartDatum,
 } from "#/verticals/goals-analytics/components/StatBarChart.tsx";
 
-type FatBarChartDatum = {
-  eaten: number;
+export type FatBarChartDatum = {
+  eaten: number | null;
   label: string;
   limit: number;
 };
@@ -36,9 +36,12 @@ export function FatBarChart({ ariaLabel, data, onClick, tooltipContent }: FatBar
     limit,
     value: eaten,
   }));
-  const averageFatLimitPercent = data.length
+  const observedDays = data.filter(({ eaten }) => eaten !== null);
+  const averageFatLimitPercent = observedDays.length
     ? Math.round(
-        (data.reduce((total, day) => total + (day.limit ? day.eaten / day.limit : 0), 0) / data.length) * 100,
+        (observedDays.reduce((total, day) => total + (day.limit ? day.eaten! / day.limit : 0), 0) /
+          observedDays.length) *
+          100,
       )
     : 0;
 

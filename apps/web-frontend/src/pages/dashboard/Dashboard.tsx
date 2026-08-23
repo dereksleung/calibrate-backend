@@ -2,15 +2,13 @@ import { apiTransport } from "#/shared/api/api-client.ts";
 import { Card } from "#/shared/components/base/Card.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "#/shared/components/base/tooltip/Tooltip.tsx";
 import { Typography } from "#/shared/components/base/typography/Typography.tsx";
+import { getRollingSevenDayDateRange } from "#/shared/date/local-date-range.ts";
 import { ConsistencyScore } from "#/verticals/dashboard/components/ConsistencyScore.tsx";
 import { HighImpactSwap } from "#/verticals/dashboard/components/HighImpactSwap.tsx";
 import { TodayAndWeekCalories } from "#/verticals/dashboard/components/TodayAndWeekCalories.tsx";
 import { TodayAndWeekStat } from "#/verticals/dashboard/components/TodayAndWeekStat.tsx";
 import { YesterdayRecap } from "#/verticals/dashboard/components/YesterdayRecap.tsx";
-import {
-  buildDashboardNutritionModels,
-  getDashboardNutritionDateRange,
-} from "#/verticals/dashboard/dashboard-nutrition-model.ts";
+import { buildDashboardNutritionModels } from "#/verticals/dashboard/dashboard-nutrition-model.ts";
 import { useDayLogRange } from "@calibrate/api-client";
 import { Link } from "@tanstack/react-router";
 import { useEffect } from "react";
@@ -19,7 +17,7 @@ import { toast } from "sonner";
 const FATS_ANALYTICS_TOOLTIP = "Click to open a more detailed fats view.";
 
 export const Dashboard = () => {
-  const dayLogRange = getDashboardNutritionDateRange();
+  const dayLogRange = getRollingSevenDayDateRange();
   const { data, error, isPending, refetch } = useDayLogRange(apiTransport, dayLogRange);
   const nutritionModels = data ? buildDashboardNutritionModels(data) : undefined;
 
