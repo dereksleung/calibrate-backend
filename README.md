@@ -17,7 +17,7 @@ A calorie tracker application, because I've gotten into healthier eating, joggin
 
 ## Frontend Current State
 
-The current UI is partly a prototype built with mock data, with the Logs page able to load data for a day and add new food entries if you run the frontend and backend in development and sign up a user. The Goals page does not yet load live data, the Overview (Dashboard) page loads live data for its charts, but the Daily Insights area is mock UI.
+The current UI is partly a prototype built with mock data, with the Logs page able to load data for a day and add new food entries if you run the frontend and backend in development and sign up a user. The Goals page now loads live seven-day weight and fat charts, while the Overview (Dashboard) page loads live data for its charts and the Daily Insights area remains mock UI.
 
 One goal is to show product judgment: take what could easily become dense, data-heavy areas in the Dashboard and Goals pages, and keep them simple enough to be useful. The target user is not an expert mathematician or nutrition analyst, rather they are people wanting to change themselves, who may need help building new habits, and need to understand what to do next, and what is working or not working. The most important product work is surfacing actions and actionable insights that help them keep momentum with new habits, while suggesting small tweaks they may not have realized they can do that will help them get results.
 
@@ -36,7 +36,7 @@ On clicking the High Impact Swap card's Learn More link -> panel with actionable
 <img width="1307" height="939" alt="Screenshot 2026-06-25 at 8 54 35 PM" src="https://github.com/user-attachments/assets/24ca45ca-3fd2-4fc7-80ac-6a22f000e99c" />
 
 <br></br>
-Hovering over the Dashboard's Fats chart will show a tooltip saying you can click the chart to go to [a panel on the Goals page](#fats-analytics-panel), making that discoverable. Only the fats detail view mock UI is built right now.
+Hovering over the Dashboard's Fats chart will show a tooltip saying you can click the chart to go to [a panel on the Goals page](#fats-analytics-panel), making that discoverable. The Fats Analytics detail view remains mock UI right now.
 <br></br>
 
 #### Goals page

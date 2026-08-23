@@ -4,7 +4,7 @@ This project is a calorie tracking app prototype for someone trying to lose weig
 
 The first goal right now is to demonstrate product judgment: take what could easily become dense, data-heavy areas in the Dashboard and Goals pages, and keep them simple enough to be useful. The target user is not an expert mathematician or nutrition analyst, rather they are people wanting to change themselves, who may need help building new habits, and need to understand what to do next, and what is working or not working. The most important product work is surfacing actions and actionable insights that help them keep momentum with new habits, while suggesting small tweaks they may not have realized they can do that will help them get results.
 
-The current UI is built with mock data, most things are not actually functional, pages do not load live data yet. That is intentional. It lets the product direction, information hierarchy, and interaction patterns come first before backend contracts or analytics plumbing harden too early.
+For the current live and mock functionality status, see the repository's [Frontend Current State](../../README.md#frontend-current-state). This project README keeps the frontend-specific product and design context; the repository README owns the changing product-status facts.
 
 Charts and data stay at overview level by default. When a user chooses to drill deeper, the app should still be selective about what it shows. More data is only useful when it creates a clearer insight, a better decision, or a practical adjustment the user can actually make.
 
@@ -33,7 +33,7 @@ On clicking the High Impact Swap card's Learn More link -> panel with actionable
 <img width="1829" height="930" alt="Screenshot 2026-05-03 at 6 17 44 PM" src="https://github.com/user-attachments/assets/ae5fc0c5-0525-4192-8d08-4e9c8576dc4c" />
 
 <br></br>
-Hovering over the Dashboard's Fats chart will show a tooltip saying you can click the chart to go to [a panel on the Goals page](#fats-analytics-panel), making that discoverable. Only the fats detail view mock UI is built right now.
+Hovering over the Dashboard's Fats chart will show a tooltip saying you can click the chart to go to [a panel on the Goals page](#fats-analytics-panel), making that discoverable. See the repository README's [Frontend Current State](../../README.md#frontend-current-state) for the current live/mock status.
 <br></br>
 
 ### Goals page

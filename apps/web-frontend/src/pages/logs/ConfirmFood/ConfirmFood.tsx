@@ -6,8 +6,8 @@ import { useMemo, useState } from "react";
 
 import type { FoodConfirmationState } from "../food-confirmation-state.ts";
 
-import { getFoodUnitOptions, scaleFoodNutrition } from "./confirm-food-nutrition.ts";
 import { DailyGoalProgress, NutritionAtGlance, NutritionFacts } from "./components/FoodNutritionPanels.tsx";
+import { getFoodUnitOptions, scaleFoodNutrition } from "./confirm-food-nutrition.ts";
 
 type ConfirmFoodProps = {
   confirmation: FoodConfirmationState;
