@@ -1,4 +1,5 @@
 import { apiTransport } from "#/shared/api/api-client.ts";
+import { restoreDayLogCache } from "#/shared/api/day-log-cache.ts";
 import { Button } from "#/shared/components/base/Button.tsx";
 import { WarningBanner } from "#/shared/components/base/WarningBanner.tsx";
 import { getCurrentSession, refreshSession, ApiError } from "@calibrate/api-client";
@@ -17,7 +18,9 @@ export function SessionRestorationGate({ children }: { children: React.ReactNode
   const restore = useCallback(async () => {
     setState("checking");
     try {
-      setAuthenticatedSession(queryClient, await getCurrentSession(apiTransport));
+      const session = await getCurrentSession(apiTransport);
+      setAuthenticatedSession(queryClient, session);
+      await restoreDayLogCache(queryClient, session.user.id);
       setState("available");
       return;
     } catch (error) {
@@ -29,7 +32,9 @@ export function SessionRestorationGate({ children }: { children: React.ReactNode
     setState("refreshing");
     try {
       await refreshSession(apiTransport);
-      setAuthenticatedSession(queryClient, await getCurrentSession(apiTransport));
+      const session = await getCurrentSession(apiTransport);
+      setAuthenticatedSession(queryClient, session);
+      await restoreDayLogCache(queryClient, session.user.id);
       setState("available");
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {

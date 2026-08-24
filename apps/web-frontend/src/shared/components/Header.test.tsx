@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { createQueryClient } from "#/shared/api/query-client.ts";
+import { dayLogQueryKey } from "@calibrate/api-client";
 import {
   authenticatedSessionQueryKey,
   setAuthenticatedSession,
@@ -166,6 +167,7 @@ describe("Header", () => {
 
     it("waits for successful server logout before clearing the session and navigating", async () => {
       const { queryClient, router } = await renderHeader("/", { authenticated: true });
+      queryClient.setQueryData(dayLogQueryKey("2026-07-10"), { id: "private-day-log" });
 
       fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
       fireEvent.click(await screen.findByRole("button", { name: "Log out" }));
@@ -173,6 +175,7 @@ describe("Header", () => {
       await waitFor(() => {
         expect(mockDeleteCurrentSession).toHaveBeenCalledTimes(1);
         expect(queryClient.getQueryData(authenticatedSessionQueryKey)).toBeUndefined();
+        expect(queryClient.getQueryData(dayLogQueryKey("2026-07-10"))).toBeUndefined();
         expect(router.state.location.pathname).toBe("/signup-login");
       });
     });
@@ -180,12 +183,14 @@ describe("Header", () => {
     it("preserves authenticated state and shows a retryable error when logout fails", async () => {
       mockDeleteCurrentSession.mockRejectedValueOnce(new Error("offline"));
       const { queryClient, router } = await renderHeader("/", { authenticated: true });
+      queryClient.setQueryData(dayLogQueryKey("2026-07-10"), { id: "private-day-log" });
 
       fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
       fireEvent.click(await screen.findByRole("button", { name: "Log out" }));
 
       await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Unable to log out"));
       expect(queryClient.getQueryData(authenticatedSessionQueryKey)).toBeDefined();
+      expect(queryClient.getQueryData(dayLogQueryKey("2026-07-10"))).toEqual({ id: "private-day-log" });
       expect(router.state.location.pathname).toBe("/");
     });
   });

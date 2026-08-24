@@ -7,11 +7,11 @@ import { HighImpactSwap } from "#/verticals/dashboard/components/HighImpactSwap.
 import { TodayAndWeekCalories } from "#/verticals/dashboard/components/TodayAndWeekCalories.tsx";
 import { TodayAndWeekStat } from "#/verticals/dashboard/components/TodayAndWeekStat.tsx";
 import { YesterdayRecap } from "#/verticals/dashboard/components/YesterdayRecap.tsx";
+import { useDashboardDayLogRange } from "#/verticals/dashboard/dashboard-day-log-query.ts";
 import {
   buildDashboardNutritionModels,
   getDashboardNutritionDateRange,
 } from "#/verticals/dashboard/dashboard-nutrition-model.ts";
-import { useDayLogRange } from "@calibrate/api-client";
 import { Link } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -20,7 +20,7 @@ const FATS_ANALYTICS_TOOLTIP = "Click to open a more detailed fats view.";
 
 export const Dashboard = () => {
   const dayLogRange = getDashboardNutritionDateRange();
-  const { data, error, isPending, refetch } = useDayLogRange(apiTransport, dayLogRange);
+  const { data, error, isPending, refetch } = useDashboardDayLogRange(apiTransport, dayLogRange);
   const nutritionModels = data ? buildDashboardNutritionModels(data) : undefined;
 
   useEffect(() => {

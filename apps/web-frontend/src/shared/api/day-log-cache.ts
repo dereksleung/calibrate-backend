@@ -51,7 +51,8 @@ export function isPersistableDayLogQuery(query: Pick<Query, "queryKey">): boolea
   return scope === DAY_LOG_QUERY_SCOPE && rest.length === 0 && typeof date === "string" && ISO_DATE_PATTERN.test(date);
 }
 
-const shouldDehydrateQuery = (query: Query) => isPersistableDayLogQuery(query);
+const shouldDehydrateQuery = (query: Query) =>
+  isPersistableDayLogQuery(query) && query.state.status === "success";
 
 const dehydrateOptions = {
   shouldDehydrateQuery,

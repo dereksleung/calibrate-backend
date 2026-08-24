@@ -1,6 +1,7 @@
 import { cn } from "#/lib/utils";
 import { getTodayDateString } from "#/pages/logs/log-page-helpers.ts";
 import { apiTransport } from "#/shared/api/api-client.ts";
+import { clearDayLogCache } from "#/shared/api/day-log-cache.ts";
 import {
   clearAuthenticatedSession,
   useAuthenticatedSession,
@@ -71,8 +72,10 @@ export default function Header() {
     if (isLogoutPending) return;
     setIsLogoutPending(true);
     setLogoutError(false);
+    const userId = session?.user.id;
     try {
       await deleteCurrentSession(apiTransport);
+      await clearDayLogCache(queryClient, userId);
       clearAuthenticatedSession(queryClient);
       await navigate({ to: "/signup-login" });
     } catch {

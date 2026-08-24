@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { TooltipProvider } from "#/shared/components/base/tooltip/Tooltip.tsx";
-import { dayLogRangeQueryKeyPrefix } from "@calibrate/api-client";
+import { dayLogQueryKey, dayLogRangeQueryKeyPrefix } from "@calibrate/api-client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   RouterContextProvider,
@@ -14,6 +14,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Dashboard } from "./Dashboard.tsx";
+import { getDashboardNutritionDateRange } from "../../verticals/dashboard/dashboard-nutrition-model.ts";
 
 const { mockToastError } = vi.hoisted(() => ({ mockToastError: vi.fn() }));
 
@@ -159,6 +160,12 @@ function dayLogRangeResponse(url: string, calories: number) {
   };
 }
 
+function seedDateKeyedRange(queryClient: QueryClient, response: ReturnType<typeof dayLogRangeResponse>) {
+  for (const day of response.days) {
+    queryClient.setQueryData(dayLogQueryKey(day.date), day.dayLog);
+  }
+}
+
 beforeEach(() => {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches: false,
@@ -179,6 +186,58 @@ afterEach(() => {
 });
 
 describe("dashboard live nutrition", () => {
+  it("renders restored date-keyed entries immediately and corrects them in the background", async () => {
+    const range = getDashboardNutritionDateRange();
+    const rangeUrl = `http://localhost/api/v1/daylogs?startDate=${range.startDate}&endDate=${range.endDate}`;
+    const queryClient = createDashboardQueryClient();
+    seedDateKeyedRange(queryClient, dayLogRangeResponse(rangeUrl, 100));
+
+    let resolveFetch!: (response: Response) => void;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+
+    await renderDashboard(queryClient);
+
+    expect(await screen.findByText(/100 calories eaten out of a 1,800 calorie limit/)).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    resolveFetch(
+      new Response(JSON.stringify(dayLogRangeResponse(getFetchUrl(fetchMock.mock.calls[0][0]), 250)), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    expect(await screen.findByText(/250 calories eaten out of a 1,800 calorie limit/)).toBeTruthy();
+  });
+
+  it("starts another background refresh when the browser regains focus", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const calories = fetchMock.mock.calls.length === 1 ? 100 : 250;
+
+      return Promise.resolve(
+        new Response(JSON.stringify(dayLogRangeResponse(getFetchUrl(input), calories)), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    });
+
+    await renderDashboard();
+
+    expect(await screen.findByText(/100 calories eaten out of a 1,800 calorie limit/)).toBeTruthy();
+
+    window.dispatchEvent(new Event("focus"));
+
+    expect(await screen.findByText(/250 calories eaten out of a 1,800 calorie limit/)).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("requests the inclusive seven-day range and renders API totals", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
       const url = getFetchUrl(input);
