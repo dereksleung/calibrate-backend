@@ -241,6 +241,47 @@ describe("day-log cache persistence", () => {
     );
   });
 
+  it("rewrites the persisted namespace without expired entries during restore", async () => {
+    const now = Date.now();
+    const { storage } = createStorage({
+      [dayLogCacheStorageKey("user-a")]: createPersistedDayLogClient([
+        {
+          queryDate: "2026-08-21",
+          dataDate: "2026-08-21",
+          dataUpdatedAt: now - DAY_LOG_CACHE_MAX_AGE_MS - 1,
+        },
+        { queryDate: "2026-08-22", dataDate: "2026-08-22", dataUpdatedAt: now },
+      ]),
+    });
+    const queryClient = new QueryClient();
+
+    await restoreDayLogCache(queryClient, "user-a", { storageFactory: () => storage });
+
+    const rewritten = JSON.parse(storage.setItem.mock.calls.at(-1)?.[1] ?? "{}");
+    expect(rewritten.clientState.queries.map((query: { queryKey: unknown }) => query.queryKey)).toEqual([
+      dayLogQueryKey("2026-08-22"),
+    ]);
+  });
+
+  it("discards persisted entries with future update timestamps", async () => {
+    const now = Date.now();
+    const { storage } = createStorage({
+      [dayLogCacheStorageKey("user-a")]: createPersistedDayLogClient([
+        {
+          queryDate: "2026-08-22",
+          dataDate: "2026-08-22",
+          dataUpdatedAt: now + DAY_LOG_CACHE_MAX_AGE_MS,
+        },
+      ]),
+    });
+    const queryClient = new QueryClient();
+
+    await restoreDayLogCache(queryClient, "user-a", { storageFactory: () => storage });
+
+    expect(queryClient.getQueryData(dayLogQueryKey("2026-08-22"))).toBeUndefined();
+    expect(storage.removeItem).toHaveBeenCalledWith(dayLogCacheStorageKey("user-a"));
+  });
+
   it("rejects a persisted Day Log whose date does not match its query key", async () => {
     const { storage } = createStorage({
       [dayLogCacheStorageKey("user-a")]: createPersistedDayLogClient([

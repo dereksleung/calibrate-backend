@@ -1,10 +1,31 @@
+// @vitest-environment jsdom
+
+import type { ApiTransport } from "@calibrate/api-client";
 import type { DayLogRangeResponse } from "@calibrate/api-contracts";
 
+import { clearDayLogCache, restoreDayLogCache } from "#/shared/api/day-log-cache.ts";
+import {
+  getAuthenticatedSession,
+  setAuthenticatedSession,
+} from "#/verticals/auth/authenticated-session.ts";
 import { dayLogQueryKey } from "@calibrate/api-client";
-import { QueryClient } from "@tanstack/react-query";
-import { describe, expect, it } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, render, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createElement } from "react";
 
-import { composeDayLogRangeFromCache, writeDayLogRangeToCache } from "./dashboard-day-log-query.ts";
+import {
+  composeDayLogRangeFromCache,
+  useDashboardDayLogRange,
+  writeDayLogRangeToCache,
+} from "./dashboard-day-log-query.ts";
+
+const { mockGetDayLogRange } = vi.hoisted(() => ({ mockGetDayLogRange: vi.fn() }));
+
+vi.mock("@calibrate/api-client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@calibrate/api-client")>()),
+  getDayLogRange: mockGetDayLogRange,
+}));
 
 const range = {
   startDate: "2026-08-20",
@@ -49,5 +70,75 @@ describe("dashboard Day Log query composition", () => {
     queryClient.setQueryData(dayLogQueryKey("2026-08-21"), emptyDayLog);
 
     expect(composeDayLogRangeFromCache(queryClient, range)).toBeUndefined();
+  });
+});
+
+describe("dashboard Day Log query isolation", () => {
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it("does not publish an earlier account's range response after cache replacement", async () => {
+    let resolveRange!: (value: DayLogRangeResponse) => void;
+    mockGetDayLogRange.mockReturnValueOnce(
+      new Promise<DayLogRangeResponse>((resolve) => {
+        resolveRange = resolve;
+      }),
+    );
+    const storage = {
+      getItem: async () => null,
+      setItem: async () => undefined,
+      removeItem: async () => undefined,
+    };
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const sessionA = {
+      user: {
+        id: "user-a",
+        email: "user-a@example.com",
+        tier: "FREE" as const,
+        createdAt: new Date("2030-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2030-01-01T00:00:00.000Z"),
+      },
+      sessionTransport: "cookie" as const,
+    };
+    const sessionB = {
+      ...sessionA,
+      user: { ...sessionA.user, id: "user-b", email: "user-b@example.com" },
+    };
+
+    setAuthenticatedSession(queryClient, sessionA);
+    await restoreDayLogCache(queryClient, sessionA.user.id, {
+      storageFactory: () => storage,
+    });
+
+    function DashboardRangeReader() {
+      useDashboardDayLogRange({} as ApiTransport, range);
+      return null;
+    }
+
+    const { unmount } = render(
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(DashboardRangeReader),
+      ),
+    );
+    await waitFor(() => expect(mockGetDayLogRange).toHaveBeenCalledTimes(1));
+
+    unmount();
+    await clearDayLogCache(queryClient, sessionA.user.id, { storageFactory: () => storage });
+    setAuthenticatedSession(queryClient, sessionB);
+    await restoreDayLogCache(queryClient, sessionB.user.id, {
+      storageFactory: () => storage,
+    });
+    resolveRange(response());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(getAuthenticatedSession(queryClient)?.user.id).toBe(sessionB.user.id);
+    expect(queryClient.getQueryData(dayLogQueryKey("2026-08-21"))).toBeUndefined();
   });
 });

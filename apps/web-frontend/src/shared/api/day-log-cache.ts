@@ -50,6 +50,17 @@ export function dayLogCacheStorageKey(userId: string): string {
   return `${DAY_LOG_CACHE_STORAGE_PREFIX}${encodeURIComponent(userId)}`;
 }
 
+export function createDayLogCacheWriteGuard(
+  queryClient: QueryClient,
+  userId: string,
+): () => boolean {
+  const generation = cacheGenerations.get(queryClient);
+  return () =>
+    generation !== undefined &&
+    isCurrentCacheGeneration(queryClient, generation) &&
+    activeCaches.get(queryClient)?.userId === userId;
+}
+
 export function isPersistableDayLogQuery(query: Pick<Query, "queryKey">): boolean {
   const [scope, date, ...rest] = query.queryKey;
   return (
@@ -119,6 +130,11 @@ export async function restoreDayLogCache(
           await discardPersistedClient(persister);
         } else {
           hydrate(queryClient, sanitizedState);
+          await persister.persistClient({
+            buster: DAY_LOG_CACHE_BUSTER,
+            timestamp: Date.now(),
+            clientState: sanitizedState,
+          });
         }
       }
     }
@@ -302,6 +318,7 @@ function isWithinRetentionWindow(query: Query, now: number): boolean {
   return (
     typeof dataUpdatedAt === "number" &&
     Number.isFinite(dataUpdatedAt) &&
+    dataUpdatedAt <= now &&
     now - dataUpdatedAt <= DAY_LOG_CACHE_MAX_AGE_MS
   );
 }

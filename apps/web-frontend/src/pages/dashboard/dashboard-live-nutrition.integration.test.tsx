@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 
 import { TooltipProvider } from "#/shared/components/base/tooltip/Tooltip.tsx";
+import { restoreDayLogCache } from "#/shared/api/day-log-cache.ts";
+import { setAuthenticatedSession } from "#/verticals/auth/authenticated-session.ts";
 import { dayLogQueryKey, dayLogRangeQueryKeyPrefix } from "@calibrate/api-client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -47,6 +49,17 @@ const goalsRoute = createRoute({
 });
 const routeTree = rootRoute.addChildren([indexRoute, goalsRoute]);
 
+const dashboardSession = {
+  user: {
+    id: "dashboard-test-user",
+    email: "dashboard-test@example.com",
+    tier: "FREE" as const,
+    createdAt: new Date("2030-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2030-01-01T00:00:00.000Z"),
+  },
+  sessionTransport: "cookie" as const,
+};
+
 function createDashboardQueryClient() {
   return new QueryClient({
     defaultOptions: {
@@ -59,6 +72,10 @@ function createDashboardQueryClient() {
 }
 
 async function renderDashboard(queryClient = createDashboardQueryClient()) {
+  setAuthenticatedSession(queryClient, dashboardSession);
+  await restoreDayLogCache(queryClient, dashboardSession.user.id, {
+    storageFactory: () => null,
+  });
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: ["/"] }),

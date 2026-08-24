@@ -5,17 +5,35 @@ import type {
   GetDayLogRangeRequestQuery,
 } from "@calibrate/api-contracts";
 
-import { dayLogQueryKey, dayLogRangeQueryKey, getDayLogRange } from "@calibrate/api-client";
-import { skipToken, useQueries, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { createDayLogCacheWriteGuard } from "#/shared/api/day-log-cache.ts";
+import { getAuthenticatedSession } from "#/verticals/auth/authenticated-session.ts";
+import {
+  dayLogQueryKey,
+  dayLogRangeQueryKey,
+  getDayLogRange,
+} from "@calibrate/api-client";
+import {
+  CancelledError,
+  skipToken,
+  useQueries,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
 
 export function writeDayLogRangeToCache(
   queryClient: Pick<QueryClient, "setQueryData">,
   response: DayLogRangeResponse,
-): void {
+  canWrite: () => boolean = () => true,
+): boolean {
+  if (!canWrite()) return false;
+
   for (const day of response.days) {
     queryClient.setQueryData(dayLogQueryKey(day.date), day.dayLog);
   }
+
+  return true;
 }
 
 export function composeDayLogRangeFromCache(
@@ -41,8 +59,11 @@ export function useDashboardDayLogRange(transport: ApiTransport, range: GetDayLo
   const rangeQuery = useQuery({
     queryKey: dayLogRangeQueryKey(range),
     queryFn: async () => {
+      const canWrite = createRangeWriteGuard(queryClient);
       const response = await getDayLogRange(transport, range);
-      writeDayLogRangeToCache(queryClient, response);
+      if (!writeDayLogRangeToCache(queryClient, response, canWrite)) {
+        throw new CancelledError({ revert: true, silent: true });
+      }
       return response;
     },
   });
@@ -74,6 +95,14 @@ export function useDashboardDayLogRange(transport: ApiTransport, range: GetDayLo
     isPending: data === undefined && rangeQuery.isPending,
     refetch,
   };
+}
+
+function createRangeWriteGuard(queryClient: QueryClient): () => boolean {
+  const userId = getAuthenticatedSession(queryClient)?.user.id;
+  if (!userId) return () => false;
+
+  const cacheGuard = createDayLogCacheWriteGuard(queryClient, userId);
+  return () => cacheGuard() && getAuthenticatedSession(queryClient)?.user.id === userId;
 }
 
 function getConsecutiveDates(startDate: string, endDate: string): string[] {

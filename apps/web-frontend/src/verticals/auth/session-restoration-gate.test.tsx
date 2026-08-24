@@ -5,6 +5,10 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  authenticatedSessionQueryKey,
+  setAuthenticatedSession,
+} from "./authenticated-session.ts";
 import { SessionRestorationGate } from "./session-restoration-gate.tsx";
 
 const { mockGetCurrentSession, mockRefreshSession, mockRestoreDayLogCache, mockNavigate } = vi.hoisted(
@@ -40,6 +44,15 @@ const authenticatedSession = {
     updatedAt: new Date("2030-01-01T00:00:00.000Z"),
   },
   sessionTransport: "cookie" as const,
+};
+
+const otherAuthenticatedSession = {
+  ...authenticatedSession,
+  user: {
+    ...authenticatedSession.user,
+    id: "another-user-id",
+    email: "another@example.com",
+  },
 };
 
 beforeEach(() => {
@@ -107,5 +120,33 @@ describe("SessionRestorationGate", () => {
     await screen.findByText("Dashboard reads");
 
     expect(events).toEqual(["session-confirmed", "cache-restored"]);
+  });
+
+  it("does not let a stale session response update an unmounted gate", async () => {
+    let resolveSession!: (session: typeof authenticatedSession) => void;
+    mockGetCurrentSession.mockReturnValueOnce(
+      new Promise<typeof authenticatedSession>((resolve) => {
+        resolveSession = resolve;
+      }),
+    );
+    const queryClient = createQueryClient();
+    setAuthenticatedSession(queryClient, otherAuthenticatedSession);
+
+    const { unmount } = render(
+      <QueryClientProvider client={queryClient}>
+        <SessionRestorationGate>
+          <p>Dashboard reads</p>
+        </SessionRestorationGate>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(mockGetCurrentSession).toHaveBeenCalledTimes(1));
+    unmount();
+    resolveSession(authenticatedSession);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(queryClient.getQueryData(authenticatedSessionQueryKey)).toEqual(otherAuthenticatedSession);
+    expect(mockRestoreDayLogCache).not.toHaveBeenCalled();
   });
 });
