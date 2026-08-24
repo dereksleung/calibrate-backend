@@ -7,3 +7,5 @@ commands:
 
 auto_fix:
   test: 0
+
+no_ci: true
