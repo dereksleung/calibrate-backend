@@ -3,7 +3,7 @@
 import { dayLogRangeQueryKeyPrefix } from "@calibrate/api-client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRouter } from "@tanstack/react-router";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { routeTree } from "../../routeTree.gen.ts";
@@ -14,6 +14,13 @@ vi.mock("@tanstack/react-devtools", () => ({
 
 vi.mock("@tanstack/react-router-devtools", () => ({
   TanStackRouterDevtoolsPanel: () => null,
+}));
+
+const { mockToastError } = vi.hoisted(() => ({ mockToastError: vi.fn() }));
+
+vi.mock("sonner", () => ({
+  Toaster: () => null,
+  toast: { error: mockToastError },
 }));
 
 vi.mock("#/verticals/goals-analytics/components/FatBarChart.tsx", () => ({
@@ -177,6 +184,7 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  mockToastError.mockReset();
 });
 
 describe("Goals live seven-day analytics", () => {
@@ -225,7 +233,7 @@ describe("Goals live seven-day analytics", () => {
     ).toHaveLength(7);
   });
 
-  it("shows a retryable initial error and renders data after refetch", async () => {
+  it("shows a retryable initial error toast and renders data after refetch", async () => {
     let rangeCalls = 0;
     vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
       if (getFetchUrl(input).includes("/auth/session")) {
@@ -247,10 +255,24 @@ describe("Goals live seven-day analytics", () => {
 
     renderGoalsRoute();
 
-    expect(await screen.findByRole("alert")).toBeTruthy();
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledTimes(1));
     expect(screen.queryByTestId("live-fat-chart")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    const [, toastOptions] = mockToastError.mock.calls[0];
+    expect(toastOptions).toEqual(
+      expect.objectContaining({
+        action: expect.objectContaining({
+          label: "Try again",
+          onClick: expect.any(Function),
+        }),
+        classNames: expect.objectContaining({
+          actionButton: expect.stringContaining("min-h-11"),
+        }),
+      }),
+    );
+
+    toastOptions.action.onClick();
 
     expect(await screen.findByTestId("live-fat-chart")).toBeTruthy();
   });
@@ -281,9 +303,12 @@ describe("Goals live seven-day analytics", () => {
 
     await queryClient.invalidateQueries({ queryKey: dayLogRangeQueryKeyPrefix });
 
-    expect(await screen.findByRole("status", { name: "Live Goals charts need a refresh" })).toBeTruthy();
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId("fat-slot-2026-08-06").textContent).toContain(":10:60");
-    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+
+    const [, toastOptions] = mockToastError.mock.calls[0];
+    expect(toastOptions.action.label).toBe("Try again");
   });
 
   it("refreshes the mounted chart after range invalidation", async () => {

@@ -25,6 +25,7 @@ import { useSearch } from "@tanstack/react-router";
 import { TrendingDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Line, LineChart, XAxis, YAxis } from "recharts";
+import { toast } from "sonner";
 
 // const GOAL_TABS = ["1W", "1M", "3M", "Plan"] as const;
 
@@ -58,6 +59,21 @@ export function Goals() {
   const [activeDrawerContent, setActiveDrawerContent] = useState<AnalyticsDrawerContent | null>(null);
   const fatsChartRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (!isPending && error) {
+      toast.error(error.message, {
+        action: {
+          label: "Try again",
+          onClick: () => void refetch(),
+        },
+        classNames: {
+          actionButton: "min-h-11 min-w-24 whitespace-nowrap px-4 py-2",
+        },
+        closeButton: true,
+      });
+    }
+  }, [error, isPending, refetch]);
+
   const handleAnalyticsDrawerOpenChange = (open: boolean) => {
     if (!open) {
       setActiveDrawerContent(null);
@@ -67,41 +83,8 @@ export function Goals() {
   const isMobile = useIsMobile();
 
   const renderLiveChartFeedback = () => {
-    if (chartData) {
-      return error ? (
-        <div
-          aria-label="Live Goals charts need a refresh"
-          className="flex items-center justify-between gap-4 rounded-xl border border-outline-variant/60 bg-surface-container-low px-4 py-3"
-          role="status"
-        >
-          <p className="text-sm text-on-surface-variant">The latest chart refresh failed.</p>
-          <button
-            className="shrink-0 text-sm font-medium text-primary underline"
-            onClick={() => void refetch()}
-            type="button"
-          >
-            Try again
-          </button>
-        </div>
-      ) : null;
-    }
-
-    if (error && !isPending) {
-      return (
-        <Card className="p-6" role="alert">
-          <Typography as="h3" variant="cardTitle" color="primary">
-            Live Goals charts are unavailable
-          </Typography>
-          <p className="mt-2 text-muted-foreground">Your seven-day chart data could not be loaded.</p>
-          <button
-            className="mt-4 self-start text-primary underline"
-            onClick={() => void refetch()}
-            type="button"
-          >
-            Try again
-          </button>
-        </Card>
-      );
+    if (!isPending) {
+      return null;
     }
 
     return (
