@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { dayLogQueryKey, dayLogRangeQueryKey } from "@calibrate/api-client";
-import { QueryClient } from "@tanstack/react-query";
+import { dehydrate, QueryClient } from "@tanstack/react-query";
 import { cleanup, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -71,6 +71,25 @@ function createPersistedClient(timestamp = Date.now(), queries: unknown[] = []) 
     buster: DAY_LOG_CACHE_BUSTER,
     timestamp,
     clientState: { queries, mutations: [] },
+  });
+}
+
+function createPersistedDayLogClient(
+  entries: Array<{ queryDate: string; dataDate: string; dataUpdatedAt: number }>,
+) {
+  const queryClient = new QueryClient();
+  for (const entry of entries) {
+    queryClient.setQueryData(
+      dayLogQueryKey(entry.queryDate),
+      createDayLog(entry.dataDate),
+      { updatedAt: entry.dataUpdatedAt },
+    );
+  }
+
+  return JSON.stringify({
+    buster: DAY_LOG_CACHE_BUSTER,
+    timestamp: Date.now(),
+    clientState: dehydrate(queryClient),
   });
 }
 
@@ -182,8 +201,55 @@ describe("day-log cache persistence", () => {
   });
 
   it("discards persisted data older than the thirty-day retention window", async () => {
+    const now = Date.now();
     const { storage } = createStorage({
-      [dayLogCacheStorageKey("user-a")]: createPersistedClient(Date.now() - DAY_LOG_CACHE_MAX_AGE_MS - 1),
+      [dayLogCacheStorageKey("user-a")]: createPersistedDayLogClient([
+        {
+          queryDate: "2026-08-22",
+          dataDate: "2026-08-22",
+          dataUpdatedAt: now - DAY_LOG_CACHE_MAX_AGE_MS - 1,
+        },
+      ]),
+    });
+    const queryClient = new QueryClient();
+
+    await restoreDayLogCache(queryClient, "user-a", { storageFactory: () => storage });
+
+    expect(queryClient.getQueryData(dayLogQueryKey("2026-08-22"))).toBeUndefined();
+    expect(storage.removeItem).toHaveBeenCalledWith(dayLogCacheStorageKey("user-a"));
+  });
+
+  it("retains fresh entries while dropping only expired entries during restore", async () => {
+    const now = Date.now();
+    const { storage } = createStorage({
+      [dayLogCacheStorageKey("user-a")]: createPersistedDayLogClient([
+        {
+          queryDate: "2026-08-21",
+          dataDate: "2026-08-21",
+          dataUpdatedAt: now - DAY_LOG_CACHE_MAX_AGE_MS - 1,
+        },
+        { queryDate: "2026-08-22", dataDate: "2026-08-22", dataUpdatedAt: now },
+      ]),
+    });
+    const queryClient = new QueryClient();
+
+    await restoreDayLogCache(queryClient, "user-a", { storageFactory: () => storage });
+
+    expect(queryClient.getQueryData(dayLogQueryKey("2026-08-21"))).toBeUndefined();
+    expect(queryClient.getQueryData(dayLogQueryKey("2026-08-22"))).toEqual(
+      createDayLog("2026-08-22"),
+    );
+  });
+
+  it("rejects a persisted Day Log whose date does not match its query key", async () => {
+    const { storage } = createStorage({
+      [dayLogCacheStorageKey("user-a")]: createPersistedDayLogClient([
+        {
+          queryDate: "2026-08-22",
+          dataDate: "2026-08-23",
+          dataUpdatedAt: Date.now(),
+        },
+      ]),
     });
     const queryClient = new QueryClient();
 
@@ -207,7 +273,7 @@ describe("day-log cache persistence", () => {
     expect(storage.removeItem).toHaveBeenCalledWith(dayLogCacheStorageKey("user-a"));
   });
 
-  it("clears the current namespace without throwing when storage removal fails", async () => {
+  it("preserves the current cache and surfaces storage removal failures", async () => {
     const { storage } = createStorage();
     storage.removeItem.mockRejectedValue(new Error("IndexedDB write denied"));
     const queryClient = new QueryClient();
@@ -215,7 +281,31 @@ describe("day-log cache persistence", () => {
     await restoreDayLogCache(queryClient, "user-a", { storageFactory: () => storage });
     queryClient.setQueryData(dayLogQueryKey("2026-08-22"), createDayLog("2026-08-22"));
 
-    await expect(clearDayLogCache(queryClient, "user-a")).resolves.toBeUndefined();
+    await expect(clearDayLogCache(queryClient, "user-a")).rejects.toThrow("IndexedDB write denied");
+    expect(queryClient.getQueryData(dayLogQueryKey("2026-08-22"))).toEqual(createDayLog("2026-08-22"));
+  });
+
+  it("does not hydrate an older user's pending restore after a newer restore starts", async () => {
+    const userA = createStorage({
+      [dayLogCacheStorageKey("user-a")]: createPersistedDayLogClient([
+        { queryDate: "2026-08-22", dataDate: "2026-08-22", dataUpdatedAt: Date.now() },
+      ]),
+    });
+    const userB = createStorage();
+    let releaseUserAStorage!: () => void;
+    const userAStorageReady = new Promise<typeof userA.storage>((resolve) => {
+      releaseUserAStorage = () => resolve(userA.storage);
+    });
+    const storageFactory = vi.fn((userId: string) => (userId === "user-a" ? userAStorageReady : userB.storage));
+    const queryClient = new QueryClient();
+
+    const restoreUserA = restoreDayLogCache(queryClient, "user-a", { storageFactory });
+    await waitFor(() => expect(storageFactory).toHaveBeenCalledWith("user-a"));
+
+    const restoreUserB = restoreDayLogCache(queryClient, "user-b", { storageFactory });
+    releaseUserAStorage();
+    await Promise.all([restoreUserA, restoreUserB]);
+
     expect(queryClient.getQueryData(dayLogQueryKey("2026-08-22"))).toBeUndefined();
   });
 

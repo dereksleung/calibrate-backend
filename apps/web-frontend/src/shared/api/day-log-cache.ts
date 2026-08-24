@@ -33,6 +33,7 @@ type PersistedDayLogClient = {
 type DayLogCacheOptions = {
   storageFactory?: (userId: string) => AsyncStringStorage | null | Promise<AsyncStringStorage | null>;
   throttleTime?: number;
+  isCurrentUser?: () => boolean;
 };
 
 type ActiveDayLogCache = {
@@ -43,6 +44,7 @@ type ActiveDayLogCache = {
 };
 
 const activeCaches = new WeakMap<QueryClient, ActiveDayLogCache>();
+const cacheGenerations = new WeakMap<QueryClient, number>();
 
 export function dayLogCacheStorageKey(userId: string): string {
   return `${DAY_LOG_CACHE_STORAGE_PREFIX}${encodeURIComponent(userId)}`;
@@ -79,14 +81,19 @@ export async function restoreDayLogCache(
 
   const activeCache = activeCaches.get(queryClient);
   if (activeCache?.userId === userId) return;
+  const generation = nextCacheGeneration(queryClient);
+  const isCurrent = () => isCurrentCacheOperation(queryClient, generation, options);
 
   if (activeCache) {
-    await clearDayLogCache(queryClient, activeCache.userId, options);
+    await clearActiveCache(queryClient, activeCache, isCurrent);
   } else {
     queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
   }
 
+  if (!isCurrent()) return;
+
   const storage = await getStorage(options, userId);
+  if (!isCurrent()) return;
   if (!storage) {
     activeCaches.set(queryClient, { userId });
     return;
@@ -100,19 +107,28 @@ export async function restoreDayLogCache(
 
   try {
     const persistedClient = await persister.restoreClient();
+    if (!isCurrent()) return;
 
     if (persistedClient) {
-      if (!isUsablePersistedClient(persistedClient, Date.now())) {
-        await persister.removeClient();
+      if (!isUsablePersistedClient(persistedClient)) {
+        await discardPersistedClient(persister);
       } else {
-        hydrate(queryClient, sanitizePersistedClientState(persistedClient.clientState));
+        const sanitizedState = sanitizePersistedClientState(persistedClient.clientState, Date.now());
+        if (!isCurrent()) return;
+        if (sanitizedState.queries.length === 0) {
+          await discardPersistedClient(persister);
+        } else {
+          hydrate(queryClient, sanitizedState);
+        }
       }
     }
   } catch {
+    if (!isCurrent()) return;
     queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
-    await removePersistedClient(persister);
+    await discardPersistedClient(persister);
   }
 
+  if (!isCurrent()) return;
   const persistence = subscribeToPersistence(queryClient, persister);
   activeCaches.set(queryClient, { userId, persister, ...persistence });
 }
@@ -125,28 +141,48 @@ export async function clearDayLogCache(
   const activeCache = activeCaches.get(queryClient);
   const targetUserId = userId ?? activeCache?.userId;
 
-  activeCache?.unsubscribe?.();
-  await activeCache?.waitForPendingPersists?.();
-  activeCaches.delete(queryClient);
-  queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
+  const generation = nextCacheGeneration(queryClient);
+  const isCurrent = () => isCurrentCacheGeneration(queryClient, generation);
 
-  if (!targetUserId) return;
+  if (activeCache && activeCache.userId === targetUserId) {
+    await clearActiveCache(queryClient, activeCache, isCurrent);
+    return;
+  }
 
-  if (activeCache?.userId === targetUserId && activeCache.persister) {
-    await removePersistedClient(activeCache.persister);
+  if (!targetUserId) {
+    if (isCurrent()) queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
     return;
   }
 
   const storage = await getStorage(options, targetUserId);
-  if (!storage) return;
+  if (!isCurrent()) return;
+  if (storage) {
+    await removePersistedClient(
+      createAsyncStoragePersister({
+        storage,
+        key: dayLogCacheStorageKey(targetUserId),
+        throttleTime: options.throttleTime,
+      }),
+    );
+  }
 
-  await removePersistedClient(
-    createAsyncStoragePersister({
-      storage,
-      key: dayLogCacheStorageKey(targetUserId),
-      throttleTime: options.throttleTime,
-    }),
-  );
+  if (!activeCache && isCurrent()) queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
+}
+
+async function clearActiveCache(
+  queryClient: QueryClient,
+  activeCache: ActiveDayLogCache,
+  canContinue: () => boolean,
+): Promise<void> {
+  activeCache.unsubscribe?.();
+  await activeCache.waitForPendingPersists?.();
+  if (!canContinue() || activeCaches.get(queryClient) !== activeCache) return;
+
+  if (activeCache.persister) await removePersistedClient(activeCache.persister);
+  if (!canContinue() || activeCaches.get(queryClient) !== activeCache) return;
+
+  activeCaches.delete(queryClient);
+  queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
 }
 
 function subscribeToPersistence(
@@ -210,7 +246,7 @@ async function getStorage(options: DayLogCacheOptions, userId: string): Promise<
   }
 }
 
-function isUsablePersistedClient(value: unknown, now: number): value is PersistedDayLogClient {
+function isUsablePersistedClient(value: unknown): value is PersistedDayLogClient {
   if (!value || typeof value !== "object") return false;
 
   const persistedClient = value as Partial<PersistedDayLogClient>;
@@ -218,7 +254,6 @@ function isUsablePersistedClient(value: unknown, now: number): value is Persiste
     persistedClient.buster === DAY_LOG_CACHE_BUSTER &&
     typeof persistedClient.timestamp === "number" &&
     Number.isFinite(persistedClient.timestamp) &&
-    now - persistedClient.timestamp <= DAY_LOG_CACHE_MAX_AGE_MS &&
     Boolean(persistedClient.clientState) &&
     typeof persistedClient.clientState === "object" &&
     Array.isArray(persistedClient.clientState.queries) &&
@@ -226,15 +261,19 @@ function isUsablePersistedClient(value: unknown, now: number): value is Persiste
   );
 }
 
-function sanitizePersistedClientState(clientState: DehydratedState): DehydratedState {
+function sanitizePersistedClientState(clientState: DehydratedState, now: number): DehydratedState {
   const queries = clientState.queries.filter((query) => {
     if (!isPersistableDayLogQuery(query) || query.state.status !== "success") return false;
 
-    if (query.state.data !== null && !DayLogResponseSchema.safeParse(query.state.data).success) {
-      throw new Error("Persisted Day Log cache contains invalid data");
+    if (query.state.data !== null) {
+      const parsedDayLog = DayLogResponseSchema.safeParse(query.state.data);
+      const [, date] = query.queryKey;
+      if (!parsedDayLog.success || parsedDayLog.data.date !== date) {
+        throw new Error("Persisted Day Log cache contains invalid data");
+      }
     }
 
-    return true;
+    return isWithinRetentionWindow(query, now);
   });
 
   return {
@@ -245,11 +284,44 @@ function sanitizePersistedClientState(clientState: DehydratedState): DehydratedS
 }
 
 async function removePersistedClient(persister: NonNullable<ActiveDayLogCache["persister"]>): Promise<void> {
+  await persister.removeClient();
+}
+
+async function discardPersistedClient(
+  persister: NonNullable<ActiveDayLogCache["persister"]>,
+): Promise<void> {
   try {
-    await persister.removeClient();
+    await removePersistedClient(persister);
   } catch {
-    // Storage is an optional performance benefit. In-memory logout/account isolation still succeeds.
+    return;
   }
+}
+
+function isWithinRetentionWindow(query: Query, now: number): boolean {
+  const dataUpdatedAt = query.state.dataUpdatedAt;
+  return (
+    typeof dataUpdatedAt === "number" &&
+    Number.isFinite(dataUpdatedAt) &&
+    now - dataUpdatedAt <= DAY_LOG_CACHE_MAX_AGE_MS
+  );
+}
+
+function nextCacheGeneration(queryClient: QueryClient): number {
+  const generation = (cacheGenerations.get(queryClient) ?? 0) + 1;
+  cacheGenerations.set(queryClient, generation);
+  return generation;
+}
+
+function isCurrentCacheGeneration(queryClient: QueryClient, generation: number): boolean {
+  return cacheGenerations.get(queryClient) === generation;
+}
+
+function isCurrentCacheOperation(
+  queryClient: QueryClient,
+  generation: number,
+  options: DayLogCacheOptions,
+): boolean {
+  return isCurrentCacheGeneration(queryClient, generation) && (options.isCurrentUser?.() ?? true);
 }
 
 function createIndexedDbStorage(): AsyncStringStorage | null {

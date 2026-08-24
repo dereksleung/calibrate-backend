@@ -74,7 +74,11 @@ describe("SessionRestorationGate", () => {
     );
 
     await waitFor(() => expect(mockGetCurrentSession).toHaveBeenCalledTimes(1));
-    expect(mockRestoreDayLogCache).toHaveBeenCalledWith(queryClient, authenticatedSession.user.id);
+    expect(mockRestoreDayLogCache).toHaveBeenCalledWith(
+      queryClient,
+      authenticatedSession.user.id,
+      expect.objectContaining({ isCurrentUser: expect.any(Function) }),
+    );
     expect(screen.queryByText("Dashboard reads")).toBeNull();
 
     releaseRestore();

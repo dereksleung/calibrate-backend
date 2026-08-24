@@ -7,7 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 
-import { setAuthenticatedSession } from "./authenticated-session.ts";
+import { getAuthenticatedSession, setAuthenticatedSession } from "./authenticated-session.ts";
 
 type State = "checking" | "refreshing" | "available" | "unavailable";
 
@@ -15,12 +15,21 @@ export function SessionRestorationGate({ children }: { children: React.ReactNode
   const [state, setState] = useState<State>("checking");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const restoreConfirmedSession = useCallback(
+    async (session: Awaited<ReturnType<typeof getCurrentSession>>) => {
+      setAuthenticatedSession(queryClient, session);
+      await restoreDayLogCache(queryClient, session.user.id, {
+        isCurrentUser: () => getAuthenticatedSession(queryClient)?.user.id === session.user.id,
+      });
+      return getAuthenticatedSession(queryClient)?.user.id === session.user.id;
+    },
+    [queryClient],
+  );
   const restore = useCallback(async () => {
     setState("checking");
     try {
       const session = await getCurrentSession(apiTransport);
-      setAuthenticatedSession(queryClient, session);
-      await restoreDayLogCache(queryClient, session.user.id);
+      if (!(await restoreConfirmedSession(session))) return;
       setState("available");
       return;
     } catch (error) {
@@ -33,8 +42,7 @@ export function SessionRestorationGate({ children }: { children: React.ReactNode
     try {
       await refreshSession(apiTransport);
       const session = await getCurrentSession(apiTransport);
-      setAuthenticatedSession(queryClient, session);
-      await restoreDayLogCache(queryClient, session.user.id);
+      if (!(await restoreConfirmedSession(session))) return;
       setState("available");
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
@@ -44,7 +52,7 @@ export function SessionRestorationGate({ children }: { children: React.ReactNode
       }
       setState("unavailable");
     }
-  }, [navigate, queryClient]);
+  }, [navigate, restoreConfirmedSession, queryClient]);
 
   useEffect(() => {
     void restore();
