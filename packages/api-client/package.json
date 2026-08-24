@@ -12,10 +12,10 @@
     "@calibrate/api-contracts": "1.0.0"
   },
   "devDependencies": {
-    "@tanstack/react-query": "^5.100.5"
+    "@tanstack/react-query": "5.100.5"
   },
   "peerDependencies": {
-    "@tanstack/react-query": "^5.100.5"
+    "@tanstack/react-query": "5.100.5"
   },
   "nx": {
     "targets": {
