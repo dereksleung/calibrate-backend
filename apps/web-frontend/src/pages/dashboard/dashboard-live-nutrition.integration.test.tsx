@@ -13,8 +13,8 @@ import {
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Dashboard } from "./Dashboard.tsx";
 import { getDashboardNutritionDateRange } from "../../verticals/dashboard/dashboard-nutrition-model.ts";
+import { Dashboard } from "./Dashboard.tsx";
 
 const { mockToastError } = vi.hoisted(() => ({ mockToastError: vi.fn() }));
 

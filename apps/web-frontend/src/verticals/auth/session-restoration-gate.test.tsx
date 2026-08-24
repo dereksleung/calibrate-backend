@@ -7,12 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SessionRestorationGate } from "./session-restoration-gate.tsx";
 
-const { mockGetCurrentSession, mockRefreshSession, mockRestoreDayLogCache, mockNavigate } = vi.hoisted(() => ({
-  mockGetCurrentSession: vi.fn(),
-  mockRefreshSession: vi.fn(),
-  mockRestoreDayLogCache: vi.fn(),
-  mockNavigate: vi.fn(),
-}));
+const { mockGetCurrentSession, mockRefreshSession, mockRestoreDayLogCache, mockNavigate } = vi.hoisted(
+  () => ({
+    mockGetCurrentSession: vi.fn(),
+    mockRefreshSession: vi.fn(),
+    mockRestoreDayLogCache: vi.fn(),
+    mockNavigate: vi.fn(),
+  }),
+);
 
 vi.mock("@calibrate/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@calibrate/api-client")>()),

@@ -1,23 +1,13 @@
-import {
-  dayLogQueryKey,
-  dayLogRangeQueryKey,
-  getDayLogRange,
-} from "@calibrate/api-client";
+import type { ApiTransport } from "@calibrate/api-client";
 import type {
   DayLogRangeResponse,
   DayLogResponse,
   GetDayLogRangeRequestQuery,
 } from "@calibrate/api-contracts";
-import {
-  skipToken,
-  useQueries,
-  useQuery,
-  useQueryClient,
-  type QueryClient,
-} from "@tanstack/react-query";
-import { useCallback, useEffect } from "react";
 
-import type { ApiTransport } from "@calibrate/api-client";
+import { dayLogQueryKey, dayLogRangeQueryKey, getDayLogRange } from "@calibrate/api-client";
+import { skipToken, useQueries, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect } from "react";
 
 export function writeDayLogRangeToCache(
   queryClient: Pick<QueryClient, "setQueryData">,
@@ -45,10 +35,7 @@ export function composeDayLogRangeFromCache(
   };
 }
 
-export function useDashboardDayLogRange(
-  transport: ApiTransport,
-  range: GetDayLogRangeRequestQuery,
-) {
+export function useDashboardDayLogRange(transport: ApiTransport, range: GetDayLogRangeRequestQuery) {
   const queryClient = useQueryClient();
   const dates = getConsecutiveDates(range.startDate, range.endDate);
   const rangeQuery = useQuery({

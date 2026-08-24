@@ -1,3 +1,4 @@
+import { DayLogResponseSchema } from "@calibrate/api-contracts";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import {
   dehydrate,
@@ -38,6 +39,7 @@ type ActiveDayLogCache = {
   userId: string;
   persister?: ReturnType<typeof createAsyncStoragePersister>;
   unsubscribe?: () => void;
+  waitForPendingPersists?: () => Promise<void>;
 };
 
 const activeCaches = new WeakMap<QueryClient, ActiveDayLogCache>();
@@ -48,7 +50,12 @@ export function dayLogCacheStorageKey(userId: string): string {
 
 export function isPersistableDayLogQuery(query: Pick<Query, "queryKey">): boolean {
   const [scope, date, ...rest] = query.queryKey;
-  return scope === DAY_LOG_QUERY_SCOPE && rest.length === 0 && typeof date === "string" && ISO_DATE_PATTERN.test(date);
+  return (
+    scope === DAY_LOG_QUERY_SCOPE &&
+    rest.length === 0 &&
+    typeof date === "string" &&
+    ISO_DATE_PATTERN.test(date)
+  );
 }
 
 const shouldDehydrateQuery = (query: Query) =>
@@ -98,7 +105,7 @@ export async function restoreDayLogCache(
       if (!isUsablePersistedClient(persistedClient, Date.now())) {
         await persister.removeClient();
       } else {
-        hydrate(queryClient, persistedClient.clientState);
+        hydrate(queryClient, sanitizePersistedClientState(persistedClient.clientState));
       }
     }
   } catch {
@@ -106,8 +113,8 @@ export async function restoreDayLogCache(
     await removePersistedClient(persister);
   }
 
-  const unsubscribe = subscribeToPersistence(queryClient, persister);
-  activeCaches.set(queryClient, { userId, persister, unsubscribe });
+  const persistence = subscribeToPersistence(queryClient, persister);
+  activeCaches.set(queryClient, { userId, persister, ...persistence });
 }
 
 export async function clearDayLogCache(
@@ -119,6 +126,7 @@ export async function clearDayLogCache(
   const targetUserId = userId ?? activeCache?.userId;
 
   activeCache?.unsubscribe?.();
+  await activeCache?.waitForPendingPersists?.();
   activeCaches.delete(queryClient);
   queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
 
@@ -141,22 +149,56 @@ export async function clearDayLogCache(
   );
 }
 
-function subscribeToPersistence(queryClient: QueryClient, persister: ActiveDayLogCache["persister"]): () => void {
-  if (!persister) return () => undefined;
+function subscribeToPersistence(
+  queryClient: QueryClient,
+  persister: ActiveDayLogCache["persister"],
+): Pick<ActiveDayLogCache, "unsubscribe" | "waitForPendingPersists"> {
+  if (!persister) {
+    return {
+      unsubscribe: () => undefined,
+      waitForPendingPersists: async () => undefined,
+    };
+  }
+
+  let active = true;
+  const pendingPersists = new Set<Promise<void>>();
 
   const persist = () => {
-    void persister.persistClient({
-      buster: DAY_LOG_CACHE_BUSTER,
-      timestamp: Date.now(),
-      clientState: dehydrate(queryClient, dehydrateOptions),
-    });
+    if (!active) return;
+
+    const pendingPersist = Promise.resolve().then(() =>
+      persister.persistClient({
+        buster: DAY_LOG_CACHE_BUSTER,
+        timestamp: Date.now(),
+        clientState: dehydrate(queryClient, dehydrateOptions),
+      }),
+    );
+    pendingPersists.add(pendingPersist);
+    void pendingPersist.then(
+      () => pendingPersists.delete(pendingPersist),
+      () => pendingPersists.delete(pendingPersist),
+    );
   };
 
-  return queryClient.getQueryCache().subscribe((event) => {
+  const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
     if (event.type === "added" || event.type === "removed" || event.type === "updated") {
       persist();
     }
   });
+
+  return {
+    unsubscribe: () => {
+      active = false;
+      unsubscribe();
+    },
+    waitForPendingPersists: async () => {
+      while (pendingPersists.size > 0) {
+        await Promise.all(
+          [...pendingPersists].map((pendingPersist) => pendingPersist.catch(() => undefined)),
+        );
+      }
+    },
+  };
 }
 
 async function getStorage(options: DayLogCacheOptions, userId: string): Promise<AsyncStringStorage | null> {
@@ -178,8 +220,28 @@ function isUsablePersistedClient(value: unknown, now: number): value is Persiste
     Number.isFinite(persistedClient.timestamp) &&
     now - persistedClient.timestamp <= DAY_LOG_CACHE_MAX_AGE_MS &&
     Boolean(persistedClient.clientState) &&
-    typeof persistedClient.clientState === "object"
+    typeof persistedClient.clientState === "object" &&
+    Array.isArray(persistedClient.clientState.queries) &&
+    Array.isArray(persistedClient.clientState.mutations)
   );
+}
+
+function sanitizePersistedClientState(clientState: DehydratedState): DehydratedState {
+  const queries = clientState.queries.filter((query) => {
+    if (!isPersistableDayLogQuery(query) || query.state.status !== "success") return false;
+
+    if (query.state.data !== null && !DayLogResponseSchema.safeParse(query.state.data).success) {
+      throw new Error("Persisted Day Log cache contains invalid data");
+    }
+
+    return true;
+  });
+
+  return {
+    ...clientState,
+    queries,
+    mutations: [],
+  };
 }
 
 async function removePersistedClient(persister: NonNullable<ActiveDayLogCache["persister"]>): Promise<void> {

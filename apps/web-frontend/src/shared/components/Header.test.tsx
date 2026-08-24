@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
 import { createQueryClient } from "#/shared/api/query-client.ts";
-import { dayLogQueryKey } from "@calibrate/api-client";
 import {
   authenticatedSessionQueryKey,
   setAuthenticatedSession,
 } from "#/verticals/auth/authenticated-session.ts";
+import { dayLogQueryKey } from "@calibrate/api-client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import {
   RouterContextProvider,
