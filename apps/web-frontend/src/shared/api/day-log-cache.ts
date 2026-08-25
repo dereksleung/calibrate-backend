@@ -14,6 +14,7 @@ export const DAY_LOG_CACHE_BUSTER = "day-log-cache-v1";
 const DAY_LOG_CACHE_DATABASE_NAME = "calibrate-day-log-cache";
 const DAY_LOG_CACHE_STORE_NAME = "query-cache";
 const DAY_LOG_CACHE_STORAGE_PREFIX = "calibrate:day-logs:";
+const DAY_LOG_CACHE_INVALIDATION_CHANNEL = "calibrate-day-log-cache-invalidation";
 const DAY_LOG_QUERY_SCOPE = "dayLogs";
 const DAY_LOG_QUERY_KEY_PREFIX = [DAY_LOG_QUERY_SCOPE] as const;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -39,6 +40,7 @@ type DayLogCacheOptions = {
   storageFactory?: (userId: string) => AsyncStringStorage | null | Promise<AsyncStringStorage | null>;
   throttleTime?: number;
   isCurrentUser?: () => boolean;
+  broadcast?: boolean;
 };
 
 type ActiveDayLogCache = {
@@ -48,6 +50,7 @@ type ActiveDayLogCache = {
   clearPersisted?: () => Promise<void>;
   unsubscribe?: () => void;
   waitForPendingPersists?: () => Promise<void>;
+  invalidationChannel?: BroadcastChannel;
 };
 
 const activeCaches = new WeakMap<QueryClient, ActiveDayLogCache>();
@@ -112,6 +115,10 @@ export async function restoreDayLogCache(
   }
 
   if (!isCurrent()) return;
+  if (activeCache) {
+    broadcastDayLogCacheInvalidation(activeCache.invalidationChannel, activeCache.userId);
+    activeCache.invalidationChannel?.close();
+  }
 
   const storage = await getStorage(options, userId);
   if (!isCurrent()) return;
@@ -119,6 +126,7 @@ export async function restoreDayLogCache(
     activeCaches.set(queryClient, {
       userId,
       clearPersisted: () => clearPersistedNamespace(options, userId),
+      invalidationChannel: createDayLogCacheInvalidationChannel(queryClient, userId),
     });
     return;
   }
@@ -139,6 +147,7 @@ export async function restoreDayLogCache(
     ready,
     clearPersisted: () => removePersistedClient(persister),
     waitForPendingPersists: pendingPersistence.wait,
+    invalidationChannel: createDayLogCacheInvalidationChannel(queryClient, userId),
   };
   activeCaches.set(queryClient, restoringCache);
 
@@ -189,12 +198,17 @@ export async function clearDayLogCache(
 ): Promise<void> {
   const activeCache = activeCaches.get(queryClient);
   const targetUserId = userId ?? activeCache?.userId;
+  const shouldBroadcast = options.broadcast ?? true;
 
   const generation = nextCacheGeneration(queryClient);
   const isCurrent = () => isCurrentCacheGeneration(queryClient, generation);
 
   if (activeCache && activeCache.userId === targetUserId) {
     await clearActiveCache(queryClient, activeCache, isCurrent);
+    if (shouldBroadcast && isCurrent()) {
+      broadcastDayLogCacheInvalidation(activeCache.invalidationChannel, activeCache.userId);
+    }
+    activeCache.invalidationChannel?.close();
     return;
   }
 
@@ -207,6 +221,9 @@ export async function clearDayLogCache(
   if (!isCurrent()) return;
 
   if (!activeCache && isCurrent()) queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
+  if (shouldBroadcast && isCurrent() && targetUserId) {
+    broadcastDayLogCacheInvalidation(undefined, targetUserId);
+  }
 }
 
 async function clearActiveCache(
@@ -271,6 +288,59 @@ function subscribeToPersistence(
     },
     waitForPendingPersists: pendingPersistence.wait,
   };
+}
+
+function createDayLogCacheInvalidationChannel(
+  queryClient: QueryClient,
+  userId: string,
+): BroadcastChannel | undefined {
+  if (typeof BroadcastChannel === "undefined") return undefined;
+
+  try {
+    const channel = new BroadcastChannel(DAY_LOG_CACHE_INVALIDATION_CHANNEL);
+    channel.addEventListener("message", (event: MessageEvent<unknown>) => {
+      if (!isDayLogCacheInvalidationMessage(event.data, userId)) return;
+
+      void clearDayLogCache(queryClient, userId, { broadcast: false }).catch(() => undefined);
+    });
+    return channel;
+  } catch {
+    return undefined;
+  }
+}
+
+function broadcastDayLogCacheInvalidation(
+  channel: BroadcastChannel | undefined,
+  userId: string,
+): void {
+  let sender = channel;
+  let closeSender = false;
+
+  if (!sender && typeof BroadcastChannel !== "undefined") {
+    try {
+      sender = new BroadcastChannel(DAY_LOG_CACHE_INVALIDATION_CHANNEL);
+      closeSender = true;
+    } catch {
+      return;
+    }
+  }
+
+  if (!sender) return;
+
+  try {
+    sender.postMessage({ type: "clear", userId });
+  } catch {
+    return;
+  } finally {
+    if (closeSender) sender.close();
+  }
+}
+
+function isDayLogCacheInvalidationMessage(value: unknown, userId: string): boolean {
+  if (!value || typeof value !== "object") return false;
+
+  const message = value as { type?: unknown; userId?: unknown };
+  return message.type === "clear" && message.userId === userId;
 }
 
 async function getStorage(

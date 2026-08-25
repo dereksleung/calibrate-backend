@@ -93,8 +93,44 @@ function createPersistedDayLogClient(
   });
 }
 
+class FakeBroadcastChannel {
+  private static readonly channels = new Set<FakeBroadcastChannel>();
+  private readonly listeners = new Set<(event: { data: unknown }) => void>();
+  private closed = false;
+
+  constructor(readonly name: string) {
+    FakeBroadcastChannel.channels.add(this);
+  }
+
+  addEventListener(type: string, listener: (event: { data: unknown }) => void): void {
+    if (type === "message") this.listeners.add(listener);
+  }
+
+  postMessage(data: unknown): void {
+    for (const channel of FakeBroadcastChannel.channels) {
+      if (channel === this || channel.name !== this.name) continue;
+
+      queueMicrotask(() => {
+        if (channel.closed) return;
+        for (const listener of channel.listeners) listener({ data });
+      });
+    }
+  }
+
+  close(): void {
+    this.closed = true;
+    FakeBroadcastChannel.channels.delete(this);
+  }
+
+  static reset(): void {
+    for (const channel of FakeBroadcastChannel.channels) channel.close();
+  }
+}
+
 afterEach(() => {
   cleanup();
+  FakeBroadcastChannel.reset();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -328,6 +364,45 @@ describe("day-log cache persistence", () => {
 
     expect(queryClient.getQueryData(dayLogQueryKey("2026-08-22"))).toBeUndefined();
     expect(storage.removeItem).toHaveBeenCalledWith(dayLogCacheStorageKey("user-a"));
+  });
+
+  it("waits for an in-flight write in another browser tab before clearing the namespace", async () => {
+    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel);
+    const sharedStorage = createStorage();
+    const firstTab = new QueryClient();
+    const secondTab = new QueryClient();
+    const options = { storageFactory: () => sharedStorage.storage, throttleTime: 0 };
+    const queryKey = dayLogQueryKey("2026-08-22");
+
+    await restoreDayLogCache(firstTab, "user-a", options);
+    await restoreDayLogCache(secondTab, "user-a", options);
+    firstTab.setQueryData(queryKey, createDayLog("2026-08-22"));
+    await waitFor(() =>
+      expect(sharedStorage.entries.has(dayLogCacheStorageKey("user-a"))).toBe(true),
+    );
+
+    let releaseWrite!: () => void;
+    let resolveWriteStarted!: () => void;
+    const writeStarted = new Promise<void>((resolve) => {
+      resolveWriteStarted = resolve;
+    });
+    const writeFinished = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    sharedStorage.storage.setItem.mockImplementation(async (key, value) => {
+      resolveWriteStarted();
+      await writeFinished;
+      sharedStorage.entries.set(key, value);
+    });
+    secondTab.setQueryData(queryKey, createDayLog("2026-08-22", 240));
+    await writeStarted;
+
+    await clearDayLogCache(firstTab, "user-a", options);
+
+    releaseWrite();
+    await waitFor(() => expect(secondTab.getQueryData(queryKey)).toBeUndefined());
+    expect(firstTab.getQueryData(queryKey)).toBeUndefined();
+    expect(sharedStorage.entries.has(dayLogCacheStorageKey("user-a"))).toBe(false);
   });
 
   it("preserves the current cache and surfaces storage removal failures", async () => {
