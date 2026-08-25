@@ -43,7 +43,7 @@ export function FatBarChart({ ariaLabel, data, onClick, tooltipContent }: FatBar
           observedDays.length) *
           100,
       )
-    : 0;
+    : null;
 
   return (
     <StatBarChart
@@ -62,7 +62,7 @@ export function FatBarChart({ ariaLabel, data, onClick, tooltipContent }: FatBar
         </div>
         <div className="flex-1 justify-end text-right">
           <Typography variant="capsCardTitle" color="primary">
-            Avg {averageFatLimitPercent}% of daily limit
+            Avg {averageFatLimitPercent === null ? "-" : `${averageFatLimitPercent}%`} of daily limit
           </Typography>
         </div>
       </div>

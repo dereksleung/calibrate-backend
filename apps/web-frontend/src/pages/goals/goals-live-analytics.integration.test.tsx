@@ -50,10 +50,10 @@ function createGoalsQueryClient() {
   });
 }
 
-function renderGoalsRoute(queryClient = createGoalsQueryClient()) {
+function renderGoalsRoute(initialEntry = "/goals", queryClient = createGoalsQueryClient()) {
   const router = createRouter({
     routeTree,
-    history: createMemoryHistory({ initialEntries: ["/goals"] }),
+    history: createMemoryHistory({ initialEntries: [initialEntry] }),
     defaultPreload: "intent",
     scrollRestoration: false,
   });
@@ -199,9 +199,69 @@ describe("Goals live seven-day analytics", () => {
 
     renderGoalsRoute();
 
-    expect(await screen.findByRole("status", { name: "Loading live Goals charts" })).toBeTruthy();
+    const loadingState = await screen.findByRole("status", { name: "Loading live Goals charts" });
+
+    expect(loadingState.querySelectorAll('[data-slot="card"]')).toHaveLength(2);
     expect(screen.queryByTestId("live-fat-chart")).toBeNull();
     expect(screen.queryByText("29")).toBeNull();
+  });
+
+  it("scrolls to the fats chart after the live data mounts", async () => {
+    let rangeUrl: string | undefined;
+    let resolveRange: (response: Response) => void = () => undefined;
+    const rangeResponse = new Promise<Response>((resolve) => {
+      resolveRange = resolve;
+    });
+    const scrollIntoView = vi.fn();
+    const originalScrollIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 0;
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
+      const url = getFetchUrl(input);
+
+      if (url.includes("/auth/session")) {
+        return Promise.resolve(authenticatedSessionResponse());
+      }
+
+      rangeUrl = url;
+      return rangeResponse;
+    });
+
+    try {
+      renderGoalsRoute("/goals?openFatsAnalytics=true");
+
+      expect(await screen.findByRole("status", { hidden: true, name: "Loading live Goals charts" })).toBeTruthy();
+      await waitFor(() => expect(rangeUrl).toBeDefined());
+      expect(scrollIntoView).not.toHaveBeenCalled();
+
+      resolveRange(
+        new Response(JSON.stringify(dayLogRangeResponse(rangeUrl!, 10, 25)), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+
+      expect(await screen.findByTestId("live-fat-chart")).toBeTruthy();
+      await waitFor(() =>
+        expect(scrollIntoView).toHaveBeenCalledWith({
+          behavior: "smooth",
+          block: "center",
+        }),
+      );
+    } finally {
+      if (originalScrollIntoView) {
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalScrollIntoView);
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+      }
+    }
   });
 
   it("requests the rolling range and renders live fat slots with dynamic labels", async () => {

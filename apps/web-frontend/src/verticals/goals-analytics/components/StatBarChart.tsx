@@ -98,18 +98,20 @@ export function StatBarChart({
                   <ChartTooltipContent
                     hideIndicator
                     labelFormatter={(_, payload) => payload[0]?.payload?.label ?? ""}
-                    formatter={(value, _, item) => {
+                    formatter={(_value, _name, item) => {
                       const payload = item.payload as StatBarChartDatum | undefined;
+                      const value = payload?.value;
                       const percentOfLimit =
-                        payload && payload.value !== null
-                          ? Math.round((payload.value / (payload.limit || 1)) * 100)
-                          : 0;
+                        payload && value !== null && value !== undefined
+                          ? Math.round((value / (payload.limit || 1)) * 100)
+                          : null;
+                      const isMissing = percentOfLimit === null;
                       const unitLabel = valueUnit ?? "";
 
                       return (
                         <span className="font-medium text-foreground">
-                          {Number(value).toFixed(0)}
-                          {unitLabel} / {percentOfLimit}% of limit
+                          {isMissing ? "-" : value?.toFixed(0)}
+                          {unitLabel} / {percentOfLimit === null ? "-" : `${percentOfLimit}%`} of limit
                         </span>
                       );
                     }}

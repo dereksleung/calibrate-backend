@@ -1,4 +1,4 @@
-import { buildGoalsChartData } from "#/pages/goals/goals-chart-data.ts";
+import { buildGoalsChartData, type GoalsWeightChartDatum } from "#/pages/goals/goals-chart-data.ts";
 import { apiTransport } from "#/shared/api/api-client.ts";
 import { Button } from "#/shared/components/base/Button.tsx";
 import { Card, CardContent, CardTitle } from "#/shared/components/base/Card.tsx";
@@ -42,6 +42,30 @@ const weightChartConfig = {
   },
 } satisfies ChartConfig;
 
+function LiveGoalsChartSkeleton() {
+  return (
+    <Card
+      aria-hidden="true"
+      className="flex-1 rounded-[14px] border-white/70 bg-white/60 py-0 shadow-[0_28px_70px_-44px_rgba(0,0,0,0.65)]"
+    >
+      <CardContent className="p-4 md:p-8">
+        <div className="flex justify-between gap-3">
+          <div className="h-3 w-16 animate-pulse rounded-full bg-surface-container-high" />
+          <div className="h-3 w-28 animate-pulse rounded-full bg-surface-container-high" />
+        </div>
+        <div className="mt-4 flex aspect-video items-end gap-2 rounded-xl bg-surface-container-low p-4">
+          {Array.from({ length: 7 }, (_, index) => (
+            <div
+              className="h-1/2 flex-1 animate-pulse rounded-t bg-surface-container-high"
+              key={index}
+            />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function formatWeightChange(change: number | null): string {
   if (change === null) {
     return "—";
@@ -55,6 +79,7 @@ export function Goals() {
   const dayLogRange = getRollingSevenDayDateRange();
   const { data, error, isPending, refetch } = useDayLogRange(apiTransport, dayLogRange);
   const chartData = data ? buildGoalsChartData(data) : undefined;
+  const hasChartData = data !== undefined;
   // const [activeTab, setActiveTab] = useState<GoalTab>("1M");
   const [activeDrawerContent, setActiveDrawerContent] = useState<AnalyticsDrawerContent | null>(null);
   const fatsChartRef = useRef<HTMLDivElement>(null);
@@ -90,11 +115,11 @@ export function Goals() {
     return (
       <div
         aria-label="Loading live Goals charts"
-        className="grid grid-cols-1 gap-8 md:grid-cols-2"
+        className="flex flex-col gap-8 md:flex-row"
         role="status"
       >
-        <Card aria-hidden="true" className="min-h-[25rem] animate-pulse bg-muted" />
-        <Card aria-hidden="true" className="min-h-[25rem] animate-pulse bg-muted" />
+        <LiveGoalsChartSkeleton />
+        <LiveGoalsChartSkeleton />
       </div>
     );
   };
@@ -106,6 +131,10 @@ export function Goals() {
 
     setActiveDrawerContent("fats");
 
+    if (!hasChartData) {
+      return;
+    }
+
     const animationFrameId = window.requestAnimationFrame(() => {
       fatsChartRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -114,7 +143,7 @@ export function Goals() {
     });
 
     return () => window.cancelAnimationFrame(animationFrameId);
-  }, [openFatsAnalytics]);
+  }, [hasChartData, openFatsAnalytics]);
 
   return (
     <>
@@ -250,11 +279,15 @@ export function Goals() {
                             <ChartTooltipContent
                               hideIndicator
                               labelFormatter={(_, payload) => payload[0]?.payload?.label ?? ""}
-                              formatter={(value) => (
-                                <span className="font-medium text-foreground">
-                                  {Number(value).toFixed(1)} lbs
-                                </span>
-                              )}
+                              formatter={(_value, _name, item) => {
+                                const weight = (item.payload as GoalsWeightChartDatum | undefined)?.weight;
+
+                                return (
+                                  <span className="font-medium text-foreground">
+                                    {weight === null || weight === undefined ? "-" : weight.toFixed(1)} lbs
+                                  </span>
+                                );
+                              }}
                             />
                           }
                         />
