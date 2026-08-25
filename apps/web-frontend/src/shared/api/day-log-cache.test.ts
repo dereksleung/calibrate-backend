@@ -141,6 +141,22 @@ describe("day-log cache persistence", () => {
     expect(persisted.clientState.queries[0].state.data).toBeNull();
   });
 
+  it("does not persist unrelated query cache changes", async () => {
+    const { storage } = createStorage();
+    const queryClient = new QueryClient();
+
+    await restoreDayLogCache(queryClient, "user-a", { storageFactory: () => storage, throttleTime: 0 });
+    storage.setItem.mockClear();
+
+    queryClient.setQueryData(["authenticatedSession"], { user: { id: "user-a" } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(storage.setItem).not.toHaveBeenCalled();
+
+    queryClient.setQueryData(dayLogQueryKey("2026-08-22"), null);
+    await waitFor(() => expect(storage.setItem).toHaveBeenCalled());
+  });
+
   it("never hydrates authentication state from a persisted namespace", async () => {
     const { storage } = createStorage({
       [dayLogCacheStorageKey("user-a")]: createPersistedClient(Date.now(), [
@@ -326,6 +342,34 @@ describe("day-log cache persistence", () => {
     expect(queryClient.getQueryData(dayLogQueryKey("2026-08-22"))).toEqual(createDayLog("2026-08-22"));
   });
 
+  it("surfaces storage acquisition failures while clearing a namespace", async () => {
+    const queryClient = new QueryClient();
+    const storageError = new Error("IndexedDB unavailable");
+
+    await expect(
+      clearDayLogCache(queryClient, "user-a", {
+        storageFactory: async () => {
+          throw storageError;
+        },
+      }),
+    ).rejects.toThrow("IndexedDB unavailable");
+  });
+
+  it("retries storage cleanup when restoration could not access the namespace", async () => {
+    const storageKey = dayLogCacheStorageKey("user-a");
+    const { entries, storage } = createStorage({ [storageKey]: "private-day-log-cache" });
+    let storageAvailable = false;
+    const storageFactory = vi.fn(() => (storageAvailable ? storage : null));
+    const queryClient = new QueryClient();
+
+    await restoreDayLogCache(queryClient, "user-a", { storageFactory });
+    storageAvailable = true;
+
+    await clearDayLogCache(queryClient, "user-a", { storageFactory });
+
+    expect(entries.has(storageKey)).toBe(false);
+  });
+
   it("does not hydrate an older user's pending restore after a newer restore starts", async () => {
     const userA = createStorage({
       [dayLogCacheStorageKey("user-a")]: createPersistedDayLogClient([
@@ -348,6 +392,40 @@ describe("day-log cache persistence", () => {
     await Promise.all([restoreUserA, restoreUserB]);
 
     expect(queryClient.getQueryData(dayLogQueryKey("2026-08-22"))).toBeUndefined();
+  });
+
+  it("waits for a restore rewrite before clearing its persisted namespace", async () => {
+    const storageKey = dayLogCacheStorageKey("user-a");
+    const { entries, storage } = createStorage({
+      [storageKey]: createPersistedDayLogClient([
+        { queryDate: "2026-08-22", dataDate: "2026-08-22", dataUpdatedAt: Date.now() },
+      ]),
+    });
+    let releaseWrite!: () => void;
+    const writeFinished = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    storage.setItem.mockImplementation(async (key, value) => {
+      await writeFinished;
+      entries.set(key, value);
+    });
+    const queryClient = new QueryClient();
+
+    const restorePromise = restoreDayLogCache(queryClient, "user-a", {
+      storageFactory: () => storage,
+      throttleTime: 0,
+    });
+    await waitFor(() => expect(storage.setItem).toHaveBeenCalledWith(storageKey, expect.any(String)));
+
+    const clearPromise = clearDayLogCache(queryClient, "user-a", {
+      storageFactory: () => storage,
+    });
+    expect(storage.removeItem).not.toHaveBeenCalled();
+
+    releaseWrite();
+    await Promise.all([restorePromise, clearPromise]);
+
+    expect(entries.has(storageKey)).toBe(false);
   });
 
   it("waits for an in-flight persistence write before clearing the namespace", async () => {

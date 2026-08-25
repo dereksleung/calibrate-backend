@@ -30,6 +30,11 @@ type PersistedDayLogClient = {
   clientState: DehydratedState;
 };
 
+type PendingPersistenceTracker = {
+  track: (operation: () => Promise<void>) => Promise<void>;
+  wait: () => Promise<void>;
+};
+
 type DayLogCacheOptions = {
   storageFactory?: (userId: string) => AsyncStringStorage | null | Promise<AsyncStringStorage | null>;
   throttleTime?: number;
@@ -39,6 +44,8 @@ type DayLogCacheOptions = {
 type ActiveDayLogCache = {
   userId: string;
   persister?: ReturnType<typeof createAsyncStoragePersister>;
+  ready?: Promise<void>;
+  clearPersisted?: () => Promise<void>;
   unsubscribe?: () => void;
   waitForPendingPersists?: () => Promise<void>;
 };
@@ -91,7 +98,10 @@ export async function restoreDayLogCache(
   });
 
   const activeCache = activeCaches.get(queryClient);
-  if (activeCache?.userId === userId) return;
+  if (activeCache?.userId === userId) {
+    await activeCache.ready;
+    return;
+  }
   const generation = nextCacheGeneration(queryClient);
   const isCurrent = () => isCurrentCacheOperation(queryClient, generation, options);
 
@@ -106,7 +116,10 @@ export async function restoreDayLogCache(
   const storage = await getStorage(options, userId);
   if (!isCurrent()) return;
   if (!storage) {
-    activeCaches.set(queryClient, { userId });
+    activeCaches.set(queryClient, {
+      userId,
+      clearPersisted: () => clearPersistedNamespace(options, userId),
+    });
     return;
   }
 
@@ -115,38 +128,58 @@ export async function restoreDayLogCache(
     key: dayLogCacheStorageKey(userId),
     throttleTime: options.throttleTime,
   });
+  const pendingPersistence = createPendingPersistenceTracker();
+  let resolveReady!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    resolveReady = resolve;
+  });
+  const restoringCache: ActiveDayLogCache = {
+    userId,
+    persister,
+    ready,
+    clearPersisted: () => removePersistedClient(persister),
+    waitForPendingPersists: pendingPersistence.wait,
+  };
+  activeCaches.set(queryClient, restoringCache);
 
   try {
-    const persistedClient = await persister.restoreClient();
-    if (!isCurrent()) return;
+    try {
+      const persistedClient = await persister.restoreClient();
+      if (!isCurrent()) return;
 
-    if (persistedClient) {
-      if (!isUsablePersistedClient(persistedClient)) {
-        await discardPersistedClient(persister);
-      } else {
-        const sanitizedState = sanitizePersistedClientState(persistedClient.clientState, Date.now());
-        if (!isCurrent()) return;
-        if (sanitizedState.queries.length === 0) {
+      if (persistedClient) {
+        if (!isUsablePersistedClient(persistedClient)) {
           await discardPersistedClient(persister);
         } else {
-          hydrate(queryClient, sanitizedState);
-          await persister.persistClient({
-            buster: DAY_LOG_CACHE_BUSTER,
-            timestamp: Date.now(),
-            clientState: sanitizedState,
-          });
+          const sanitizedState = sanitizePersistedClientState(persistedClient.clientState, Date.now());
+          if (!isCurrent()) return;
+          if (sanitizedState.queries.length === 0) {
+            await discardPersistedClient(persister);
+          } else {
+            hydrate(queryClient, sanitizedState);
+            if (!isCurrent()) return;
+            await pendingPersistence.track(() =>
+              persister.persistClient({
+                buster: DAY_LOG_CACHE_BUSTER,
+                timestamp: Date.now(),
+                clientState: sanitizedState,
+              }),
+            );
+          }
         }
       }
+    } catch {
+      if (!isCurrent()) return;
+      queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
+      await discardPersistedClient(persister);
     }
-  } catch {
-    if (!isCurrent()) return;
-    queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
-    await discardPersistedClient(persister);
-  }
 
-  if (!isCurrent()) return;
-  const persistence = subscribeToPersistence(queryClient, persister);
-  activeCaches.set(queryClient, { userId, persister, ...persistence });
+    if (!isCurrent()) return;
+    const persistence = subscribeToPersistence(queryClient, persister, pendingPersistence);
+    activeCaches.set(queryClient, { ...restoringCache, ...persistence });
+  } finally {
+    resolveReady();
+  }
 }
 
 export async function clearDayLogCache(
@@ -170,17 +203,8 @@ export async function clearDayLogCache(
     return;
   }
 
-  const storage = await getStorage(options, targetUserId);
+  await clearPersistedNamespace(options, targetUserId);
   if (!isCurrent()) return;
-  if (storage) {
-    await removePersistedClient(
-      createAsyncStoragePersister({
-        storage,
-        key: dayLogCacheStorageKey(targetUserId),
-        throttleTime: options.throttleTime,
-      }),
-    );
-  }
 
   if (!activeCache && isCurrent()) queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
 }
@@ -194,7 +218,11 @@ async function clearActiveCache(
   await activeCache.waitForPendingPersists?.();
   if (!canContinue() || activeCaches.get(queryClient) !== activeCache) return;
 
-  if (activeCache.persister) await removePersistedClient(activeCache.persister);
+  if (activeCache.clearPersisted) {
+    await activeCache.clearPersisted();
+  } else if (activeCache.persister) {
+    await removePersistedClient(activeCache.persister);
+  }
   if (!canContinue() || activeCaches.get(queryClient) !== activeCache) return;
 
   activeCaches.delete(queryClient);
@@ -204,6 +232,7 @@ async function clearActiveCache(
 function subscribeToPersistence(
   queryClient: QueryClient,
   persister: ActiveDayLogCache["persister"],
+  pendingPersistence: PendingPersistenceTracker,
 ): Pick<ActiveDayLogCache, "unsubscribe" | "waitForPendingPersists"> {
   if (!persister) {
     return {
@@ -213,27 +242,24 @@ function subscribeToPersistence(
   }
 
   let active = true;
-  const pendingPersists = new Set<Promise<void>>();
 
   const persist = () => {
     if (!active) return;
 
-    const pendingPersist = Promise.resolve().then(() =>
+    void pendingPersistence.track(() =>
       persister.persistClient({
         buster: DAY_LOG_CACHE_BUSTER,
         timestamp: Date.now(),
         clientState: dehydrate(queryClient, dehydrateOptions),
       }),
     );
-    pendingPersists.add(pendingPersist);
-    void pendingPersist.then(
-      () => pendingPersists.delete(pendingPersist),
-      () => pendingPersists.delete(pendingPersist),
-    );
   };
 
   const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-    if (event.type === "added" || event.type === "removed" || event.type === "updated") {
+    if (
+      (event.type === "added" || event.type === "removed" || event.type === "updated") &&
+      isPersistableDayLogQuery(event.query)
+    ) {
       persist();
     }
   });
@@ -243,23 +269,59 @@ function subscribeToPersistence(
       active = false;
       unsubscribe();
     },
-    waitForPendingPersists: async () => {
-      while (pendingPersists.size > 0) {
-        await Promise.all(
-          [...pendingPersists].map((pendingPersist) => pendingPersist.catch(() => undefined)),
-        );
-      }
-    },
+    waitForPendingPersists: pendingPersistence.wait,
   };
 }
 
-async function getStorage(options: DayLogCacheOptions, userId: string): Promise<AsyncStringStorage | null> {
+async function getStorage(
+  options: DayLogCacheOptions,
+  userId: string,
+  surfaceFailure = false,
+): Promise<AsyncStringStorage | null> {
   try {
     if (options.storageFactory) return await options.storageFactory(userId);
     return createIndexedDbStorage();
-  } catch {
+  } catch (error) {
+    if (surfaceFailure) throw error;
     return null;
   }
+}
+
+async function clearPersistedNamespace(options: DayLogCacheOptions, userId: string): Promise<void> {
+  const storage = await getStorage(options, userId, true);
+  if (!storage) return;
+
+  await removePersistedClient(
+    createAsyncStoragePersister({
+      storage,
+      key: dayLogCacheStorageKey(userId),
+      throttleTime: options.throttleTime,
+    }),
+  );
+}
+
+function createPendingPersistenceTracker(): PendingPersistenceTracker {
+  const pendingPersists = new Set<Promise<void>>();
+
+  const track = (operation: () => Promise<void>): Promise<void> => {
+    const pendingPersist = Promise.resolve().then(operation);
+    pendingPersists.add(pendingPersist);
+    void pendingPersist.then(
+      () => pendingPersists.delete(pendingPersist),
+      () => pendingPersists.delete(pendingPersist),
+    );
+    return pendingPersist;
+  };
+
+  const wait = async (): Promise<void> => {
+    while (pendingPersists.size > 0) {
+      await Promise.all(
+        [...pendingPersists].map((pendingPersist) => pendingPersist.catch(() => undefined)),
+      );
+    }
+  };
+
+  return { track, wait };
 }
 
 function isUsablePersistedClient(value: unknown): value is PersistedDayLogClient {
@@ -369,10 +431,14 @@ async function runStoreRequest<T>(
     const request = requestFactory(transaction.objectStore(DAY_LOG_CACHE_STORE_NAME));
 
     return await new Promise<T>((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
+      let requestResult!: T;
+      request.onsuccess = () => {
+        requestResult = request.result;
+      };
       request.onerror = () => reject(request.error ?? new Error("IndexedDB request failed"));
       transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB transaction failed"));
       transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB transaction aborted"));
+      transaction.oncomplete = () => resolve(requestResult);
     });
   } finally {
     database.close();

@@ -30,10 +30,11 @@ export function writeDayLogRangeToCache(
   if (!canWrite()) return false;
 
   for (const day of response.days) {
+    if (!canWrite()) return false;
     queryClient.setQueryData(dayLogQueryKey(day.date), day.dayLog);
   }
 
-  return true;
+  return canWrite();
 }
 
 export function composeDayLogRangeFromCache(
@@ -58,6 +59,7 @@ export function useDashboardDayLogRange(transport: ApiTransport, range: GetDayLo
   const dates = getConsecutiveDates(range.startDate, range.endDate);
   const rangeQuery = useQuery({
     queryKey: dayLogRangeQueryKey(range),
+    gcTime: 5 * 60 * 1000,
     queryFn: async () => {
       const canWrite = createRangeWriteGuard(queryClient);
       const response = await getDayLogRange(transport, range);
