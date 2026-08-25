@@ -44,7 +44,7 @@ Initial view:
 <br></br>
 <img width="1242" height="949" alt="Screenshot 2026-05-03 at 6 18 50 PM" src="https://github.com/user-attachments/assets/1427dd89-c3a7-4362-8860-d784edea9306" />
 <br></br>
-Scrolling down - can see encouragement about journey, as well as charts about macros (fats only for now):
+Scrolling down - can see encouragement about journey and the Goals chart area. See the repository README's [Frontend Current State](../../README.md#frontend-current-state) for the current chart scope and live/mock status:
 <br></br>
 <img width="1232" height="950" alt="Screenshot 2026-05-03 at 6 19 11 PM" src="https://github.com/user-attachments/assets/2bb2a236-c1fe-41c8-be1b-c3bbad402cd0" />
 <br></br>

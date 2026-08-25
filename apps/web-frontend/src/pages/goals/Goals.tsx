@@ -55,10 +55,7 @@ function LiveGoalsChartSkeleton() {
         </div>
         <div className="mt-4 flex aspect-video items-end gap-2 rounded-xl bg-surface-container-low p-4">
           {Array.from({ length: 7 }, (_, index) => (
-            <div
-              className="h-1/2 flex-1 animate-pulse rounded-t bg-surface-container-high"
-              key={index}
-            />
+            <div className="h-1/2 flex-1 animate-pulse rounded-t bg-surface-container-high" key={index} />
           ))}
         </div>
       </CardContent>
@@ -113,11 +110,7 @@ export function Goals() {
     }
 
     return (
-      <div
-        aria-label="Loading live Goals charts"
-        className="flex flex-col gap-8 md:flex-row"
-        role="status"
-      >
+      <div aria-label="Loading live Goals charts" className="flex flex-col gap-8 md:flex-row" role="status">
         <LiveGoalsChartSkeleton />
         <LiveGoalsChartSkeleton />
       </div>

@@ -237,7 +237,9 @@ describe("Goals live seven-day analytics", () => {
     try {
       renderGoalsRoute("/goals?openFatsAnalytics=true");
 
-      expect(await screen.findByRole("status", { hidden: true, name: "Loading live Goals charts" })).toBeTruthy();
+      expect(
+        await screen.findByRole("status", { hidden: true, name: "Loading live Goals charts" }),
+      ).toBeTruthy();
       await waitFor(() => expect(rangeUrl).toBeDefined());
       expect(scrollIntoView).not.toHaveBeenCalled();
 
