@@ -1,3 +1,6 @@
+// TO-DO: Use date-fns in date functions in a small refactor. 
+// Tolerating this agent-generated code for now, I don't allow agents to install dependencies themselves because of recent supply chain attacks.
+
 const WEEKDAY_ABBREVIATIONS = ["Sn", "M", "T", "W", "Th", "F", "Sa"] as const;
 
 export type LocalDateRange = {
