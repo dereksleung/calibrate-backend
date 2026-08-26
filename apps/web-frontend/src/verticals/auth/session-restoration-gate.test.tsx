@@ -5,10 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  authenticatedSessionQueryKey,
-  setAuthenticatedSession,
-} from "./authenticated-session.ts";
+import { authenticatedSessionQueryKey, setAuthenticatedSession } from "./authenticated-session.ts";
 import { SessionRestorationGate } from "./session-restoration-gate.tsx";
 
 const { mockGetCurrentSession, mockRefreshSession, mockRestoreDayLogCache, mockNavigate } = vi.hoisted(
@@ -148,5 +145,27 @@ describe("SessionRestorationGate", () => {
 
     expect(queryClient.getQueryData(authenticatedSessionQueryKey)).toEqual(otherAuthenticatedSession);
     expect(mockRestoreDayLogCache).not.toHaveBeenCalled();
+  });
+
+  it("logs out locally when another tab clears the restored cache", async () => {
+    const queryClient = createQueryClient();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SessionRestorationGate>
+          <p>Dashboard reads</p>
+        </SessionRestorationGate>
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText("Dashboard reads");
+    const restoreOptions = mockRestoreDayLogCache.mock.calls[0]?.[2] as {
+      onRemoteClear?: () => Promise<void>;
+    };
+
+    await restoreOptions.onRemoteClear?.();
+
+    expect(queryClient.getQueryData(authenticatedSessionQueryKey)).toBeUndefined();
+    expect(mockNavigate).toHaveBeenCalledWith({ to: "/signup-login" });
   });
 });

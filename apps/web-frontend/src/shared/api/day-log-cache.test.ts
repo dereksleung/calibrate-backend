@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
 import { dayLogQueryKey, dayLogRangeQueryKey } from "@calibrate/api-client";
-import { dehydrate, QueryClient } from "@tanstack/react-query";
-import { cleanup, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { dehydrate, QueryClient, QueryClientProvider, skipToken, useQuery } from "@tanstack/react-query";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { createElement } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   DAY_LOG_CACHE_BUSTER,
@@ -79,11 +80,9 @@ function createPersistedDayLogClient(
 ) {
   const queryClient = new QueryClient();
   for (const entry of entries) {
-    queryClient.setQueryData(
-      dayLogQueryKey(entry.queryDate),
-      createDayLog(entry.dataDate),
-      { updatedAt: entry.dataUpdatedAt },
-    );
+    queryClient.setQueryData(dayLogQueryKey(entry.queryDate), createDayLog(entry.dataDate), {
+      updatedAt: entry.dataUpdatedAt,
+    });
   }
 
   return JSON.stringify({
@@ -135,6 +134,9 @@ afterEach(() => {
 });
 
 describe("day-log cache persistence", () => {
+  beforeEach(() => {
+    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel);
+  });
   it("restores only the confirmed user's date-keyed Day Log entries", async () => {
     const { storage } = createStorage();
     const storageFactory = vi.fn(() => storage);
@@ -288,9 +290,7 @@ describe("day-log cache persistence", () => {
     await restoreDayLogCache(queryClient, "user-a", { storageFactory: () => storage });
 
     expect(queryClient.getQueryData(dayLogQueryKey("2026-08-21"))).toBeUndefined();
-    expect(queryClient.getQueryData(dayLogQueryKey("2026-08-22"))).toEqual(
-      createDayLog("2026-08-22"),
-    );
+    expect(queryClient.getQueryData(dayLogQueryKey("2026-08-22"))).toEqual(createDayLog("2026-08-22"));
   });
 
   it("rewrites the persisted namespace without expired entries during restore", async () => {
@@ -309,6 +309,7 @@ describe("day-log cache persistence", () => {
 
     await restoreDayLogCache(queryClient, "user-a", { storageFactory: () => storage });
 
+    await waitFor(() => expect(storage.setItem).toHaveBeenCalled());
     const rewritten = JSON.parse(storage.setItem.mock.calls.at(-1)?.[1] ?? "{}");
     expect(rewritten.clientState.queries.map((query: { queryKey: unknown }) => query.queryKey)).toEqual([
       dayLogQueryKey("2026-08-22"),
@@ -377,9 +378,7 @@ describe("day-log cache persistence", () => {
     await restoreDayLogCache(firstTab, "user-a", options);
     await restoreDayLogCache(secondTab, "user-a", options);
     firstTab.setQueryData(queryKey, createDayLog("2026-08-22"));
-    await waitFor(() =>
-      expect(sharedStorage.entries.has(dayLogCacheStorageKey("user-a"))).toBe(true),
-    );
+    await waitFor(() => expect(sharedStorage.entries.has(dayLogCacheStorageKey("user-a"))).toBe(true));
 
     let releaseWrite!: () => void;
     let resolveWriteStarted!: () => void;
@@ -456,7 +455,9 @@ describe("day-log cache persistence", () => {
     const userAStorageReady = new Promise<typeof userA.storage>((resolve) => {
       releaseUserAStorage = () => resolve(userA.storage);
     });
-    const storageFactory = vi.fn((userId: string) => (userId === "user-a" ? userAStorageReady : userB.storage));
+    const storageFactory = vi.fn((userId: string) =>
+      userId === "user-a" ? userAStorageReady : userB.storage,
+    );
     const queryClient = new QueryClient();
 
     const restoreUserA = restoreDayLogCache(queryClient, "user-a", { storageFactory });
@@ -528,5 +529,102 @@ describe("day-log cache persistence", () => {
 
     expect(storage.removeItem).toHaveBeenCalledWith(storageKey);
     expect(entries.has(storageKey)).toBe(false);
+  });
+
+  it("publishes restored Day Logs before a delayed persistence rewrite commits", async () => {
+    const storageKey = dayLogCacheStorageKey("user-a");
+    const { entries, storage } = createStorage({
+      [storageKey]: createPersistedDayLogClient([
+        { queryDate: "2026-08-22", dataDate: "2026-08-22", dataUpdatedAt: Date.now() },
+      ]),
+    });
+    let releaseWrite!: () => void;
+    let resolveWriteStarted!: () => void;
+    const writeStarted = new Promise<void>((resolve) => {
+      resolveWriteStarted = resolve;
+    });
+    const writeFinished = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    storage.setItem.mockImplementation(async (key, value) => {
+      resolveWriteStarted();
+      await writeFinished;
+      entries.set(key, value);
+    });
+    const queryClient = new QueryClient();
+
+    const restorePromise = restoreDayLogCache(queryClient, "user-a", {
+      storageFactory: () => storage,
+      throttleTime: 0,
+    });
+    await writeStarted;
+
+    await restorePromise;
+    expect(queryClient.getQueryData(dayLogQueryKey("2026-08-22"))).toEqual(createDayLog("2026-08-22"));
+
+    releaseWrite();
+    await waitFor(() => expect(entries.get(storageKey)).toEqual(expect.any(String)));
+  });
+
+  it("clears mounted Day Log observers when another tab logs out", async () => {
+    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel);
+    const queryKey = dayLogQueryKey("2026-08-22");
+    const { storage } = createStorage();
+    const firstTab = new QueryClient();
+    const secondTab = new QueryClient();
+    const options = { storageFactory: () => storage, throttleTime: 0 };
+    const onRemoteClear = vi.fn();
+
+    await restoreDayLogCache(firstTab, "user-a", options);
+    await restoreDayLogCache(secondTab, "user-a", { ...options, onRemoteClear });
+    secondTab.setQueryData(queryKey, createDayLog("2026-08-22"));
+
+    function DayLogObserver() {
+      const { data } = useQuery({
+        queryKey,
+        queryFn: skipToken,
+        staleTime: Infinity,
+      });
+      return createElement("p", null, data === undefined ? "cleared" : "visible");
+    }
+
+    render(createElement(QueryClientProvider, { client: secondTab }, createElement(DayLogObserver)));
+    expect(screen.getByText("visible")).toBeTruthy();
+
+    await clearDayLogCache(firstTab, "user-a", options);
+
+    await waitFor(() => expect(screen.getByText("cleared")).toBeTruthy());
+    expect(secondTab.getQueryData(queryKey)).toBeUndefined();
+    expect(onRemoteClear).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a failed cross-tab persistence cleanup until the namespace is removed", async () => {
+    vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel);
+    const storageKey = dayLogCacheStorageKey("user-a");
+    const { entries, storage } = createStorage();
+    const firstTab = new QueryClient();
+    const secondTab = new QueryClient();
+    const options = { storageFactory: () => storage, throttleTime: 0 };
+    const queryKey = dayLogQueryKey("2026-08-22");
+
+    await restoreDayLogCache(firstTab, "user-a", options);
+    await restoreDayLogCache(secondTab, "user-a", options);
+    firstTab.setQueryData(queryKey, createDayLog("2026-08-22"));
+    secondTab.setQueryData(queryKey, createDayLog("2026-08-22", 240));
+    await waitFor(() => expect(entries.has(storageKey)).toBe(true));
+
+    let removeAttempts = 0;
+    storage.removeItem.mockImplementation(async (key) => {
+      removeAttempts += 1;
+      if (removeAttempts === 2) throw new Error("IndexedDB write denied");
+      entries.delete(key);
+    });
+
+    await clearDayLogCache(firstTab, "user-a", options);
+
+    await waitFor(() => expect(secondTab.getQueryData(queryKey)).toBeUndefined());
+    expect(firstTab.getQueryData(queryKey)).toBeUndefined();
+    expect(entries.has(storageKey)).toBe(false);
+    expect(removeAttempts).toBeGreaterThanOrEqual(3);
   });
 });

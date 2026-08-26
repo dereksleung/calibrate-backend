@@ -7,7 +7,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { getAuthenticatedSession, setAuthenticatedSession } from "./authenticated-session.ts";
+import {
+  clearAuthenticatedSession,
+  getAuthenticatedSession,
+  setAuthenticatedSession,
+} from "./authenticated-session.ts";
 
 type State = "checking" | "refreshing" | "available" | "unavailable";
 type IsCurrentOperation = () => boolean;
@@ -28,25 +32,26 @@ export function SessionRestorationGate({ children }: { children: React.ReactNode
       await restoreDayLogCache(queryClient, session.user.id, {
         isCurrentUser: () =>
           isCurrentOperation() && getAuthenticatedSession(queryClient)?.user.id === session.user.id,
+        onRemoteClear: async () => {
+          if (getAuthenticatedSession(queryClient)?.user.id !== session.user.id) return;
+          clearAuthenticatedSession(queryClient);
+          await navigate({ to: "/signup-login" });
+        },
       });
       return isCurrentOperation() && getAuthenticatedSession(queryClient)?.user.id === session.user.id;
     },
-    [queryClient],
+    [navigate, queryClient],
   );
   const restore = useCallback(async () => {
     const operation = restoreOperationRef.current + 1;
     restoreOperationRef.current = operation;
-    const isCurrentOperation = () =>
-      mountedRef.current && restoreOperationRef.current === operation;
+    const isCurrentOperation = () => mountedRef.current && restoreOperationRef.current === operation;
     if (!isCurrentOperation()) return;
 
     setState("checking");
     try {
       const session = await getCurrentSession(apiTransport);
-      if (
-        !isCurrentOperation() ||
-        !(await restoreConfirmedSession(session, isCurrentOperation))
-      ) {
+      if (!isCurrentOperation() || !(await restoreConfirmedSession(session, isCurrentOperation))) {
         return;
       }
       setState("available");
@@ -64,10 +69,7 @@ export function SessionRestorationGate({ children }: { children: React.ReactNode
       await refreshSession(apiTransport);
       if (!isCurrentOperation()) return;
       const session = await getCurrentSession(apiTransport);
-      if (
-        !isCurrentOperation() ||
-        !(await restoreConfirmedSession(session, isCurrentOperation))
-      ) {
+      if (!isCurrentOperation() || !(await restoreConfirmedSession(session, isCurrentOperation))) {
         return;
       }
       setState("available");

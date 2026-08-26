@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 
+import { restoreDayLogCache } from "#/shared/api/day-log-cache.ts";
 import { createQueryClient } from "#/shared/api/query-client.ts";
 import {
   authenticatedSessionQueryKey,
+  clearAuthenticatedSession,
   setAuthenticatedSession,
 } from "#/verticals/auth/authenticated-session.ts";
 import { dayLogQueryKey } from "@calibrate/api-client";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import {
   RouterContextProvider,
   createMemoryHistory,
@@ -14,7 +16,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import Header from "./Header.tsx";
@@ -81,8 +83,60 @@ const authenticatedSession = {
   sessionTransport: "cookie" as const,
 };
 
-async function renderHeader(initialEntry = "/", options?: { authenticated?: boolean }) {
-  const queryClient = createQueryClient();
+function createStorage() {
+  const entries = new Map<string, string>();
+  const storage = {
+    getItem: vi.fn(async (key: string) => entries.get(key) ?? null),
+    setItem: vi.fn(async (key: string, value: string) => {
+      entries.set(key, value);
+    }),
+    removeItem: vi.fn(async (key: string) => {
+      entries.delete(key);
+    }),
+  };
+
+  return { entries, storage };
+}
+
+class FakeBroadcastChannel {
+  private static readonly channels = new Set<FakeBroadcastChannel>();
+  private readonly listeners = new Set<(event: { data: unknown }) => void>();
+  private closed = false;
+
+  constructor(readonly name: string) {
+    FakeBroadcastChannel.channels.add(this);
+  }
+
+  addEventListener(type: string, listener: (event: { data: unknown }) => void): void {
+    if (type === "message") this.listeners.add(listener);
+  }
+
+  postMessage(data: unknown): void {
+    for (const channel of FakeBroadcastChannel.channels) {
+      if (channel === this || channel.name !== this.name) continue;
+
+      queueMicrotask(() => {
+        if (channel.closed) return;
+        for (const listener of channel.listeners) listener({ data });
+      });
+    }
+  }
+
+  close(): void {
+    this.closed = true;
+    FakeBroadcastChannel.channels.delete(this);
+  }
+
+  static reset(): void {
+    for (const channel of FakeBroadcastChannel.channels) channel.close();
+  }
+}
+
+async function renderHeader(
+  initialEntry = "/",
+  options?: { authenticated?: boolean; queryClient?: QueryClient },
+) {
+  const queryClient = options?.queryClient ?? createQueryClient();
   if (options?.authenticated) {
     setAuthenticatedSession(queryClient, authenticatedSession);
   }
@@ -94,7 +148,7 @@ async function renderHeader(initialEntry = "/", options?: { authenticated?: bool
 
   await router.load();
 
-  render(
+  const view = render(
     <QueryClientProvider client={queryClient}>
       <RouterContextProvider router={router}>
         <Header />
@@ -102,7 +156,7 @@ async function renderHeader(initialEntry = "/", options?: { authenticated?: bool
     </QueryClientProvider>,
   );
 
-  return { queryClient, router };
+  return { queryClient, router, ...view };
 }
 
 beforeEach(() => {
@@ -123,6 +177,8 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  FakeBroadcastChannel.reset();
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
@@ -192,6 +248,94 @@ describe("Header", () => {
       expect(queryClient.getQueryData(authenticatedSessionQueryKey)).toBeDefined();
       expect(queryClient.getQueryData(dayLogQueryKey("2026-07-10"))).toEqual({ id: "private-day-log" });
       expect(router.state.location.pathname).toBe("/");
+    });
+
+    it("retries the server logout request after a failed logout", async () => {
+      mockDeleteCurrentSession.mockRejectedValueOnce(new Error("offline"));
+      const { queryClient, router } = await renderHeader("/", { authenticated: true });
+      queryClient.setQueryData(dayLogQueryKey("2026-07-10"), { id: "private-day-log" });
+
+      fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Log out" }));
+      await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+
+      fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Log out" }));
+
+      await waitFor(() => {
+        expect(mockDeleteCurrentSession).toHaveBeenCalledTimes(2);
+        expect(queryClient.getQueryData(authenticatedSessionQueryKey)).toBeUndefined();
+        expect(router.state.location.pathname).toBe("/signup-login");
+      });
+    });
+
+    it("retries local cache cleanup after server logout succeeds", async () => {
+      const { storage } = createStorage();
+      storage.removeItem.mockRejectedValueOnce(new Error("IndexedDB write denied"));
+      const queryClient = createQueryClient();
+      await restoreDayLogCache(queryClient, authenticatedSession.user.id, {
+        storageFactory: () => storage,
+        throttleTime: 0,
+      });
+      queryClient.setQueryData(dayLogQueryKey("2026-07-10"), { id: "private-day-log" });
+
+      const { router } = await renderHeader("/", { authenticated: true, queryClient });
+
+      fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Log out" }));
+
+      await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Unable to log out"));
+      expect(mockDeleteCurrentSession).toHaveBeenCalledTimes(1);
+      expect(queryClient.getQueryData(authenticatedSessionQueryKey)).toBeDefined();
+      expect(queryClient.getQueryData(dayLogQueryKey("2026-07-10"))).toEqual({ id: "private-day-log" });
+      expect(router.state.location.pathname).toBe("/");
+
+      fireEvent.click(screen.getByRole("button", { name: "Account menu" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Log out" }));
+
+      await waitFor(() => {
+        expect(mockDeleteCurrentSession).toHaveBeenCalledTimes(1);
+        expect(queryClient.getQueryData(authenticatedSessionQueryKey)).toBeUndefined();
+        expect(queryClient.getQueryData(dayLogQueryKey("2026-07-10"))).toBeUndefined();
+        expect(router.state.location.pathname).toBe("/signup-login");
+      });
+    });
+
+    it("logs out other tabs without repeating the logout request", async () => {
+      vi.stubGlobal("BroadcastChannel", FakeBroadcastChannel);
+      const { storage } = createStorage();
+      const firstTab = createQueryClient();
+      const secondTab = createQueryClient();
+      const userId = authenticatedSession.user.id;
+      const restoreOptions = { storageFactory: () => storage, throttleTime: 0 };
+
+      await restoreDayLogCache(firstTab, userId, restoreOptions);
+      const secondTabHeader = await renderHeader("/", { authenticated: true, queryClient: secondTab });
+      await restoreDayLogCache(secondTab, userId, {
+        ...restoreOptions,
+        onRemoteClear: async () => {
+          clearAuthenticatedSession(secondTab);
+          await secondTabHeader.router.navigate({ to: "/signup-login" });
+        },
+      });
+      firstTab.setQueryData(dayLogQueryKey("2026-07-10"), { id: "private-day-log" });
+      secondTab.setQueryData(dayLogQueryKey("2026-07-10"), { id: "private-day-log" });
+
+      const firstTabHeader = await renderHeader("/", { authenticated: true, queryClient: firstTab });
+
+      fireEvent.click(within(firstTabHeader.container).getByRole("button", { name: "Account menu" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Log out" }));
+
+      await waitFor(() => {
+        expect(mockDeleteCurrentSession).toHaveBeenCalledTimes(1);
+        expect(firstTab.getQueryData(authenticatedSessionQueryKey)).toBeUndefined();
+        expect(secondTab.getQueryData(authenticatedSessionQueryKey)).toBeUndefined();
+        expect(firstTab.getQueryData(dayLogQueryKey("2026-07-10"))).toBeUndefined();
+        expect(secondTab.getQueryData(dayLogQueryKey("2026-07-10"))).toBeUndefined();
+        expect(firstTabHeader.router.state.location.pathname).toBe("/signup-login");
+        expect(secondTabHeader.router.state.location.pathname).toBe("/signup-login");
+      });
+      expect(within(secondTabHeader.container).queryByRole("button", { name: "Account menu" })).toBeNull();
     });
   });
 

@@ -10,7 +10,7 @@ import { deleteCurrentSession } from "@calibrate/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { UserRound, UserRoundPlus } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useIsMobile } from "../hooks/use-media-query";
 import { Button } from "./base/Button";
@@ -67,6 +67,7 @@ export default function Header() {
   const isLoggedIn = session !== undefined;
   const [isLogoutPending, setIsLogoutPending] = useState(false);
   const [logoutError, setLogoutError] = useState(false);
+  const serverLogoutSucceededRef = useRef(false);
 
   async function handleLogout() {
     if (isLogoutPending) return;
@@ -74,7 +75,10 @@ export default function Header() {
     setLogoutError(false);
     const userId = session?.user.id;
     try {
-      await deleteCurrentSession(apiTransport);
+      if (!serverLogoutSucceededRef.current) {
+        await deleteCurrentSession(apiTransport);
+        serverLogoutSucceededRef.current = true;
+      }
       await clearDayLogCache(queryClient, userId);
       clearAuthenticatedSession(queryClient);
       await navigate({ to: "/signup-login" });

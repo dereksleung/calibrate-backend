@@ -41,6 +41,7 @@ type DayLogCacheOptions = {
   throttleTime?: number;
   isCurrentUser?: () => boolean;
   broadcast?: boolean;
+  onRemoteClear?: () => void | Promise<void>;
 };
 
 type ActiveDayLogCache = {
@@ -55,15 +56,14 @@ type ActiveDayLogCache = {
 
 const activeCaches = new WeakMap<QueryClient, ActiveDayLogCache>();
 const cacheGenerations = new WeakMap<QueryClient, number>();
+const persistedNamespaceCleanups = new Map<string, Promise<void>>();
+const PERSISTED_NAMESPACE_CLEAR_ATTEMPTS = 3;
 
 export function dayLogCacheStorageKey(userId: string): string {
   return `${DAY_LOG_CACHE_STORAGE_PREFIX}${encodeURIComponent(userId)}`;
 }
 
-export function createDayLogCacheWriteGuard(
-  queryClient: QueryClient,
-  userId: string,
-): () => boolean {
+export function createDayLogCacheWriteGuard(queryClient: QueryClient, userId: string): () => boolean {
   const generation = cacheGenerations.get(queryClient);
   return () =>
     generation !== undefined &&
@@ -111,7 +111,7 @@ export async function restoreDayLogCache(
   if (activeCache) {
     await clearActiveCache(queryClient, activeCache, isCurrent);
   } else {
-    queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
+    resetAndRemoveDayLogQueries(queryClient);
   }
 
   if (!isCurrent()) return;
@@ -126,7 +126,7 @@ export async function restoreDayLogCache(
     activeCaches.set(queryClient, {
       userId,
       clearPersisted: () => clearPersistedNamespace(options, userId),
-      invalidationChannel: createDayLogCacheInvalidationChannel(queryClient, userId),
+      invalidationChannel: createDayLogCacheInvalidationChannel(queryClient, userId, options),
     });
     return;
   }
@@ -145,9 +145,9 @@ export async function restoreDayLogCache(
     userId,
     persister,
     ready,
-    clearPersisted: () => removePersistedClient(persister),
+    clearPersisted: () => clearPersistedNamespace(options, userId),
     waitForPendingPersists: pendingPersistence.wait,
-    invalidationChannel: createDayLogCacheInvalidationChannel(queryClient, userId),
+    invalidationChannel: createDayLogCacheInvalidationChannel(queryClient, userId, options),
   };
   activeCaches.set(queryClient, restoringCache);
 
@@ -167,19 +167,19 @@ export async function restoreDayLogCache(
           } else {
             hydrate(queryClient, sanitizedState);
             if (!isCurrent()) return;
-            await pendingPersistence.track(() =>
-              persister.persistClient({
+            void pendingPersistence.track(async () => {
+              await persister.persistClient({
                 buster: DAY_LOG_CACHE_BUSTER,
                 timestamp: Date.now(),
                 clientState: sanitizedState,
-              }),
-            );
+              });
+            });
           }
         }
       }
     } catch {
       if (!isCurrent()) return;
-      queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
+      resetAndRemoveDayLogQueries(queryClient);
       await discardPersistedClient(persister);
     }
 
@@ -213,14 +213,14 @@ export async function clearDayLogCache(
   }
 
   if (!targetUserId) {
-    if (isCurrent()) queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
+    if (isCurrent()) resetAndRemoveDayLogQueries(queryClient);
     return;
   }
 
   await clearPersistedNamespace(options, targetUserId);
   if (!isCurrent()) return;
 
-  if (!activeCache && isCurrent()) queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
+  if (!activeCache && isCurrent()) resetAndRemoveDayLogQueries(queryClient);
   if (shouldBroadcast && isCurrent() && targetUserId) {
     broadcastDayLogCacheInvalidation(undefined, targetUserId);
   }
@@ -243,7 +243,7 @@ async function clearActiveCache(
   if (!canContinue() || activeCaches.get(queryClient) !== activeCache) return;
 
   activeCaches.delete(queryClient);
-  queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
+  resetAndRemoveDayLogQueries(queryClient);
 }
 
 function subscribeToPersistence(
@@ -263,13 +263,13 @@ function subscribeToPersistence(
   const persist = () => {
     if (!active) return;
 
-    void pendingPersistence.track(() =>
-      persister.persistClient({
+    void pendingPersistence.track(async () => {
+      await persister.persistClient({
         buster: DAY_LOG_CACHE_BUSTER,
         timestamp: Date.now(),
         clientState: dehydrate(queryClient, dehydrateOptions),
-      }),
-    );
+      });
+    });
   };
 
   const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
@@ -293,6 +293,7 @@ function subscribeToPersistence(
 function createDayLogCacheInvalidationChannel(
   queryClient: QueryClient,
   userId: string,
+  options: DayLogCacheOptions,
 ): BroadcastChannel | undefined {
   if (typeof BroadcastChannel === "undefined") return undefined;
 
@@ -301,7 +302,7 @@ function createDayLogCacheInvalidationChannel(
     channel.addEventListener("message", (event: MessageEvent<unknown>) => {
       if (!isDayLogCacheInvalidationMessage(event.data, userId)) return;
 
-      void clearDayLogCache(queryClient, userId, { broadcast: false }).catch(() => undefined);
+      void applyRemoteDayLogCacheClear(queryClient, userId, options);
     });
     return channel;
   } catch {
@@ -309,10 +310,43 @@ function createDayLogCacheInvalidationChannel(
   }
 }
 
-function broadcastDayLogCacheInvalidation(
-  channel: BroadcastChannel | undefined,
+async function applyRemoteDayLogCacheClear(
+  queryClient: QueryClient,
   userId: string,
-): void {
+  options: DayLogCacheOptions,
+): Promise<void> {
+  const activeCache = activeCaches.get(queryClient);
+  const generation = nextCacheGeneration(queryClient);
+  const isCurrent = () => isCurrentCacheGeneration(queryClient, generation);
+
+  try {
+    if (activeCache && activeCache.userId === userId) {
+      activeCache.unsubscribe?.();
+      await activeCache.waitForPendingPersists?.();
+      if (!isCurrent() || activeCaches.get(queryClient) !== activeCache) return;
+
+      try {
+        await retryClearPersistedNamespace(options, userId);
+      } finally {
+        if (isCurrent() && activeCaches.get(queryClient) === activeCache) {
+          activeCaches.delete(queryClient);
+          resetAndRemoveDayLogQueries(queryClient);
+        }
+        activeCache.invalidationChannel?.close();
+      }
+      return;
+    }
+
+    await retryClearPersistedNamespace(options, userId);
+    if (isCurrent() && !activeCaches.get(queryClient)) {
+      resetAndRemoveDayLogQueries(queryClient);
+    }
+  } finally {
+    if (isCurrent()) await options.onRemoteClear?.();
+  }
+}
+
+function broadcastDayLogCacheInvalidation(channel: BroadcastChannel | undefined, userId: string): void {
   let sender = channel;
   let closeSender = false;
 
@@ -358,16 +392,54 @@ async function getStorage(
 }
 
 async function clearPersistedNamespace(options: DayLogCacheOptions, userId: string): Promise<void> {
-  const storage = await getStorage(options, userId, true);
-  if (!storage) return;
+  const key = dayLogCacheStorageKey(userId);
+  const inFlight = persistedNamespaceCleanups.get(key);
+  if (inFlight) {
+    await inFlight;
+    return;
+  }
 
-  await removePersistedClient(
-    createAsyncStoragePersister({
-      storage,
-      key: dayLogCacheStorageKey(userId),
-      throttleTime: options.throttleTime,
-    }),
-  );
+  const cleanup = (async () => {
+    const storage = await getStorage(options, userId, true);
+    if (!storage) return;
+
+    await removePersistedClient(
+      createAsyncStoragePersister({
+        storage,
+        key,
+        throttleTime: options.throttleTime,
+      }),
+    );
+  })();
+
+  persistedNamespaceCleanups.set(key, cleanup);
+  try {
+    await cleanup;
+  } finally {
+    if (persistedNamespaceCleanups.get(key) === cleanup) {
+      persistedNamespaceCleanups.delete(key);
+    }
+  }
+}
+
+async function retryClearPersistedNamespace(options: DayLogCacheOptions, userId: string): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < PERSISTED_NAMESPACE_CLEAR_ATTEMPTS; attempt += 1) {
+    try {
+      await clearPersistedNamespace(options, userId);
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
+function resetAndRemoveDayLogQueries(queryClient: QueryClient): void {
+  for (const query of queryClient.getQueryCache().findAll({ queryKey: DAY_LOG_QUERY_KEY_PREFIX })) {
+    if (isPersistableDayLogQuery(query)) query.reset();
+  }
+  queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
 }
 
 function createPendingPersistenceTracker(): PendingPersistenceTracker {
@@ -385,9 +457,7 @@ function createPendingPersistenceTracker(): PendingPersistenceTracker {
 
   const wait = async (): Promise<void> => {
     while (pendingPersists.size > 0) {
-      await Promise.all(
-        [...pendingPersists].map((pendingPersist) => pendingPersist.catch(() => undefined)),
-      );
+      await Promise.all([...pendingPersists].map((pendingPersist) => pendingPersist.catch(() => undefined)));
     }
   };
 
@@ -416,7 +486,7 @@ function sanitizePersistedClientState(clientState: DehydratedState, now: number)
     if (query.state.data !== null) {
       const parsedDayLog = DayLogResponseSchema.safeParse(query.state.data);
       const [, date] = query.queryKey;
-      if (!parsedDayLog.success || parsedDayLog.data.date !== date) {
+      if (!parsedDayLog.success || parsedDayLog.data === null || parsedDayLog.data.date !== date) {
         throw new Error("Persisted Day Log cache contains invalid data");
       }
     }
@@ -435,9 +505,7 @@ async function removePersistedClient(persister: NonNullable<ActiveDayLogCache["p
   await persister.removeClient();
 }
 
-async function discardPersistedClient(
-  persister: NonNullable<ActiveDayLogCache["persister"]>,
-): Promise<void> {
+async function discardPersistedClient(persister: NonNullable<ActiveDayLogCache["persister"]>): Promise<void> {
   try {
     await removePersistedClient(persister);
   } catch {
@@ -445,7 +513,7 @@ async function discardPersistedClient(
   }
 }
 
-function isWithinRetentionWindow(query: Query, now: number): boolean {
+function isWithinRetentionWindow(query: { state: { dataUpdatedAt: number } }, now: number): boolean {
   const dataUpdatedAt = query.state.dataUpdatedAt;
   return (
     typeof dataUpdatedAt === "number" &&

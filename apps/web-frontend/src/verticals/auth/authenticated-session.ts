@@ -16,6 +16,8 @@ export function getAuthenticatedSession(queryClient: QueryClient): Authenticated
 }
 
 export function clearAuthenticatedSession(queryClient: QueryClient): void {
+  const query = queryClient.getQueryCache().find({ queryKey: authenticatedSessionQueryKey });
+  query?.reset();
   queryClient.removeQueries({ queryKey: authenticatedSessionQueryKey });
 }
 
