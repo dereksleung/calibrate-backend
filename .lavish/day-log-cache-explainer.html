@@ -1,0 +1,1787 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A visual explanation of Calibrate's private Day Log cache, IndexedDB persistence, and activeCache lifecycle."
+    />
+    <title>Day Log Cache · Calibrate</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --surface: #f9f9f9;
+        --surface-card: #ffffff;
+        --surface-soft: #f3f3f4;
+        --surface-mid: #eeeeee;
+        --on-surface: #1a1c1c;
+        --on-surface-variant: #434840;
+        --outline: #73796f;
+        --outline-variant: #c3c8bd;
+        --primary: #334f2b;
+        --primary-container: #4a6741;
+        --on-primary: #ffffff;
+        --primary-fixed: #caecbc;
+        --on-primary-fixed: #062104;
+        --tertiary-fixed: #dee4e0;
+        --font-heading: "Manrope Variable", "Manrope", "Avenir Next", sans-serif;
+        --font-body: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+        --radius-md: 0.75rem;
+        --radius-lg: 1rem;
+        --radius-xl: 1.5rem;
+        --shadow-soft: 0 24px 60px rgba(26, 28, 28, 0.055);
+        --shadow-card: 0 18px 44px rgba(26, 28, 28, 0.045);
+      }
+
+      html[data-theme="dark"] {
+        color-scheme: dark;
+        --surface: #2f3131;
+        --surface-card: #1a1c1c;
+        --surface-soft: #252828;
+        --surface-mid: #434840;
+        --on-surface: #f0f1f1;
+        --on-surface-variant: #dee4e0;
+        --outline: #aeb5ab;
+        --outline-variant: #5e665d;
+        --primary: #afd0a1;
+        --primary-container: #4a6741;
+        --on-primary: #062104;
+        --primary-fixed: #4a6741;
+        --on-primary-fixed: #e4f5dd;
+        --tertiary-fixed: #424845;
+        --shadow-soft: 0 24px 60px rgba(0, 0, 0, 0.2);
+        --shadow-card: 0 18px 44px rgba(0, 0, 0, 0.16);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-width: 320px;
+        min-height: 100%;
+      }
+
+      html {
+        background: var(--surface);
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        overflow-x: hidden;
+        background:
+          radial-gradient(circle at 6% 0%, color-mix(in srgb, var(--primary-fixed) 62%, transparent), transparent 29rem),
+          radial-gradient(circle at 96% 17%, color-mix(in srgb, var(--tertiary-fixed) 74%, transparent), transparent 26rem),
+          var(--surface);
+        color: var(--on-surface);
+        font-family: var(--font-body);
+        font-size: 16px;
+        line-height: 1.55;
+        transition: background-color 180ms ease, color 180ms ease;
+      }
+
+      button,
+      code,
+      table,
+      .cache-page,
+      .cache-section,
+      .cache-card,
+      .cache-diagram,
+      .cache-table-wrap,
+      .cache-source {
+        min-width: 0;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      img,
+      svg,
+      canvas,
+      iframe {
+        max-width: 100%;
+        height: auto;
+      }
+
+      p,
+      h1,
+      h2,
+      h3,
+      li,
+      td,
+      th,
+      figcaption,
+      code,
+      .cache-badge,
+      .cache-label {
+        overflow-wrap: anywhere;
+      }
+
+      code,
+      .cache-mono {
+        font-family: "SFMono-Regular", "Cascadia Code", "Roboto Mono", monospace;
+        font-size: 0.88em;
+      }
+
+      .cache-page {
+        width: min(100%, 1240px);
+        margin: 0 auto;
+        padding: 22px 28px 84px;
+      }
+
+      .cache-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        min-height: 44px;
+      }
+
+      .cache-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--on-surface-variant);
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        line-height: 1.35;
+        text-transform: uppercase;
+      }
+
+      .cache-brand-mark {
+        display: inline-grid;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+        flex: 0 0 auto;
+        border-radius: 8px;
+        background: var(--primary);
+        color: var(--on-primary);
+        font-family: var(--font-heading);
+        font-size: 0.75rem;
+        font-weight: 700;
+      }
+
+      .cache-theme-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 0;
+        border-radius: 999px;
+        padding: 8px 12px;
+        background: color-mix(in srgb, var(--surface-card) 72%, transparent);
+        box-shadow: 0 8px 24px rgba(26, 28, 28, 0.045);
+        color: var(--on-surface-variant);
+        cursor: pointer;
+        font-size: 0.78rem;
+        font-weight: 600;
+        transition: background-color 180ms ease, transform 180ms ease;
+      }
+
+      .cache-theme-button:hover {
+        background: var(--surface-card);
+        transform: translateY(-1px);
+      }
+
+      .cache-theme-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--primary);
+      }
+
+      .cache-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.24fr) minmax(260px, 0.76fr);
+        gap: 32px;
+        align-items: end;
+        padding: 78px 0 68px;
+      }
+
+      .cache-eyebrow,
+      .cache-section-kicker {
+        margin: 0 0 14px;
+        color: var(--primary);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .cache-hero h1 {
+        max-width: 850px;
+        margin: 0;
+        color: var(--on-surface);
+        font-family: var(--font-heading);
+        font-size: clamp(2.65rem, 6vw, 5.3rem);
+        font-weight: 300;
+        letter-spacing: -0.055em;
+        line-height: 0.98;
+      }
+
+      .cache-hero-lede {
+        max-width: 680px;
+        margin: 24px 0 0;
+        color: var(--on-surface-variant);
+        font-size: clamp(1.08rem, 1.8vw, 1.35rem);
+        font-weight: 300;
+        line-height: 1.5;
+      }
+
+      .cache-hero-note {
+        position: relative;
+        overflow: hidden;
+        border-radius: var(--radius-xl);
+        padding: 28px;
+        background: linear-gradient(140deg, color-mix(in srgb, var(--primary) 94%, black), var(--primary-container));
+        box-shadow: var(--shadow-soft);
+        color: var(--on-primary);
+      }
+
+      .cache-hero-note::after {
+        position: absolute;
+        right: -46px;
+        bottom: -76px;
+        width: 180px;
+        height: 180px;
+        border: 1px solid color-mix(in srgb, var(--primary-fixed) 50%, transparent);
+        border-radius: 50%;
+        box-shadow:
+          0 0 0 24px color-mix(in srgb, var(--primary-fixed) 12%, transparent),
+          0 0 0 48px color-mix(in srgb, var(--primary-fixed) 8%, transparent);
+        content: "";
+      }
+
+      .cache-hero-note-label {
+        position: relative;
+        z-index: 1;
+        margin: 0 0 12px;
+        color: var(--primary-fixed);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .cache-hero-note p:last-child {
+        position: relative;
+        z-index: 1;
+        max-width: 330px;
+        margin: 0;
+        font-family: var(--font-heading);
+        font-size: clamp(1.2rem, 2.1vw, 1.65rem);
+        font-weight: 400;
+        letter-spacing: -0.025em;
+        line-height: 1.22;
+      }
+
+      .cache-stat-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 30px;
+      }
+
+      .cache-stat {
+        border-radius: var(--radius-md);
+        padding: 15px 16px;
+        background: color-mix(in srgb, var(--surface-card) 62%, transparent);
+      }
+
+      .cache-stat-value {
+        display: block;
+        color: var(--primary);
+        font-family: var(--font-heading);
+        font-size: 1.25rem;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+      }
+
+      .cache-stat-label {
+        display: block;
+        margin-top: 3px;
+        color: var(--on-surface-variant);
+        font-size: 0.72rem;
+        line-height: 1.3;
+      }
+
+      .cache-section {
+        margin-top: 78px;
+      }
+
+      .cache-section-heading {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 22px;
+      }
+
+      .cache-section-heading h2 {
+        max-width: 700px;
+        margin: 0;
+        font-family: var(--font-heading);
+        font-size: clamp(1.75rem, 3.4vw, 2.6rem);
+        font-weight: 400;
+        letter-spacing: -0.045em;
+        line-height: 1.1;
+      }
+
+      .cache-section-heading > p {
+        max-width: 420px;
+        margin: 0;
+        color: var(--on-surface-variant);
+        font-size: 0.92rem;
+      }
+
+      .cache-card {
+        border-radius: var(--radius-xl);
+        background: var(--surface-card);
+        box-shadow: var(--shadow-card);
+      }
+
+      .cache-diagram {
+        overflow: auto;
+        padding: 26px 26px 18px;
+      }
+
+      .cache-diagram .mermaid {
+        min-width: 720px;
+        text-align: center;
+      }
+
+      .cache-caption {
+        margin: 4px 2px 0;
+        color: var(--on-surface-variant);
+        font-size: 0.78rem;
+        line-height: 1.45;
+      }
+
+      .cache-caption code {
+        color: var(--primary);
+      }
+
+      .cache-model-grid,
+      .cache-flow-grid,
+      .cache-source-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 18px;
+      }
+
+      .cache-model-grid {
+        margin-top: 18px;
+      }
+
+      .cache-info-card {
+        min-height: 100%;
+        padding: 24px;
+      }
+
+      .cache-info-card h3,
+      .cache-flow-intro h3,
+      .cache-side-copy h3,
+      .cache-race-card h3,
+      .cache-source-header h3 {
+        margin: 0;
+        font-family: var(--font-heading);
+        font-weight: 500;
+        letter-spacing: -0.025em;
+      }
+
+      .cache-info-card h3,
+      .cache-flow-intro h3,
+      .cache-side-copy h3 {
+        font-size: 1.16rem;
+      }
+
+      .cache-info-card p,
+      .cache-side-copy p,
+      .cache-flow-intro p,
+      .cache-race-card p {
+        margin: 10px 0 0;
+        color: var(--on-surface-variant);
+        font-size: 0.9rem;
+      }
+
+      .cache-key-list {
+        display: grid;
+        gap: 10px;
+        margin: 20px 0 0;
+      }
+
+      .cache-key-row {
+        display: grid;
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+        gap: 12px;
+        align-items: center;
+        padding: 11px 0;
+        border-top: 1px solid color-mix(in srgb, var(--outline-variant) 45%, transparent);
+      }
+
+      .cache-key-row:first-child {
+        border-top: 0;
+      }
+
+      .cache-key-row span {
+        color: var(--on-surface-variant);
+        font-size: 0.78rem;
+        font-weight: 600;
+      }
+
+      .cache-key-row code {
+        display: block;
+        color: var(--primary);
+        font-size: 0.76rem;
+      }
+
+      .cache-callout {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        margin-top: 18px;
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+        background: color-mix(in srgb, var(--primary-fixed) 44%, var(--surface-card));
+      }
+
+      .cache-callout strong {
+        display: block;
+        color: var(--on-primary-fixed);
+        font-size: 0.82rem;
+      }
+
+      .cache-callout span:last-child {
+        display: block;
+        margin-top: 2px;
+        color: var(--on-surface-variant);
+        font-size: 0.78rem;
+        line-height: 1.4;
+      }
+
+      .cache-marker {
+        flex: 0 0 auto;
+        width: 8px;
+        height: 8px;
+        margin-top: 5px;
+        border-radius: 50%;
+        background: var(--primary);
+      }
+
+      .cache-state-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+        gap: 18px;
+      }
+
+      .cache-state-grid .cache-card {
+        min-height: 100%;
+      }
+
+      .cache-side-copy {
+        display: grid;
+        align-content: start;
+        gap: 14px;
+        padding: 24px;
+      }
+
+      .cache-side-copy p {
+        margin: 0;
+      }
+
+      .cache-side-copy ul {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding-left: 18px;
+        color: var(--on-surface-variant);
+        font-size: 0.86rem;
+      }
+
+      .cache-side-copy li::marker {
+        color: var(--primary);
+      }
+
+      .cache-badge {
+        display: inline-flex;
+        width: fit-content;
+        align-items: center;
+        gap: 7px;
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: color-mix(in srgb, var(--primary-fixed) 52%, transparent);
+        color: var(--on-primary-fixed);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      .cache-badge::before {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--primary);
+        content: "";
+      }
+
+      .cache-flow-grid {
+        align-items: stretch;
+      }
+
+      .cache-flow-grid .cache-card {
+        min-height: 100%;
+      }
+
+      .cache-flow-intro {
+        padding: 24px 24px 0;
+      }
+
+      .cache-flow-intro p {
+        margin-top: 8px;
+        font-size: 0.88rem;
+      }
+
+      .cache-flow-grid .cache-diagram {
+        padding-top: 16px;
+      }
+
+      .cache-flow-grid .cache-diagram .mermaid {
+        min-width: 600px;
+      }
+
+      .cache-race-card {
+        display: grid;
+        grid-template-columns: minmax(0, 0.6fr) minmax(0, 1.4fr);
+        gap: 22px;
+        align-items: center;
+        margin-top: 18px;
+        border-radius: var(--radius-xl);
+        padding: 24px;
+        background: color-mix(in srgb, var(--surface-soft) 80%, var(--surface-card));
+      }
+
+      .cache-race-card h3 {
+        font-size: 1.12rem;
+      }
+
+      .cache-race-card p {
+        font-size: 0.84rem;
+      }
+
+      .cache-race-card .mermaid {
+        min-width: 520px;
+      }
+
+      .cache-table-lede {
+        margin: 0 0 14px;
+        color: var(--on-surface-variant);
+        font-size: 0.9rem;
+      }
+
+      .cache-table-wrap {
+        overflow-x: auto;
+        border-radius: var(--radius-xl);
+        background: var(--surface-card);
+        box-shadow: var(--shadow-card);
+      }
+
+      .cache-table {
+        width: 100%;
+        min-width: 720px;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      .cache-table th,
+      .cache-table td {
+        padding: 15px 18px;
+        border-bottom: 1px solid color-mix(in srgb, var(--outline-variant) 42%, transparent);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .cache-table th {
+        color: var(--on-surface-variant);
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .cache-table td {
+        color: var(--on-surface-variant);
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+
+      .cache-table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .cache-table th:first-child,
+      .cache-table td:first-child {
+        width: 28%;
+      }
+
+      .cache-table th:nth-child(2),
+      .cache-table td:nth-child(2) {
+        width: 28%;
+      }
+
+      .cache-table td:first-child code {
+        color: var(--primary);
+        font-size: 0.78rem;
+        font-weight: 600;
+      }
+
+      .cache-table .cache-group-row td {
+        padding-top: 20px;
+        padding-bottom: 8px;
+        border-bottom: 0;
+        background: color-mix(in srgb, var(--surface-soft) 68%, transparent);
+        color: var(--primary);
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      .cache-source {
+        overflow: hidden;
+        border-radius: var(--radius-xl);
+        background: var(--surface-card);
+        box-shadow: var(--shadow-card);
+      }
+
+      .cache-source-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 18px 20px 14px;
+      }
+
+      .cache-source-header h3 {
+        font-size: 1.02rem;
+      }
+
+      .cache-source-path {
+        margin: 4px 0 0;
+        color: var(--on-surface-variant);
+        font-size: 0.72rem;
+      }
+
+      .cache-source-path code {
+        color: var(--primary);
+      }
+
+      .cache-source .source-view {
+        max-height: 540px;
+        overflow: auto;
+        border-top: 1px solid color-mix(in srgb, var(--outline-variant) 42%, transparent);
+      }
+
+      .cache-source-foot {
+        padding: 12px 20px 17px;
+        color: var(--on-surface-variant);
+        font-size: 0.74rem;
+      }
+
+      .cache-final {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(240px, 0.75fr);
+        gap: 18px;
+      }
+
+      .cache-final-card {
+        min-height: 100%;
+        padding: 26px;
+      }
+
+      .cache-final-card h2 {
+        margin: 0;
+        font-family: var(--font-heading);
+        font-size: clamp(1.8rem, 3.5vw, 2.65rem);
+        font-weight: 400;
+        letter-spacing: -0.045em;
+        line-height: 1.08;
+      }
+
+      .cache-takeaways {
+        display: grid;
+        gap: 12px;
+        margin: 20px 0 0;
+      }
+
+      .cache-takeaway {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        gap: 11px;
+        align-items: start;
+      }
+
+      .cache-takeaway-number {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        border-radius: 9px;
+        background: var(--primary-fixed);
+        color: var(--on-primary-fixed);
+        font-family: var(--font-heading);
+        font-size: 0.82rem;
+        font-weight: 600;
+      }
+
+      .cache-takeaway strong {
+        display: block;
+        color: var(--on-surface);
+        font-size: 0.84rem;
+      }
+
+      .cache-takeaway span {
+        display: block;
+        margin-top: 2px;
+        color: var(--on-surface-variant);
+        font-size: 0.8rem;
+        line-height: 1.42;
+      }
+
+      .cache-evidence {
+        display: grid;
+        align-content: start;
+        gap: 14px;
+        padding: 26px;
+        background: linear-gradient(150deg, color-mix(in srgb, var(--primary-fixed) 44%, var(--surface-card)), var(--surface-card));
+      }
+
+      .cache-evidence-label {
+        margin: 0;
+        color: var(--primary);
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      .cache-evidence code {
+        display: block;
+        padding: 12px 13px;
+        border-radius: var(--radius-md);
+        background: color-mix(in srgb, var(--surface-card) 70%, transparent);
+        color: var(--on-surface);
+        font-size: 0.76rem;
+        line-height: 1.6;
+      }
+
+      .cache-evidence p {
+        margin: 0;
+        color: var(--on-surface-variant);
+        font-size: 0.8rem;
+      }
+
+      .cache-footer {
+        margin-top: 58px;
+        padding-top: 18px;
+        border-top: 1px solid color-mix(in srgb, var(--outline-variant) 50%, transparent);
+        color: var(--on-surface-variant);
+        font-size: 0.76rem;
+      }
+
+      @media (max-width: 900px) {
+        .cache-hero,
+        .cache-state-grid,
+        .cache-final {
+          grid-template-columns: 1fr;
+        }
+
+        .cache-hero {
+          padding-top: 58px;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .cache-page {
+          padding: 18px 16px 60px;
+        }
+
+        .cache-topbar {
+          align-items: flex-start;
+        }
+
+        .cache-brand {
+          max-width: 210px;
+        }
+
+        .cache-hero {
+          gap: 26px;
+          padding: 54px 0 44px;
+        }
+
+        .cache-stat-row,
+        .cache-model-grid,
+        .cache-flow-grid,
+        .cache-source-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .cache-section {
+          margin-top: 58px;
+        }
+
+        .cache-section-heading {
+          display: block;
+        }
+
+        .cache-section-heading > p {
+          margin-top: 12px;
+        }
+
+        .cache-race-card {
+          grid-template-columns: 1fr;
+          overflow: hidden;
+        }
+
+        .cache-diagram {
+          padding-right: 12px;
+          padding-left: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="cache-page">
+      <header class="cache-topbar">
+        <div class="cache-brand">
+          <span class="cache-brand-mark">C</span>
+          <span>Calibrate / frontend systems explainer</span>
+        </div>
+        <button id="theme-toggle" class="cache-theme-button" type="button" aria-pressed="false">
+          <span class="cache-theme-dot" aria-hidden="true"></span>
+          <span>Dark view</span>
+        </button>
+      </header>
+
+      <main>
+        <section class="cache-hero" aria-labelledby="page-title">
+          <div>
+            <p class="cache-eyebrow">Day Log cache · IndexedDB · activeCache</p>
+            <h1 id="page-title">The cache has a memory, a vault, and a gatekeeper.</h1>
+            <p class="cache-hero-lede">
+              <code>day-log-cache.ts</code> keeps confirmed users’ date-scoped Day Logs available
+              across reloads without letting stale, foreign, corrupt, or in-flight data leak into
+              the current <code>QueryClient</code>.
+            </p>
+            <div class="cache-stat-row" aria-label="Cache facts">
+              <div class="cache-stat">
+                <span class="cache-stat-value">30 days</span>
+                <span class="cache-stat-label">retention window on restore</span>
+              </div>
+              <div class="cache-stat">
+                <span class="cache-stat-value">1 key</span>
+                <span class="cache-stat-label">serialized namespace per user</span>
+              </div>
+              <div class="cache-stat">
+                <span class="cache-stat-value">0 data</span>
+                <span class="cache-stat-label">broadcast across tabs; only clear signals</span>
+              </div>
+            </div>
+          </div>
+          <aside class="cache-hero-note">
+            <p class="cache-hero-note-label">The short answer</p>
+            <p>
+              IndexedDB stores the snapshot. TanStack Query serves the working data.
+              <code>activeCache</code> connects exactly one user namespace to one QueryClient.
+            </p>
+          </aside>
+        </section>
+
+        <section class="cache-section" aria-labelledby="model-title">
+          <div class="cache-section-heading">
+            <div>
+              <p class="cache-section-kicker">01 · The mental model</p>
+              <h2 id="model-title">What is actually cached?</h2>
+            </div>
+            <p>
+              The durable layer is one serialized TanStack Query snapshot per user. The in-memory
+              layer contains the individual date queries that the UI reads.
+            </p>
+          </div>
+
+          <figure class="cache-card">
+            <div class="cache-diagram">
+              <div class="mermaid">
+flowchart LR
+  UI["Calibrate UI<br/>dashboard + selected day"] --> QC["TanStack QueryClient"]
+  QC --> RQ["Range query<br/>['dayLogs', 'range', start, end]"]
+  RQ --> PUB["writeDayLogRangeToCache<br/>one entry per day"]
+  PUB --> DQ["Day query<br/>['dayLogs', 'YYYY-MM-DD']"]
+  DQ --> SUB["QueryCache subscriber"]
+  SUB --> PERS["Async storage persister"]
+  PERS --> IDB["IndexedDB<br/>calibrate-day-log-cache"]
+  IDB --> STORE["query-cache object store<br/>key = calibrate:day-logs:{userId}"]
+  ACTIVE["activeCaches WeakMap<br/>QueryClient → ActiveDayLogCache"] -. "lifecycle + user identity" .-> SUB
+  ACTIVE -. "write guard" .-> PUB
+              </div>
+            </div>
+            <figcaption class="cache-caption">
+              The range query is not persisted directly. Its successful response is fanned out into
+              date-keyed queries; those date queries are the persistable records.
+            </figcaption>
+          </figure>
+
+          <div class="cache-model-grid">
+            <article class="cache-card cache-info-card">
+              <h3>IndexedDB anatomy</h3>
+              <p>
+                <code>createIndexedDbStorage()</code> adapts IndexedDB to the async
+                <code>getItem / setItem / removeItem</code> contract expected by TanStack’s persister.
+              </p>
+              <div class="cache-key-list">
+                <div class="cache-key-row">
+                  <span>Database</span>
+                  <code>calibrate-day-log-cache</code>
+                </div>
+                <div class="cache-key-row">
+                  <span>Object store</span>
+                  <code>query-cache</code>
+                </div>
+                <div class="cache-key-row">
+                  <span>User A record</span>
+                  <code>calibrate:day-logs:user-a</code>
+                </div>
+                <div class="cache-key-row">
+                  <span>Stored value</span>
+                  <code>{ buster, timestamp, clientState }</code>
+                </div>
+              </div>
+            </article>
+
+            <article class="cache-card cache-info-card">
+              <h3>What passes the persistence filter?</h3>
+              <p>
+                The exact predicate is intentionally narrow: scope <code>dayLogs</code>, one ISO
+                date segment, and a successful query state.
+              </p>
+              <div class="cache-callout">
+                <span class="cache-marker" aria-hidden="true"></span>
+                <div>
+                  <strong>Known-empty is real data.</strong>
+                  <span>
+                    A cached <code>null</code> means “the server confirmed no log for this day”; it
+                    remains distinct from an undefined, never-loaded day.
+                  </span>
+                </div>
+              </div>
+              <div class="cache-callout">
+                <span class="cache-marker" aria-hidden="true"></span>
+                <div>
+                  <strong>Range and auth state stay out.</strong>
+                  <span>
+                    Range keys and <code>authenticatedSession</code> can live in QueryClient memory,
+                    but the Day Log namespace never hydrates them from disk.
+                  </span>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="cache-section" aria-labelledby="lifecycle-title">
+          <div class="cache-section-heading">
+            <div>
+              <p class="cache-section-kicker">02 · Startup and identity</p>
+              <h2 id="lifecycle-title">Restore is a guarded activation sequence.</h2>
+            </div>
+            <p>
+              The session gate confirms the user first, then waits for the cache restore before
+              mounting authenticated reads.
+            </p>
+          </div>
+
+          <div class="cache-state-grid">
+            <figure class="cache-card">
+              <div class="cache-diagram">
+                <div class="mermaid">
+sequenceDiagram
+  participant Gate as SessionRestorationGate
+  participant C as restoreDayLogCache
+  participant Q as QueryClient
+  participant DB as IndexedDB
+  Gate->>C: confirmed session.user.id
+  C->>Q: set dayLogs gcTime = Infinity
+  alt same user is already active
+    C->>C: await activeCache.ready
+    C-->>Gate: no duplicate restore
+  else first user or user changed
+    C->>C: nextCacheGeneration()
+    C->>Q: clear previous day queries
+    C->>DB: open v1 + restore user namespace
+    alt storage unavailable
+      C->>C: register memory-only activeCache
+    else payload exists
+      C->>C: validate buster and shape
+      C->>C: sanitize key, schema, date, and age
+      C->>Q: hydrate fresh day queries
+      C->>DB: rewrite sanitized snapshot
+      C->>C: subscribe to future QueryCache events
+    end
+    C-->>Gate: resolve ready
+  end
+  Gate-->>Gate: set available; mount children
+                </div>
+              </div>
+              <figcaption class="cache-caption">
+                Source path: <code>session-restoration-gate.tsx:21–32</code> and
+                <code>day-log-cache.ts:92–192</code>.
+              </figcaption>
+            </figure>
+
+            <article class="cache-card cache-side-copy">
+              <span class="cache-badge">One active namespace</span>
+              <h3><code>activeCache</code> is the gatekeeper</h3>
+              <p>
+                In <code>restoreDayLogCache</code>, <code>activeCache</code> is a local snapshot read
+                from the module-level <code>activeCaches</code> WeakMap.
+              </p>
+              <ul>
+                <li>
+                  Same user: wait for its <code>ready</code> promise, so concurrent restores do not
+                  create duplicate subscriptions.
+                </li>
+                <li>
+                  New user: tear down the old descriptor before activating the new user’s namespace.
+                </li>
+                <li>
+                  Storage unavailable: keep the user id and a cleanup retry hook, but omit the
+                  persister and persistence subscription.
+                </li>
+                <li>
+                  Storage available: hold the persister, ready promise, unsubscribe hook, pending
+                  write waiter, and BroadcastChannel.
+                </li>
+              </ul>
+            </article>
+          </div>
+
+          <figure class="cache-card" style="margin-top: 18px">
+            <div class="cache-diagram">
+              <div class="mermaid">
+stateDiagram-v2
+  direction LR
+  [*] --> None
+  None --> Restoring : restoreDayLogCache(user)
+  Restoring --> ActivePersisted : restore + sanitize + hydrate + subscribe
+  Restoring --> ActiveMemoryOnly : storage unavailable
+  ActivePersisted --> ActivePersisted : same user restore → await ready
+  ActivePersisted --> Clearing : logout / clear / switch user
+  ActiveMemoryOnly --> Clearing : logout / clear / switch user
+  Clearing --> None : stop writes → delete namespace → remove day queries
+  None --> Restoring : activate next user
+  note right of ActivePersisted
+    activeCache = lifecycle metadata,
+    not the Day Log data itself
+  end note
+              </div>
+            </div>
+            <figcaption class="cache-caption">
+              There is one <code>ActiveDayLogCache</code> descriptor per <code>QueryClient</code>;
+              the actual day data remains in QueryClient and, when available, IndexedDB.
+            </figcaption>
+          </figure>
+        </section>
+
+        <section class="cache-section" aria-labelledby="runtime-title">
+          <div class="cache-section-heading">
+            <div>
+              <p class="cache-section-kicker">03 · Runtime and teardown</p>
+              <h2 id="runtime-title">Writes are selective; clears are deliberately ordered.</h2>
+            </div>
+            <p>
+              The module treats persistence as asynchronous work that must be drained before a
+              namespace is deleted.
+            </p>
+          </div>
+
+          <div class="cache-flow-grid">
+            <article class="cache-card">
+              <div class="cache-flow-intro">
+                <h3>Normal runtime write</h3>
+                <p>
+                  A date query changes; the subscriber takes a filtered snapshot and lets the
+                  persister throttle the actual storage write.
+                </p>
+              </div>
+              <div class="cache-diagram">
+                <div class="mermaid">
+flowchart TB
+  CHANGE["setQueryData(['dayLogs', date], data)"] --> EVENT["QueryCache event<br/>added / updated / removed"]
+  EVENT --> TEST{"persistable key<br/>and success?"}
+  TEST -->|no| SKIP["ignore<br/>range, auth, error, mutation"]
+  TEST -->|yes| DEHY["dehydrate<br/>day queries only"]
+  DEHY --> THROTTLE["createAsyncStoragePersister<br/>throttleTime"]
+  THROTTLE --> PUT["runStoreRequest(readwrite)<br/>store.put(snapshot, user key)"]
+  PUT --> COMMIT["resolve after transaction.oncomplete"]
+                </div>
+              </div>
+              <p class="cache-caption" style="padding: 0 24px 22px">
+                Source path: <code>day-log-cache.ts:249–290</code> and
+                <code>day-log-cache.ts:493–515</code>.
+              </p>
+            </article>
+
+            <article class="cache-card">
+              <div class="cache-flow-intro">
+                <h3>Logout or explicit clear</h3>
+                <p>
+                  Clearing protects against a late persistence write resurrecting data after logout
+                  or an account switch.
+                </p>
+              </div>
+              <div class="cache-diagram">
+                <div class="mermaid">
+flowchart TB
+  START["clearDayLogCache(userId)"] --> STOP["unsubscribe<br/>stop future writes"]
+  STOP --> WAIT["waitForPendingPersists<br/>drain restore rewrites + writes"]
+  WAIT --> DELETE["persister.removeClient()<br/>delete user namespace"]
+  DELETE --> MEMORY["QueryClient.removeQueries(['dayLogs'])"]
+  MEMORY --> BROADCAST["post { type: 'clear', userId }"]
+  BROADCAST --> CLOSE["close active channel"]
+                </div>
+              </div>
+              <p class="cache-caption" style="padding: 0 24px 22px">
+                Source path: <code>day-log-cache.ts:194–247</code>. If persistent removal fails,
+                the current cache is preserved and the error is surfaced.
+              </p>
+            </article>
+          </div>
+
+          <figure class="cache-card" style="margin-top: 18px">
+            <div class="cache-diagram">
+              <div class="mermaid">
+sequenceDiagram
+  participant A as Tab A
+  participant DB as Shared IndexedDB
+  participant BC as BroadcastChannel
+  participant B as Tab B
+  A->>A: clearDayLogCache(user-a)
+  A->>A: unsubscribe + wait pending writes
+  A->>DB: delete calibrate:day-logs:user-a
+  A->>A: remove in-memory day queries
+  A->>BC: { type: "clear", userId: "user-a" }
+  BC-->>B: message
+  B->>B: verify type and exact user id
+  B->>B: clearDayLogCache(user-a, broadcast: false)
+  B->>DB: delete same namespace
+  B->>B: remove in-memory day queries
+              </div>
+            </div>
+            <figcaption class="cache-caption">
+              Cross-tab invalidation carries a clear signal, never the cached data. The receiving
+              tab passes <code>broadcast: false</code> so the clear does not echo forever.
+            </figcaption>
+          </figure>
+
+          <div class="cache-race-card">
+            <div>
+              <h3>Why the generation number exists</h3>
+              <p>
+                Every restore or clear advances a per-<code>QueryClient</code> operation token. A
+                slow older async operation can finish, but it cannot hydrate or write once its
+                generation is no longer current.
+              </p>
+            </div>
+            <div class="cache-diagram">
+              <div class="mermaid">
+flowchart LR
+  OLD["user A restore / range response<br/>generation 1"] --> SWITCH["account switch"]
+  SWITCH --> NEW["user B activation<br/>generation 2"]
+  OLD -. "isCurrent() = false<br/>skip hydrate / write" .-> STOPPED["stopped"]
+  NEW --> ONLY["only current activeCache<br/>may publish"]
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="cache-section" aria-labelledby="functions-title">
+          <div class="cache-section-heading">
+            <div>
+              <p class="cache-section-kicker">04 · Function map</p>
+              <h2 id="functions-title">What each function contributes.</h2>
+            </div>
+            <p>
+              Read the rows as a pipeline: identify the namespace, activate it, validate what comes
+              back, persist only eligible queries, then clean up safely.
+            </p>
+          </div>
+
+          <p class="cache-table-lede">
+            The line references point into
+            <code>apps/web-frontend/src/shared/api/day-log-cache.ts</code> as currently implemented.
+          </p>
+          <div class="cache-table-wrap">
+            <table class="cache-table">
+              <thead>
+                <tr>
+                  <th scope="col">Function</th>
+                  <th scope="col">Role</th>
+                  <th scope="col">Behavior to remember</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="cache-group-row">
+                  <td colspan="3">Public surface and query policy</td>
+                </tr>
+                <tr>
+                  <td><code>dayLogCacheStorageKey</code><br />:59</td>
+                  <td>Build the user namespace key.</td>
+                  <td>Prefixes with <code>calibrate:day-logs:</code> and URL-encodes the user id.</td>
+                </tr>
+                <tr>
+                  <td><code>createDayLogCacheWriteGuard</code><br />:63</td>
+                  <td>Fence delayed writes.</td>
+                  <td>Returns true only while the captured generation and user are still active.</td>
+                </tr>
+                <tr>
+                  <td><code>isPersistableDayLogQuery</code><br />:74</td>
+                  <td>Define the durable query set.</td>
+                  <td>Accepts exactly <code>['dayLogs', 'YYYY-MM-DD']</code>; excludes range and auth keys.</td>
+                </tr>
+                <tr>
+                  <td><code>restoreDayLogCache</code><br />:92</td>
+                  <td>Activate and restore a user namespace.</td>
+                  <td>Clears old identity state, restores, validates, hydrates, rewrites, and subscribes.</td>
+                </tr>
+                <tr>
+                  <td><code>clearDayLogCache</code><br />:194</td>
+                  <td>Remove a namespace.</td>
+                  <td>Handles active and inactive users, optionally broadcasts, and advances the generation.</td>
+                </tr>
+
+                <tr class="cache-group-row">
+                  <td colspan="3">Lifecycle, persistence, and concurrency</td>
+                </tr>
+                <tr>
+                  <td><code>clearActiveCache</code><br />:229</td>
+                  <td>Teardown the active descriptor.</td>
+                  <td>Unsubscribes, drains pending writes, deletes persistence, then removes in-memory day queries.</td>
+                </tr>
+                <tr>
+                  <td><code>subscribeToPersistence</code><br />:249</td>
+                  <td>Watch QueryClient changes.</td>
+                  <td>Persists eligible added, updated, or removed queries; an active flag makes unsubscribe final.</td>
+                </tr>
+                <tr>
+                  <td><code>createPendingPersistenceTracker</code><br />:373</td>
+                  <td>Track in-flight writes.</td>
+                  <td><code>wait()</code> loops until the set is empty, including writes created while waiting.</td>
+                </tr>
+                <tr>
+                  <td><code>nextCacheGeneration</code><br />:458</td>
+                  <td>Advance the operation token.</td>
+                  <td>Every restore or clear makes older asynchronous work stale.</td>
+                </tr>
+                <tr>
+                  <td><code>isCurrentCacheGeneration</code><br />:464</td>
+                  <td>Check the token.</td>
+                  <td>Compares the captured generation with the current one for that QueryClient.</td>
+                </tr>
+                <tr>
+                  <td><code>isCurrentCacheOperation</code><br />:468</td>
+                  <td>Check token plus identity.</td>
+                  <td>Adds the optional <code>isCurrentUser()</code> callback used by the session gate.</td>
+                </tr>
+
+                <tr class="cache-group-row">
+                  <td colspan="3">Validation and retention</td>
+                </tr>
+                <tr>
+                  <td><code>isUsablePersistedClient</code><br />:397</td>
+                  <td>Check the snapshot envelope.</td>
+                  <td>Requires the current buster, finite timestamp, and query/mutation arrays.</td>
+                </tr>
+                <tr>
+                  <td><code>sanitizePersistedClientState</code><br />:412</td>
+                  <td>Filter and validate query payloads.</td>
+                  <td>Keeps successful day entries, validates non-null data with <code>DayLogResponseSchema</code>, checks matching dates, drops expired entries, and strips mutations.</td>
+                </tr>
+                <tr>
+                  <td><code>isWithinRetentionWindow</code><br />:448</td>
+                  <td>Apply the 30-day boundary.</td>
+                  <td>Accepts finite timestamps from now back through 30 days; rejects future timestamps.</td>
+                </tr>
+                <tr>
+                  <td><code>removePersistedClient</code><br />:434</td>
+                  <td>Delegate persistent deletion.</td>
+                  <td>Calls the persister’s <code>removeClient()</code> for the current storage key.</td>
+                </tr>
+                <tr>
+                  <td><code>discardPersistedClient</code><br />:438</td>
+                  <td>Best-effort discard.</td>
+                  <td>Used when a payload is corrupt or unusable; swallows removal failure during restore.</td>
+                </tr>
+
+                <tr class="cache-group-row">
+                  <td colspan="3">Browser storage and cross-tab adapter</td>
+                </tr>
+                <tr>
+                  <td><code>getStorage</code><br />:346</td>
+                  <td>Select storage.</td>
+                  <td>Uses the test/custom factory when supplied, otherwise IndexedDB; restore soft-fails to memory-only.</td>
+                </tr>
+                <tr>
+                  <td><code>clearPersistedNamespace</code><br />:360</td>
+                  <td>Delete a named user key.</td>
+                  <td>Recreates a persister for that user and removes only its snapshot.</td>
+                </tr>
+                <tr>
+                  <td><code>createIndexedDbStorage</code><br />:476</td>
+                  <td>Expose IndexedDB as async string storage.</td>
+                  <td>Returns null when <code>indexedDB</code> is unavailable; otherwise maps get/put/delete.</td>
+                </tr>
+                <tr>
+                  <td><code>runStoreRequest</code><br />:493</td>
+                  <td>Run one object-store operation.</td>
+                  <td>Resolves only at transaction completion, rejects request/transaction/abort errors, and closes the database.</td>
+                </tr>
+                <tr>
+                  <td><code>openDatabase</code><br />:518</td>
+                  <td>Open and initialize IndexedDB.</td>
+                  <td>Opens version 1 and creates the key-value <code>query-cache</code> store during upgrade.</td>
+                </tr>
+                <tr>
+                  <td><code>createDayLogCacheInvalidationChannel</code><br />:293</td>
+                  <td>Listen for other tabs.</td>
+                  <td>Filters messages by exact user id, then clears locally without rebroadcasting.</td>
+                </tr>
+                <tr>
+                  <td><code>broadcastDayLogCacheInvalidation</code><br />:312</td>
+                  <td>Send a clear signal.</td>
+                  <td>Uses the active channel or a temporary one, then closes the temporary sender.</td>
+                </tr>
+                <tr>
+                  <td><code>isDayLogCacheInvalidationMessage</code><br />:339</td>
+                  <td>Validate a message.</td>
+                  <td>Accepts only an object with <code>type === 'clear'</code> and the expected user id.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="cache-section" aria-labelledby="source-title">
+          <div class="cache-section-heading">
+            <div>
+              <p class="cache-section-kicker">05 · Source lens</p>
+              <h2 id="source-title">The two places where the design becomes concrete.</h2>
+            </div>
+            <p>
+              These excerpts are rendered with a code-aware viewer so the implementation details
+              stay attached to the file and line ranges they explain.
+            </p>
+          </div>
+
+          <div class="cache-source-grid">
+            <article class="cache-source">
+              <div class="cache-source-header">
+                <div>
+                  <h3>Activation and restore</h3>
+                  <p class="cache-source-path">
+                    <code>apps/web-frontend/src/shared/api/day-log-cache.ts:92–192</code>
+                  </p>
+                </div>
+                <span class="cache-badge">identity-aware</span>
+              </div>
+              <div id="restore-code" class="source-view" aria-label="Activation and restore source excerpt"></div>
+              <p class="cache-source-foot">
+                The important shape is <code>activeCaches.set()</code> before the asynchronous restore,
+                followed by a final replacement once subscription hooks exist.
+              </p>
+            </article>
+
+            <article class="cache-source">
+              <div class="cache-source-header">
+                <div>
+                  <h3>Persistence and IndexedDB</h3>
+                  <p class="cache-source-path">
+                    <code>apps/web-frontend/src/shared/api/day-log-cache.ts:249–291, 476–530</code>
+                  </p>
+                </div>
+                <span class="cache-badge">transaction-safe</span>
+              </div>
+              <div id="storage-code" class="source-view" aria-label="Persistence and IndexedDB source excerpt"></div>
+              <p class="cache-source-foot">
+                The storage adapter is deliberately tiny; the persister owns serialization while
+                <code>runStoreRequest()</code> owns IndexedDB transaction completion.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="cache-section" aria-labelledby="takeaway-title">
+          <div class="cache-final">
+            <article class="cache-card cache-final-card">
+              <p class="cache-section-kicker">06 · Keep this picture</p>
+              <h2 id="takeaway-title">A private snapshot with a carefully managed lease.</h2>
+              <div class="cache-takeaways">
+                <div class="cache-takeaway">
+                  <span class="cache-takeaway-number">1</span>
+                  <div>
+                    <strong>QueryClient is the working memory.</strong>
+                    <span>UI reads individual date queries from here, including values fanned out from a range response.</span>
+                  </div>
+                </div>
+                <div class="cache-takeaway">
+                  <span class="cache-takeaway-number">2</span>
+                  <div>
+                    <strong>IndexedDB is the durable snapshot.</strong>
+                    <span>It holds one serialized, per-user record; restore filters and rewrites it instead of trusting it blindly.</span>
+                  </div>
+                </div>
+                <div class="cache-takeaway">
+                  <span class="cache-takeaway-number">3</span>
+                  <div>
+                    <strong><code>activeCache</code> is the lease.</strong>
+                    <span>It says which user owns this QueryClient’s persistence hooks right now and gives teardown a way to stop and drain them.</span>
+                  </div>
+                </div>
+                <div class="cache-takeaway">
+                  <span class="cache-takeaway-number">4</span>
+                  <div>
+                    <strong>Thirty days is a restore rule, not a timer.</strong>
+                    <span><code>gcTime: Infinity</code> keeps restored entries alive in memory; age is enforced when a persisted snapshot is read and sanitized.</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <aside class="cache-card cache-evidence">
+              <p class="cache-evidence-label">Evidence trail</p>
+              <code>day-log-cache.ts<br />session-restoration-gate.tsx<br />dashboard-day-log-query.ts<br />Header.tsx<br />day-log-cache.test.ts</code>
+              <p>
+                The implementation tests cover user isolation, known-empty days, storage fallback,
+                corruption, retention, generation races, pending writes, and cross-tab clearing.
+              </p>
+            </aside>
+          </div>
+        </section>
+      </main>
+
+      <footer class="cache-footer">
+        Built from the current frontend implementation and tests. Design direction: Calibrate’s
+        “Digital Zen” system—Manrope headings, Inter body text, forest green accents, soft tonal
+        surfaces, rounded containers, and low-contrast ambient depth.
+      </footer>
+    </div>
+
+    <script type="text/plain" id="restore-source">
+export async function restoreDayLogCache(
+  queryClient: QueryClient,
+  userId: string,
+  options: DayLogCacheOptions = {},
+): Promise<void> {
+  queryClient.setQueryDefaults(DAY_LOG_QUERY_KEY_PREFIX, {
+    // A 30-day timeout exceeds the browser's 32-bit timer limit.
+    gcTime: Infinity,
+  });
+
+  const activeCache = activeCaches.get(queryClient);
+  if (activeCache?.userId === userId) {
+    await activeCache.ready;
+    return;
+  }
+
+  const generation = nextCacheGeneration(queryClient);
+  const isCurrent = () => isCurrentCacheOperation(queryClient, generation, options);
+
+  if (activeCache) {
+    await clearActiveCache(queryClient, activeCache, isCurrent);
+  } else {
+    queryClient.removeQueries({ queryKey: DAY_LOG_QUERY_KEY_PREFIX });
+  }
+
+  if (!isCurrent()) return;
+
+  const storage = await getStorage(options, userId);
+  if (!isCurrent()) return;
+  if (!storage) {
+    activeCaches.set(queryClient, {
+      userId,
+      clearPersisted: () => clearPersistedNamespace(options, userId),
+      invalidationChannel: createDayLogCacheInvalidationChannel(queryClient, userId),
+    });
+    return;
+  }
+
+  const persister = createAsyncStoragePersister({
+    storage,
+    key: dayLogCacheStorageKey(userId),
+    throttleTime: options.throttleTime,
+  });
+  const pendingPersistence = createPendingPersistenceTracker();
+  let resolveReady!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    resolveReady = resolve;
+  });
+  const restoringCache: ActiveDayLogCache = {
+    userId,
+    persister,
+    ready,
+    clearPersisted: () => removePersistedClient(persister),
+    waitForPendingPersists: pendingPersistence.wait,
+    invalidationChannel: createDayLogCacheInvalidationChannel(queryClient, userId),
+  };
+  activeCaches.set(queryClient, restoringCache);
+
+  try {
+    const persistedClient = await persister.restoreClient();
+    if (!isCurrent()) return;
+
+    if (persistedClient) {
+      const sanitizedState = sanitizePersistedClientState(
+        persistedClient.clientState,
+        Date.now(),
+      );
+      if (!isCurrent()) return;
+      if (sanitizedState.queries.length > 0) {
+        hydrate(queryClient, sanitizedState);
+        await pendingPersistence.track(() =>
+          persister.persistClient({
+            buster: DAY_LOG_CACHE_BUSTER,
+            timestamp: Date.now(),
+            clientState: sanitizedState,
+          }),
+        );
+      }
+    }
+
+    if (!isCurrent()) return;
+    const persistence = subscribeToPersistence(queryClient, persister, pendingPersistence);
+    activeCaches.set(queryClient, { ...restoringCache, ...persistence });
+  } finally {
+    resolveReady();
+  }
+}
+    </script>
+
+    <script type="text/plain" id="storage-source">
+function subscribeToPersistence(
+  queryClient: QueryClient,
+  persister: ActiveDayLogCache["persister"],
+  pendingPersistence: PendingPersistenceTracker,
+): Pick<ActiveDayLogCache, "unsubscribe" | "waitForPendingPersists"> {
+  if (!persister) {
+    return {
+      unsubscribe: () => undefined,
+      waitForPendingPersists: async () => undefined,
+    };
+  }
+
+  let active = true;
+  const persist = () => {
+    if (!active) return;
+    void pendingPersistence.track(() =>
+      persister.persistClient({
+        buster: DAY_LOG_CACHE_BUSTER,
+        timestamp: Date.now(),
+        clientState: dehydrate(queryClient, dehydrateOptions),
+      }),
+    );
+  };
+
+  const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+    if (
+      (event.type === "added" || event.type === "removed" || event.type === "updated") &&
+      isPersistableDayLogQuery(event.query)
+    ) {
+      persist();
+    }
+  });
+
+  return {
+    unsubscribe: () => {
+      active = false;
+      unsubscribe();
+    },
+    waitForPendingPersists: pendingPersistence.wait,
+  };
+}
+
+function createIndexedDbStorage(): AsyncStringStorage | null {
+  if (typeof indexedDB === "undefined") return null;
+  return {
+    getItem: async (key) => {
+      const value = await runStoreRequest("readonly", (store) => store.get(key));
+      return value ?? null;
+    },
+    setItem: async (key, value) => {
+      await runStoreRequest("readwrite", (store) => store.put(value, key));
+    },
+    removeItem: async (key) => {
+      await runStoreRequest("readwrite", (store) => store.delete(key));
+    },
+  };
+}
+
+async function runStoreRequest<T>(
+  mode: IDBTransactionMode,
+  requestFactory: (store: IDBObjectStore) => IDBRequest<T>,
+): Promise<T> {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(DAY_LOG_CACHE_STORE_NAME, mode);
+    const request = requestFactory(transaction.objectStore(DAY_LOG_CACHE_STORE_NAME));
+    return await new Promise<T>((resolve, reject) => {
+      let requestResult!: T;
+      request.onsuccess = () => {
+        requestResult = request.result;
+      };
+      request.onerror = () => reject(request.error ?? new Error("IndexedDB request failed"));
+      transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB transaction failed"));
+      transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB transaction aborted"));
+      transaction.oncomplete = () => resolve(requestResult);
+    });
+  } finally {
+    database.close();
+  }
+}
+
+function openDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DAY_LOG_CACHE_DATABASE_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(DAY_LOG_CACHE_STORE_NAME)) {
+        request.result.createObjectStore(DAY_LOG_CACHE_STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("IndexedDB open failed"));
+    request.onblocked = () => reject(new Error("IndexedDB open blocked"));
+  });
+}
+    </script>
+
+    <script type="module">
+      import { File } from "https://esm.sh/@pierre/diffs@1.2.10?bundle";
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.esm.min.mjs";
+
+      const restoreSource = document.querySelector("#restore-source").textContent.trim();
+      const storageSource = document.querySelector("#storage-source").textContent.trim();
+      const root = document.documentElement;
+      const themeToggle = document.querySelector("#theme-toggle");
+
+      themeToggle.addEventListener("click", () => {
+        const dark = root.dataset.theme !== "dark";
+        root.dataset.theme = dark ? "dark" : "light";
+        themeToggle.setAttribute("aria-pressed", String(dark));
+        themeToggle.querySelector("span:last-child").textContent = dark ? "Light view" : "Dark view";
+      });
+
+      const paint = document.createElement("canvas").getContext("2d");
+      function toRgba(color) {
+        paint.clearRect(0, 0, 1, 1);
+        paint.fillStyle = "#000";
+        paint.fillStyle = color;
+        paint.fillRect(0, 0, 1, 1);
+        return paint.getImageData(0, 0, 1, 1).data;
+      }
+
+      function compositeRgba(foreground, background) {
+        const foregroundAlpha = foreground[3] / 255;
+        const backgroundAlpha = background[3] / 255;
+        const alpha = foregroundAlpha + backgroundAlpha * (1 - foregroundAlpha);
+        if (alpha === 0) return [0, 0, 0, 0];
+        return [
+          (foreground[0] * foregroundAlpha + background[0] * backgroundAlpha * (1 - foregroundAlpha)) / alpha,
+          (foreground[1] * foregroundAlpha + background[1] * backgroundAlpha * (1 - foregroundAlpha)) / alpha,
+          (foreground[2] * foregroundAlpha + background[2] * backgroundAlpha * (1 - foregroundAlpha)) / alpha,
+          alpha * 255,
+        ];
+      }
+
+      function pageIsDark() {
+        const rootBackground = toRgba(getComputedStyle(root).backgroundColor);
+        const bodyBackground = toRgba(getComputedStyle(document.body).backgroundColor);
+        const [r, g, b, a] = compositeRgba(bodyBackground, rootBackground);
+        if (a > 0) return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.5;
+        return root.dataset.theme === "dark";
+      }
+
+      const diagrams = [...document.querySelectorAll(".mermaid")].map((el) => ({
+        el,
+        src: el.textContent,
+      }));
+      let appliedDiagramTheme;
+      let renderingDiagrams = false;
+      let renderQueued = true;
+
+      async function renderDiagrams() {
+        if (renderingDiagrams) return;
+        renderingDiagrams = true;
+        try {
+          while (renderQueued) {
+            renderQueued = false;
+            const theme = pageIsDark() ? "dark" : "default";
+            if (theme === appliedDiagramTheme) continue;
+            mermaid.initialize({ startOnLoad: false, theme, securityLevel: "strict" });
+            for (const { el, src } of diagrams) {
+              el.removeAttribute("data-processed");
+              el.textContent = src;
+            }
+            try {
+              await mermaid.run({ nodes: diagrams.map(({ el }) => el) });
+            } catch (error) {
+              console.error("Mermaid diagram render failed:", error);
+              return;
+            }
+            appliedDiagramTheme = theme;
+          }
+        } finally {
+          renderingDiagrams = false;
+          if (renderQueued) void renderDiagrams();
+        }
+      }
+
+      const sourceOptions = () => ({
+        theme: { light: "vitesse-light", dark: "vitesse-dark" },
+        themeType: pageIsDark() ? "dark" : "light",
+        overflow: "wrap",
+      });
+
+      function renderSource(containerId, name, contents) {
+        const container = document.querySelector(containerId);
+        container.replaceChildren();
+        new File(sourceOptions()).render({
+          containerWrapper: container,
+          file: { name, contents },
+        });
+      }
+
+      function renderSources() {
+        renderSource("#restore-code", "day-log-cache.ts · activation excerpt", restoreSource);
+        renderSource("#storage-code", "day-log-cache.ts · persistence + IndexedDB excerpt", storageSource);
+      }
+
+      renderSources();
+      void renderDiagrams();
+
+      const themeObserver = new MutationObserver(() => {
+        renderQueued = true;
+        void renderDiagrams();
+        renderSources();
+      });
+      themeObserver.observe(root, {
+        attributes: true,
+        attributeFilter: ["data-theme"],
+      });
+    </script>
+  </body>
+</html>
