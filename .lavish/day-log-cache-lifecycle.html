@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Day Log cache lifecycle</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4/dist/index.global.js"></script>
+    <style type="text/tailwindcss">
+      @theme {
+        --color-surface: #f9f9f9;
+        --color-surface-container: #eeeeee;
+        --color-surface-container-low: #f3f3f4;
+        --color-surface-container-lowest: #ffffff;
+        --color-on-surface: #1a1c1c;
+        --color-on-surface-variant: #434840;
+        --color-outline: #73796f;
+        --color-outline-variant: #c3c8bd;
+        --color-primary: #334f2b;
+        --color-on-primary: #ffffff;
+        --color-primary-container: #4a6741;
+        --color-primary-fixed: #caecbc;
+        --color-on-primary-fixed: #062104;
+        --color-error: #ba1a1a;
+        --color-error-container: #ffdad6;
+        --font-display: "Manrope", sans-serif;
+        --font-sans: "Inter", sans-serif;
+      }
+    </style>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        background: #f9f9f9;
+        color: #1a1c1c;
+        font-family: Inter, sans-serif;
+      }
+      :where(.grid, .flex) > * {
+        min-width: 0;
+      }
+      :where(p, h1, h2, h3, h4, li, td, th, code, .badge) {
+        overflow-wrap: anywhere;
+      }
+      .font-display {
+        font-family: Manrope, sans-serif;
+      }
+      .hero-wash {
+        background: radial-gradient(circle at top left, #caecbc 0%, #f9f9f9 42%, #dee4e0 100%);
+      }
+      .glass {
+        background: rgba(255, 255, 255, 0.55);
+        backdrop-filter: blur(18px);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05);
+      }
+      .mermaid {
+        background: #ffffff;
+        border: 1px solid #c3c8bd;
+        border-radius: 1rem;
+        padding: 1rem;
+        overflow-x: auto;
+      }
+      .code-host {
+        min-width: 0;
+        overflow: auto;
+        border: 1px solid #c3c8bd;
+        border-radius: 1rem;
+        background: #ffffff;
+      }
+      nav a[aria-current="page"] {
+        color: #334f2b;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body class="bg-surface text-on-surface">
+    <header class="hero-wash border-b border-outline-variant">
+      <div class="mx-auto max-w-6xl px-4 py-8 md:px-8 md:py-12">
+        <p class="text-sm font-semibold tracking-wide text-primary">Calibrate · web frontend</p>
+        <h1 class="font-display mt-2 max-w-3xl text-4xl font-extrabold tracking-tight md:text-5xl">
+          How the private Day Log cache works
+        </h1>
+        <p class="mt-4 max-w-3xl text-lg text-on-surface-variant">
+          <code class="rounded bg-primary-fixed px-1.5 py-0.5 text-on-primary-fixed">day-log-cache.ts</code>
+          keeps one user’s date-keyed Day Logs in TanStack Query memory and IndexedDB. This page
+          explains the public functions, the <strong>activeCache</strong> record, and the restore /
+          persist / logout lifecycle.
+        </p>
+        <div class="mt-6 flex flex-wrap gap-2 text-sm">
+          <span class="rounded-full bg-primary px-3 py-1 text-on-primary">User-scoped IndexedDB</span>
+          <span class="rounded-full bg-surface-container px-3 py-1">Never persists auth</span>
+          <span class="rounded-full bg-surface-container px-3 py-1">30-day retention</span>
+          <span class="rounded-full bg-primary-fixed px-3 py-1 text-on-primary-fixed">Generation-guarded</span>
+        </div>
+      </div>
+    </header>
+
+    <nav class="sticky top-0 z-20 border-b border-outline-variant bg-surface-container-lowest/90 backdrop-blur">
+      <div class="mx-auto flex max-w-6xl flex-wrap gap-x-5 gap-y-2 px-4 py-3 text-sm md:px-8">
+        <a href="#map" class="text-on-surface-variant hover:text-primary">Map</a>
+        <a href="#active-cache" class="text-on-surface-variant hover:text-primary">activeCache</a>
+        <a href="#lifecycle" class="text-on-surface-variant hover:text-primary">Lifecycle</a>
+        <a href="#restore" class="text-on-surface-variant hover:text-primary">Restore</a>
+        <a href="#logout" class="text-on-surface-variant hover:text-primary">Logout</a>
+        <a href="#functions" class="text-on-surface-variant hover:text-primary">Functions</a>
+      </div>
+    </nav>
+
+    <main class="mx-auto max-w-6xl space-y-16 px-4 py-10 md:px-8 md:py-14">
+      <section id="map" class="space-y-4">
+        <h2 class="font-display text-3xl font-bold">What question does this module answer?</h2>
+        <p class="max-w-3xl text-on-surface-variant">
+          After the server confirms who you are, can Dashboard show <em>this user’s</em> recent Day
+          Logs immediately, without waiting on the network, without leaking them to another account
+          on the same browser?
+        </p>
+        <p class="text-sm text-on-surface-variant">
+          Source:
+          <code>apps/web-frontend/src/shared/api/day-log-cache.ts</code>
+          · called from
+          <code>session-restoration-gate.tsx</code>
+          and
+          <code>Header.tsx</code>
+        </p>
+        <div class="mermaid">
+flowchart TB
+  Gate["SessionRestorationGate<br/>confirms session, then restoreDayLogCache"]
+  QC["TanStack QueryClient<br/>in-memory date keys: dayLogs, YYYY-MM-DD"]
+  WM["activeCaches WeakMap<br/>QueryClient → ActiveDayLogCache"]
+  IDB["IndexedDB calibrate-day-log-cache<br/>key calibrate:day-logs:userId"]
+  Dash["Dashboard / Goals<br/>compose Seven-day view from date keys"]
+  Header["Header logout<br/>DELETE session, then clearDayLogCache"]
+  Other["Other tabs<br/>BroadcastChannel clear + onRemoteClear"]
+
+  Gate --> QC
+  Gate --> WM
+  WM --> IDB
+  QC --> Dash
+  Header --> QC
+  Header --> Other
+  WM --> Other
+        </div>
+      </section>
+
+      <section id="active-cache" class="space-y-6">
+        <h2 class="font-display text-3xl font-bold">What is activeCache?</h2>
+        <p class="max-w-3xl text-on-surface-variant">
+          It is <strong>not</strong> the Day Log data. The data lives in the QueryClient (memory)
+          and IndexedDB (disk). <code>activeCache</code> is the per-QueryClient
+          <em>control plane</em>: which user owns this cache, how to persist it, and how to tear it
+          down safely.
+        </p>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <article class="glass rounded-2xl p-5">
+            <h3 class="font-display text-xl font-bold">The WeakMap</h3>
+            <p class="mt-2 text-on-surface-variant">
+              <code>activeCaches</code> maps each <code>QueryClient</code> to at most one
+              <code>ActiveDayLogCache</code>. Garbage-collecting the QueryClient drops the record.
+              There is never “user A and user B” on the same client at once.
+            </p>
+          </article>
+          <article class="glass rounded-2xl p-5">
+            <h3 class="font-display text-xl font-bold">Generation beside it</h3>
+            <p class="mt-2 text-on-surface-variant">
+              <code>cacheGenerations</code> is a second WeakMap: a monotonically increasing integer
+              per QueryClient. Restore and clear bump it. In-flight work checks
+              <code>isCurrent()</code> and bails if a newer restore/clear started.
+            </p>
+          </article>
+        </div>
+
+        <h3 class="font-display text-2xl font-bold">Fields on the record</h3>
+        <div class="overflow-x-auto rounded-2xl border border-outline-variant bg-surface-container-lowest">
+          <table class="w-full min-w-[40rem] text-left text-sm">
+            <thead class="bg-surface-container text-on-surface">
+              <tr>
+                <th class="px-4 py-3 font-semibold">Field</th>
+                <th class="px-4 py-3 font-semibold">Job</th>
+                <th class="px-4 py-3 font-semibold">When it exists</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-outline-variant">
+              <tr>
+                <td class="px-4 py-3 font-mono text-primary">userId</td>
+                <td class="px-4 py-3">Owner of this namespace. Restore no-ops if it already matches.</td>
+                <td class="px-4 py-3">Always</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono text-primary">persister</td>
+                <td class="px-4 py-3">TanStack async persister bound to this user’s IndexedDB key.</td>
+                <td class="px-4 py-3">Only when storage opened</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono text-primary">ready</td>
+                <td class="px-4 py-3">
+                  Promise that resolves when restore has published in-memory data (or given up).
+                  Concurrent restore for the same user waits here.
+                </td>
+                <td class="px-4 py-3">During / after restore with storage</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono text-primary">clearPersisted</td>
+                <td class="px-4 py-3">Deletes the user namespace. Used even if restore never got a persister.</td>
+                <td class="px-4 py-3">Always once restore ran</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono text-primary">unsubscribe</td>
+                <td class="px-4 py-3">Stops writing on query-cache events before logout deletion.</td>
+                <td class="px-4 py-3">After subscribeToPersistence</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono text-primary">waitForPendingPersists</td>
+                <td class="px-4 py-3">
+                  Awaits in-flight IndexedDB writes so clear does not race a rewrite.
+                </td>
+                <td class="px-4 py-3">With storage</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono text-primary">invalidationChannel</td>
+                <td class="px-4 py-3">BroadcastChannel listener for “this user logged out in another tab”.</td>
+                <td class="px-4 py-3">When BroadcastChannel exists</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="text-sm text-on-surface-variant">Type definition from the module:</p>
+        <div id="active-cache-code" class="code-host"></div>
+      </section>
+
+      <section id="lifecycle" class="space-y-4">
+        <h2 class="font-display text-3xl font-bold">Lifecycle of activeCache</h2>
+        <p class="max-w-3xl text-on-surface-variant">
+          Think of three phases: <strong>absent</strong>, <strong>restoring</strong> (record is in
+          the WeakMap, <code>ready</code> still pending), and <strong>live</strong> (subscribed,
+          writing on Day Log changes). Clear always unsubscribes and waits before deleting disk.
+        </p>
+        <div class="mermaid">
+stateDiagram-v2
+  [*] --> Absent: QueryClient created
+  Absent --> Restoring: restoreDayLogCache new user
+  Restoring --> LiveNoStorage: IndexedDB unavailable
+  Restoring --> LivePersisting: hydrate then subscribe
+  Restoring --> LivePersisting: empty or corrupt disk treated as empty
+  LivePersisting --> Restoring: restore different userId
+  LiveNoStorage --> Restoring: restore different userId
+  LivePersisting --> Clearing: clearDayLogCache or remote logout
+  LiveNoStorage --> Clearing: clearDayLogCache or remote logout
+  Restoring --> Clearing: newer restore or clear bumps generation
+  Clearing --> Absent: WeakMap delete + reset queries
+  LivePersisting --> LivePersisting: same user restore waits on ready
+        </div>
+        <div class="grid gap-4 md:grid-cols-3">
+          <article class="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-primary">Restoring</p>
+            <p class="mt-2 text-sm text-on-surface-variant">
+              Record is inserted <em>before</em> IndexedDB read finishes, so a concurrent clear can
+              find <code>waitForPendingPersists</code> and not delete under a rewrite.
+            </p>
+          </article>
+          <article class="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-primary">Live</p>
+            <p class="mt-2 text-sm text-on-surface-variant">
+              Query cache events for persistable date keys dehydrate success data to IndexedDB.
+              Auth queries and range queries are ignored.
+            </p>
+          </article>
+          <article class="rounded-2xl border border-error-container p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-error">Clearing</p>
+            <p class="mt-2 text-sm text-on-surface-variant">
+              Unsubscribe → wait pending writes → delete namespace → reset mounted date observers →
+              drop WeakMap entry. If disk delete fails locally, memory stays so logout can retry.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="restore" class="space-y-4">
+        <h2 class="font-display text-3xl font-bold">Restore path</h2>
+        <p class="max-w-3xl text-on-surface-variant">
+          SessionRestorationGate awaits this before mounting Dashboard. Hydrate publishes memory
+          first; the sanitized rewrite is tracked in the background so slow IndexedDB does not block
+          first paint.
+        </p>
+        <div class="mermaid">
+flowchart TD
+  Start["restoreDayLogCache(queryClient, userId)"] --> Same{"activeCache.userId already this user?"}
+  Same -->|yes| WaitReady["await activeCache.ready and return"]
+  Same -->|no| Bump["nextCacheGeneration — cancel older in-flight work"]
+  Bump --> Had{"Was there a previous activeCache?"}
+  Had -->|yes| ClearOld["clearActiveCache previous user"]
+  Had -->|no| ResetMem["resetAndRemoveDayLogQueries"]
+  ClearOld --> BroadcastOld["broadcast clear for previous userId"]
+  BroadcastOld --> Storage["getStorage"]
+  ResetMem --> Storage
+  Storage -->|null / throws| Thin["Set thin activeCache: userId, clearPersisted, channel"]
+  Storage -->|ok| Insert["Insert restoringCache into WeakMap"]
+  Insert --> Read["persister.restoreClient"]
+  Read -->|corrupt / invalid / expired-only| Discard["discardPersistedClient"]
+  Read -->|usable queries| Hydrate["hydrate QueryClient"]
+  Hydrate --> Track["void track persistClient rewrite"]
+  Track --> Sub["subscribeToPersistence"]
+  Discard --> Sub
+  Read -->|empty| Sub
+  Sub --> Ready["finally: resolveReady"]
+  Thin --> Done["return — online cache only"]
+  Ready --> Done
+        </div>
+        <div class="rounded-2xl bg-primary-fixed/60 p-5 text-on-primary-fixed">
+          <p class="font-display text-lg font-bold">Known-empty vs Empty vs missing</p>
+          <p class="mt-2">
+            A persisted <code>null</code> for a date is a <strong>Known-empty</strong> day (confirmed
+            absence). An Empty Day Log is a real aggregate with meals/weight possibly empty. An
+            unloaded date is simply not in the QueryClient. Corrupt IndexedDB becomes an empty
+            online cache, not an error screen.
+          </p>
+        </div>
+      </section>
+
+      <section id="logout" class="space-y-4">
+        <h2 class="font-display text-3xl font-bold">Logout and other tabs</h2>
+        <p class="max-w-3xl text-on-surface-variant">
+          Header tracks server logout separately from IndexedDB deletion. Other tabs do not call
+          DELETE again. They reset mounted observers and run <code>onRemoteClear</code> (clear
+          session, navigate to signup-login).
+        </p>
+        <div class="mermaid">
+sequenceDiagram
+  participant User
+  participant TabA as Tab A Header
+  participant API as DELETE session
+  participant CacheA as Tab A day-log-cache
+  participant IDB as IndexedDB
+  participant CH as BroadcastChannel
+  participant CacheB as Tab B day-log-cache
+  participant GateB as Tab B SessionRestorationGate
+
+  User->>TabA: Log out
+  TabA->>API: deleteCurrentSession
+  alt server fails
+    TabA-->>User: keep session and cache, show retry
+  else server succeeds
+    TabA->>CacheA: clearDayLogCache
+    CacheA->>CacheA: unsubscribe, wait pending writes
+    CacheA->>IDB: delete namespace
+    alt local delete fails
+      CacheA-->>TabA: throw — keep memory, retry skips API
+    else local delete succeeds
+      CacheA->>CacheA: reset observers, drop activeCache
+      CacheA->>CH: postMessage clear userId
+      CH->>CacheB: applyRemoteDayLogCacheClear
+      CacheB->>IDB: retry delete up to 3 times
+      CacheB->>CacheB: reset observers even if delete is still failing
+      CacheB->>GateB: onRemoteClear
+      GateB->>GateB: clearAuthenticatedSession, navigate
+      TabA->>TabA: clearAuthenticatedSession, navigate
+    end
+  end
+        </div>
+      </section>
+
+      <section id="functions" class="space-y-4">
+        <h2 class="font-display text-3xl font-bold">Function map</h2>
+        <p class="text-on-surface-variant">
+          Public API is small. Everything else is the restore/clear machinery.
+        </p>
+        <div class="overflow-x-auto rounded-2xl border border-outline-variant bg-surface-container-lowest">
+          <table class="w-full min-w-[48rem] text-left text-sm">
+            <thead class="bg-surface-container">
+              <tr>
+                <th class="px-4 py-3 font-semibold">Function</th>
+                <th class="px-4 py-3 font-semibold">Visibility</th>
+                <th class="px-4 py-3 font-semibold">What it does</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-outline-variant">
+              <tr>
+                <td class="px-4 py-3 font-mono">restoreDayLogCache</td>
+                <td class="px-4 py-3"><span class="rounded-full bg-primary-fixed px-2 py-0.5 text-on-primary-fixed">public</span></td>
+                <td class="px-4 py-3">Confirm-user restore: bump generation, replace previous owner, hydrate, background rewrite, subscribe.</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono">clearDayLogCache</td>
+                <td class="px-4 py-3"><span class="rounded-full bg-primary-fixed px-2 py-0.5 text-on-primary-fixed">public</span></td>
+                <td class="px-4 py-3">Local logout/account-change path. Throws on persist failure so Header can retry without repeating DELETE.</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono">createDayLogCacheWriteGuard</td>
+                <td class="px-4 py-3"><span class="rounded-full bg-primary-fixed px-2 py-0.5 text-on-primary-fixed">public</span></td>
+                <td class="px-4 py-3">Dashboard range writes: only publish if generation and active user still match.</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono">isPersistableDayLogQuery</td>
+                <td class="px-4 py-3"><span class="rounded-full bg-primary-fixed px-2 py-0.5 text-on-primary-fixed">public</span></td>
+                <td class="px-4 py-3">Only <code>["dayLogs", "YYYY-MM-DD"]</code>. Range keys and auth keys never hit disk.</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono">dayLogCacheStorageKey</td>
+                <td class="px-4 py-3"><span class="rounded-full bg-primary-fixed px-2 py-0.5 text-on-primary-fixed">public</span></td>
+                <td class="px-4 py-3">IndexedDB key: <code>calibrate:day-logs:&lt;encoded userId&gt;</code>.</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono">clearActiveCache</td>
+                <td class="px-4 py-3">internal</td>
+                <td class="px-4 py-3">Ordered teardown of one WeakMap record.</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono">subscribeToPersistence</td>
+                <td class="px-4 py-3">internal</td>
+                <td class="px-4 py-3">Dehydrate success date queries on add/update/remove.</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono">applyRemoteDayLogCacheClear</td>
+                <td class="px-4 py-3">internal</td>
+                <td class="px-4 py-3">Other-tab handler: retry disk delete, always reset observers, then onRemoteClear.</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono">clearPersistedNamespace / retryClear…</td>
+                <td class="px-4 py-3">internal</td>
+                <td class="px-4 py-3">Single-flight Map per storage key; remote path retries 3 times.</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono">resetAndRemoveDayLogQueries</td>
+                <td class="px-4 py-3">internal</td>
+                <td class="px-4 py-3">query.reset() on date keys so mounted observers drop data, then removeQueries.</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono">createPendingPersistenceTracker</td>
+                <td class="px-4 py-3">internal</td>
+                <td class="px-4 py-3">Set of in-flight persist promises; wait() drains them before delete.</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono">sanitize / isUsable / discard</td>
+                <td class="px-4 py-3">internal</td>
+                <td class="px-4 py-3">Buster, schema, date-key match, 30-day window. Bad blobs are deleted, not shown.</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-mono">createIndexedDbStorage</td>
+                <td class="px-4 py-3">internal</td>
+                <td class="px-4 py-3">Tiny native IDB adapter. No extra storage library.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="rounded-2xl bg-surface-container p-6">
+        <h2 class="font-display text-2xl font-bold">What it deliberately does not do</h2>
+        <ul class="mt-3 list-disc space-y-2 pl-5 text-on-surface-variant">
+          <li>Does not persist cookies, tokens, or <code>authenticatedSession</code>.</li>
+          <li>Does not queue offline Food Entry writes.</li>
+          <li>Does not own ETag / overlap revalidation (later tickets).</li>
+          <li>Does not keep two users’ namespaces hydrated on one QueryClient.</li>
+        </ul>
+        <p class="mt-4 text-sm text-on-surface-variant">
+          Annotate a diagram or table row if a step still feels fuzzy — especially generation
+          cancellation vs the WeakMap record.
+        </p>
+      </section>
+    </main>
+
+    <script type="module">
+      import { File } from "https://esm.sh/@pierre/diffs@1.2.10?bundle";
+
+      const theme = { light: "github-light", dark: "github-dark" };
+      const options = {
+        theme,
+        themeType: window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+        overflow: "wrap",
+      };
+
+      new File(options).render({
+        containerWrapper: document.querySelector("#active-cache-code"),
+        file: {
+          name: "apps/web-frontend/src/shared/api/day-log-cache.ts",
+          contents: `const activeCaches = new WeakMap<QueryClient, ActiveDayLogCache>();
+const cacheGenerations = new WeakMap<QueryClient, number>();
+
+type ActiveDayLogCache = {
+  userId: string;
+  persister?: ReturnType<typeof createAsyncStoragePersister>;
+  ready?: Promise<void>;
+  clearPersisted?: () => Promise<void>;
+  unsubscribe?: () => void;
+  waitForPendingPersists?: () => Promise<void>;
+  invalidationChannel?: BroadcastChannel;
+};
+`,
+        },
+      });
+    </script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.esm.min.mjs";
+
+      const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const paint = document.createElement("canvas").getContext("2d");
+      function toRgba(color) {
+        paint.clearRect(0, 0, 1, 1);
+        paint.fillStyle = "#000";
+        paint.fillStyle = color;
+        paint.fillRect(0, 0, 1, 1);
+        return paint.getImageData(0, 0, 1, 1).data;
+      }
+      function compositeRgba(foreground, background) {
+        const foregroundAlpha = foreground[3] / 255;
+        const backgroundAlpha = background[3] / 255;
+        const alpha = foregroundAlpha + backgroundAlpha * (1 - foregroundAlpha);
+        if (alpha === 0) return [0, 0, 0, 0];
+        return [
+          (foreground[0] * foregroundAlpha + background[0] * backgroundAlpha * (1 - foregroundAlpha)) / alpha,
+          (foreground[1] * foregroundAlpha + background[1] * backgroundAlpha * (1 - foregroundAlpha)) / alpha,
+          (foreground[2] * foregroundAlpha + background[2] * backgroundAlpha * (1 - foregroundAlpha)) / alpha,
+          alpha * 255,
+        ];
+      }
+      function pageIsDark() {
+        const root = document.documentElement;
+        const rootBackground = toRgba(getComputedStyle(root).backgroundColor);
+        const bodyBackground = document.body ? toRgba(getComputedStyle(document.body).backgroundColor) : [0, 0, 0, 0];
+        const [r, g, b, a] = compositeRgba(bodyBackground, rootBackground);
+        if (a > 0) {
+          return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.5;
+        }
+        const colorScheme = getComputedStyle(root).colorScheme;
+        if (colorScheme.includes("dark") && !colorScheme.includes("light")) return true;
+        if (colorScheme.includes("light") && !colorScheme.includes("dark")) return false;
+        return darkQuery.matches;
+      }
+
+      const diagrams = [...document.querySelectorAll(".mermaid")].map((el) => ({ el, src: el.textContent }));
+      let applied;
+      let rendering = false;
+      let queued = false;
+      function queueRender() {
+        queued = true;
+        if (rendering) return;
+        void render();
+      }
+      async function render() {
+        rendering = true;
+        try {
+          while (queued) {
+            queued = false;
+            const theme = pageIsDark() ? "dark" : "default";
+            if (theme === applied) continue;
+            mermaid.initialize({ startOnLoad: false, theme, securityLevel: "strict" });
+            for (const { el, src } of diagrams) {
+              el.removeAttribute("data-processed");
+              el.textContent = src;
+            }
+            try {
+              await mermaid.run({ nodes: diagrams.map((d) => d.el) });
+            } catch (error) {
+              console.error("Mermaid diagram render failed:", error);
+              return;
+            }
+            applied = theme;
+          }
+        } finally {
+          rendering = false;
+          if (queued) queueRender();
+        }
+      }
+
+      if (document.readyState === "complete") queueRender();
+      else window.addEventListener("load", queueRender, { once: true });
+      const themeObserver = new MutationObserver(queueRender);
+      for (const el of [document.documentElement, document.body]) {
+        if (!el) continue;
+        themeObserver.observe(el, {
+          attributes: true,
+          attributeFilter: ["data-theme", "class", "style"],
+        });
+      }
+      document.addEventListener("change", queueRender, true);
+      document.addEventListener(
+        "transitionend",
+        ({ propertyName }) => {
+          if (propertyName === "background-color") queueRender();
+        },
+        true,
+      );
+      darkQuery.addEventListener("change", queueRender);
+    </script>
+  </body>
+</html>
