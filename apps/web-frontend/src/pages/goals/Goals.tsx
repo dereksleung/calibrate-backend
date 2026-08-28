@@ -104,19 +104,6 @@ export function Goals() {
 
   const isMobile = useIsMobile();
 
-  const renderLiveChartFeedback = () => {
-    if (!isPending) {
-      return null;
-    }
-
-    return (
-      <div aria-label="Loading live Goals charts" className="flex flex-col gap-8 md:flex-row" role="status">
-        <LiveGoalsChartSkeleton />
-        <LiveGoalsChartSkeleton />
-      </div>
-    );
-  };
-
   useEffect(() => {
     if (!openFatsAnalytics) {
       return;
@@ -137,6 +124,15 @@ export function Goals() {
 
     return () => window.cancelAnimationFrame(animationFrameId);
   }, [hasChartData, openFatsAnalytics]);
+
+  if (isPending || !hasChartData) {
+    return (
+      <div aria-label="Loading live Goals charts" className="flex flex-col gap-8 md:flex-row" role="status">
+        <LiveGoalsChartSkeleton />
+        <LiveGoalsChartSkeleton />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -227,102 +223,97 @@ export function Goals() {
             </div>
           </section>
 
-          {chartData ? (
-            <>
-              <div className="flex flex-col gap-8 md:flex-row">
-                <Card className="flex-1 rounded-[14px] border-white/70 bg-white/60 py-0 shadow-[0_28px_70px_-44px_rgba(0,0,0,0.65)]">
-                  <CardContent className="p-4 md:p-8">
-                    <div className="flex space-between gap-3">
-                      <div className="flex-1">
-                        <Typography variant="capsCardTitle" color="onSurface">
-                          Weight
-                        </Typography>
-                      </div>
-                      <div className="flex-1 justify-end text-right">
-                        <Typography variant="capsCardTitle" color="primary" as="p">
-                          {formatWeightChange(chartData.weightChange)}
-                        </Typography>
-                      </div>
+          {chartData && (
+            <div className="flex flex-col gap-8 md:flex-row">
+              <Card className="flex-1 rounded-[14px] border-white/70 bg-white/60 py-0 shadow-[0_28px_70px_-44px_rgba(0,0,0,0.65)]">
+                <CardContent className="p-4 md:p-8">
+                  <div className="flex space-between gap-3">
+                    <div className="flex-1">
+                      <Typography variant="capsCardTitle" color="onSurface">
+                        Weight
+                      </Typography>
                     </div>
+                    <div className="flex-1 justify-end text-right">
+                      <Typography variant="capsCardTitle" color="primary" as="p">
+                        {formatWeightChange(chartData.weightChange)}
+                      </Typography>
+                    </div>
+                  </div>
 
-                    <ChartContainer config={weightChartConfig} className="mt-4 w-full">
-                      <LineChart
-                        accessibilityLayer
-                        data={chartData.weight}
-                        margin={{ top: 16, right: 8, left: 8 }}
-                        responsive
-                        className="flex-1"
-                      >
-                        <YAxis dataKey="weight" padding={{ top: 8 }} width="auto" />
-                        <XAxis
-                          dataKey="label"
-                          axisLine={{ stroke: "var(--color-border)" }}
-                          tickLine={false}
-                          tickMargin={16}
-                          tick={{
-                            fill: "var(--color-on-surface)",
-                            fontSize: 12,
-                            fontWeight: 400,
-                          }}
-                          height={48}
-                        />
-                        <ChartTooltip
-                          cursor={false}
-                          content={
-                            <ChartTooltipContent
-                              hideIndicator
-                              labelFormatter={(_, payload) => payload[0]?.payload?.label ?? ""}
-                              formatter={(_value, _name, item) => {
-                                const weight = (item.payload as GoalsWeightChartDatum | undefined)?.weight;
+                  <ChartContainer config={weightChartConfig} className="mt-4 w-full">
+                    <LineChart
+                      accessibilityLayer
+                      data={chartData.weight}
+                      margin={{ top: 16, right: 8, left: 8 }}
+                      responsive
+                      className="flex-1"
+                    >
+                      <YAxis dataKey="weight" padding={{ top: 8 }} width="auto" />
+                      <XAxis
+                        dataKey="label"
+                        axisLine={{ stroke: "var(--color-border)" }}
+                        tickLine={false}
+                        tickMargin={16}
+                        tick={{
+                          fill: "var(--color-on-surface)",
+                          fontSize: 12,
+                          fontWeight: 400,
+                        }}
+                        height={48}
+                      />
+                      <ChartTooltip
+                        cursor={false}
+                        content={
+                          <ChartTooltipContent
+                            hideIndicator
+                            labelFormatter={(_, payload) => payload[0]?.payload?.label ?? ""}
+                            formatter={(_value, _name, item) => {
+                              const weight = (item.payload as GoalsWeightChartDatum | undefined)?.weight;
 
-                                return (
-                                  <span className="font-medium text-foreground">
-                                    {weight === null || weight === undefined ? "-" : weight.toFixed(1)} lbs
-                                  </span>
-                                );
-                              }}
-                            />
-                          }
-                        />
-                        {chartData.weight.some(({ weight }) => weight !== null) ? (
-                          <Line
-                            type="monotone"
-                            dataKey="weight"
-                            connectNulls
-                            stroke="var(--color-weight)"
-                            strokeWidth={2}
-                            dot={{
-                              r: 4,
-                              fill: "var(--color-primary)",
-                              stroke: "var(--color-primary)",
-                              strokeWidth: 1,
+                              return (
+                                <span className="font-medium text-foreground">
+                                  {weight === null || weight === undefined ? "-" : weight.toFixed(1)} lbs
+                                </span>
+                              );
                             }}
-                            activeDot={{
-                              r: 5,
-                              fill: "var(--color-primary)",
-                              stroke: "var(--color-primary)",
-                            }}
-                            isAnimationActive={false}
                           />
-                        ) : null}
-                      </LineChart>
-                    </ChartContainer>
-                  </CardContent>
-                </Card>
+                        }
+                      />
+                      {chartData.weight.some(({ weight }) => weight !== null) ? (
+                        <Line
+                          type="monotone"
+                          dataKey="weight"
+                          connectNulls
+                          stroke="var(--color-weight)"
+                          strokeWidth={2}
+                          dot={{
+                            r: 4,
+                            fill: "var(--color-primary)",
+                            stroke: "var(--color-primary)",
+                            strokeWidth: 1,
+                          }}
+                          activeDot={{
+                            r: 5,
+                            fill: "var(--color-primary)",
+                            stroke: "var(--color-primary)",
+                          }}
+                          isAnimationActive={false}
+                        />
+                      ) : null}
+                    </LineChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
 
-                <div ref={fatsChartRef} className="flex-1">
-                  <FatBarChart
-                    ariaLabel="Open fats analytics"
-                    data={chartData.fat}
-                    onClick={() => setActiveDrawerContent("fats")}
-                    tooltipContent="Click to open a more detailed fats view."
-                  />
-                </div>
+              <div ref={fatsChartRef} className="flex-1">
+                <FatBarChart
+                  ariaLabel="Open fats analytics"
+                  data={chartData.fat}
+                  onClick={() => setActiveDrawerContent("fats")}
+                  tooltipContent="Click to open a more detailed fats view."
+                />
               </div>
-              {renderLiveChartFeedback()}
-            </>
-          ) : (
-            renderLiveChartFeedback()
+            </div>
           )}
         </div>
       </main>
