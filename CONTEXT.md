@@ -27,3 +27,15 @@ _Avoid_: inferred weight, estimated weight
 **Nutrition target**:
 A daily comparison value for a nutrient. Until user-specific goals exist, Calibrate may use a shared placeholder target such as the current 60g fat target.
 _Avoid_: personalized goal, persisted goal
+
+**Demo catalog**:
+The Foundation Foods reference catalog loaded into a self-contained local evaluator setup; it contains reusable food nutrition records and no user data.
+_Avoid_: seed database, sample data
+
+**Reference serving**:
+The one quantity basis to which a catalog food's nutrition values correspond. It may retain up to one source-provided named measure, mass, and volume quantity when each expresses that same food amount; otherwise it uses 100 g.
+_Avoid_: conversion option, default serving
+
+**Unreported nutrient**:
+A nutrient value absent from an imported reference-data record, distinct from a source-reported zero. In the Demo catalog it contributes zero to logged nutrition and is recorded in the seed report.
+_Avoid_: zero nutrient, skipped food
