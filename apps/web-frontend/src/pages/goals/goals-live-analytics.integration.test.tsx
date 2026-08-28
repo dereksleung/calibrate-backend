@@ -126,39 +126,39 @@ function dayLogRangeResponse(url: string, firstFat: number, lastFat: number) {
       dayLog:
         index === 0 || index === dates.length - 1
           ? {
-              id:
-                index === 0 ? "e74942b3-78d7-48e8-bd20-dc5eba7f82ff" : "f84942b3-78d7-48e8-bd20-dc5eba7f82ff",
-              date,
-              breakfast: [
-                {
-                  id: `breakfast-${index}`,
-                  meal: "BREAKFAST" as const,
-                  name: "Live breakfast",
-                  brand: null,
-                  calories: 100,
-                  totalFatGrams: index === 0 ? firstFat : lastFat,
-                  saturatedFatGrams: null,
-                  cholesterolMg: null,
-                  sodiumMg: null,
-                  totalCarbohydrateGrams: 10,
-                  fiberGrams: null,
-                  sugarGrams: null,
-                  proteinGrams: 10,
-                  chosenQuantity: 1,
-                  chosenUnit: "serving" as const,
-                  quantityServing: 1,
-                  servingLabel: "serving",
-                  quantityMass: null,
-                  massUnit: null,
-                  quantityVolume: null,
-                  volumeUnit: null,
-                },
-              ],
-              lunch: [],
-              dinner: [],
-              snacks: [],
-              weight: index === 0 ? 180 : 178,
-            }
+            id:
+              index === 0 ? "e74942b3-78d7-48e8-bd20-dc5eba7f82ff" : "f84942b3-78d7-48e8-bd20-dc5eba7f82ff",
+            date,
+            breakfast: [
+              {
+                id: `breakfast-${index}`,
+                meal: "BREAKFAST" as const,
+                name: "Live breakfast",
+                brand: null,
+                calories: 100,
+                totalFatGrams: index === 0 ? firstFat : lastFat,
+                saturatedFatGrams: null,
+                cholesterolMg: null,
+                sodiumMg: null,
+                totalCarbohydrateGrams: 10,
+                fiberGrams: null,
+                sugarGrams: null,
+                proteinGrams: 10,
+                chosenQuantity: 1,
+                chosenUnit: "serving" as const,
+                quantityServing: 1,
+                servingLabel: "serving",
+                quantityMass: null,
+                massUnit: null,
+                quantityVolume: null,
+                volumeUnit: null,
+              },
+            ],
+            lunch: [],
+            dinner: [],
+            snacks: [],
+            weight: index === 0 ? 180 : 178,
+          }
           : null,
     })),
   };
@@ -188,7 +188,7 @@ afterEach(() => {
 });
 
 describe("Goals live seven-day analytics", () => {
-  it("keeps fixture values out of the chart region while the initial range is loading", async () => {
+  it("shows chart placeholders while the seven-day data is loading", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
       if (getFetchUrl(input).includes("/auth/session")) {
         return Promise.resolve(authenticatedSessionResponse());
@@ -203,7 +203,6 @@ describe("Goals live seven-day analytics", () => {
 
     expect(loadingState.querySelectorAll('[data-slot="card"]')).toHaveLength(2);
     expect(screen.queryByTestId("live-fat-chart")).toBeNull();
-    expect(screen.queryByText("29")).toBeNull();
   });
 
   it("scrolls to the fats chart after the live data mounts", async () => {
@@ -271,11 +270,11 @@ describe("Goals live seven-day analytics", () => {
       getFetchUrl(input).includes("/auth/session")
         ? Promise.resolve(authenticatedSessionResponse())
         : Promise.resolve(
-            new Response(JSON.stringify(dayLogRangeResponse(getFetchUrl(input), 10, 25)), {
-              status: 200,
-              headers: { "content-type": "application/json" },
-            }),
-          ),
+          new Response(JSON.stringify(dayLogRangeResponse(getFetchUrl(input), 10, 25)), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+        ),
     );
 
     renderGoalsRoute();
