@@ -2,7 +2,7 @@
 
 ## Status
 
-In planning
+Specification published; ready for ticket breakdown.
 
 ## Goal
 
