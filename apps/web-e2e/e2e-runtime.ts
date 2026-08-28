@@ -6,10 +6,14 @@ import {
   selectPortPair,
   type DevPortPair,
 } from "@calibrate/dev-bindings";
+import {
+  generateLocalRuntimeConfiguration,
+  localRuntimeConfigurationToProcessEnv,
+} from "@calibrate/local-runtime-config";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { FileMigrationProvider, Kysely, Migrator, PostgresDialect } from "kysely";
 import { spawn } from "node:child_process";
-import { generateKeyPairSync, randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -115,12 +119,11 @@ export async function selectE2ePortPair(options: E2ePortSelectionOptions = {}): 
 
 export function createE2eEnvironment(database: DatabaseConnectionConfig, ports: E2ePorts): NodeJS.ProcessEnv {
   const bindings = deriveDevBindings(ports);
-  const privateKeyPem = generateKeyPairSync("ed25519")
-    .privateKey.export({ type: "pkcs8", format: "pem" })
-    .toString();
+  const runtimeEnvironment = localRuntimeConfigurationToProcessEnv(generateLocalRuntimeConfiguration());
 
   return {
     ...process.env,
+    ...runtimeEnvironment,
     CALIBRATE_E2E: "1",
     CORS_ORIGIN: bindings.corsOrigin,
     DB_HOST: database.host,
@@ -128,17 +131,12 @@ export function createE2eEnvironment(database: DatabaseConnectionConfig, ports: 
     DB_PASSWORD: database.password,
     DB_PORT: String(database.port),
     DB_USER: database.user,
-    EMAIL_REQUEST_IP_HMAC_KEY: randomBytes(32).toString("hex"),
     EMAIL_SERVICE_CREDENTIAL: "",
     EMAIL_VERIFICATION_GLOBAL_HOURLY_LIMIT: "1000",
     E2E_BACKEND_PORT: String(ports.backend),
     E2E_FRONTEND_PORT: String(ports.frontend),
-    JWT_ACCESS_TOKEN_TTL_SECONDS: "900",
     JWT_AUDIENCE: "calibrate-e2e",
     JWT_ISSUER: "calibrate-e2e",
-    JWT_PRIVATE_KEY_PEM: privateKeyPem,
-    OTP_HMAC_KEY: randomBytes(32).toString("base64url"),
-    OTP_HMAC_CURRENT_KEY_VERSION: "1",
     PORT: String(ports.backend),
     TRUST_PROXY_HOPS: "0",
     VITE_API_BASE_URL: bindings.viteApiBaseUrl,

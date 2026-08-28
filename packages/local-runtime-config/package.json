@@ -1,0 +1,52 @@
+{
+  "name": "@calibrate/local-runtime-config",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "nx": {
+    "targets": {
+      "test": {
+        "executor": "nx:run-commands",
+        "cache": true,
+        "options": {
+          "cwd": "packages/local-runtime-config",
+          "command": "vitest run src"
+        }
+      },
+      "typecheck": {
+        "executor": "nx:run-commands",
+        "cache": true,
+        "options": {
+          "cwd": "packages/local-runtime-config",
+          "command": "tsc --noEmit -p tsconfig.json"
+        }
+      },
+      "lint": {
+        "executor": "nx:run-commands",
+        "cache": true,
+        "options": {
+          "command": "oxlint --config .oxlintrc.json packages/local-runtime-config"
+        }
+      },
+      "fmt": {
+        "executor": "nx:run-commands",
+        "cache": true,
+        "options": {
+          "command": "oxfmt packages/local-runtime-config"
+        }
+      },
+      "fmt:check": {
+        "executor": "nx:run-commands",
+        "cache": true,
+        "options": {
+          "command": "oxfmt --check packages/local-runtime-config"
+        }
+      }
+    }
+  }
+}
