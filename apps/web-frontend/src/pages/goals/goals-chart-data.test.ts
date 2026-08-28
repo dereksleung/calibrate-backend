@@ -9,6 +9,36 @@ const range = {
   endDate: "2026-08-12",
 };
 
+/**
+ * TO-DO:
+ * - We should define a separate frontend "domain" type FoodEntry that represents the base 
+ * fields that the front-end uses and can derive other data it needs for the UI from. 
+ * This means we need a mapper function as well to transform the response to this domain type, 
+ * we can put it in the same file right now as the useQuery hook that is specific to the 
+ * API endpoint. The mapper function centralizes and limits the blast radius of any changes
+ * to the API, so that they only need the mapper to change, instead of a lot of places in 
+ * the UI. 
+ * 
+ * - The domain type should go in a Nx monorepo shared package called "frontend-core" 
+ * and we should rename the api-client package to be this core package, "core" will 
+ * more comfortably hold concepts like "domain", which likely will be the same type 
+ * between the web and mobile frontends.
+ * 
+ * - Then, we can also define and DRY test mock builders inside either "frontend-core" 
+ * for domain types, or "api-contracts" for response types.
+ * 
+ * - Architectural notes to add to agent context: for hooks like useGetDayLogs, 
+ * instead of treating them like their main purpose is just running Tanstack Query to 
+ * fetch and cache server state, treat them like application workflows that orchestrate
+ * the operations needed for a user to achieve a result. For example, for the result of
+ * getting day logs, useGetDayLogs would use the base React feature of custom hooks to
+ * orchestrate further operations that truly always apply to getting day logs, like 
+ * persisting the day logs in an offline store like IndexedDB for browsers, alongside 
+ * what Tanstack Query does. This is sensible given upcoming planned offline store 
+ * functionality, otherwise to keep things simpler, I would leave hooks like useGetDayLogs
+ * just to be primarily about Tanstack Query.
+ */
+
 function buildFoodEntry(overrides: Partial<FoodEntryResponse> = {}): FoodEntryResponse {
   return {
     id: "food-entry-1",
