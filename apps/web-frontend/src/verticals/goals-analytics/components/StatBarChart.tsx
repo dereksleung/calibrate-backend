@@ -14,7 +14,7 @@ import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from "recharts";
 type StatBarChartDatum = {
   label: string;
   limit: number;
-  value: number;
+  value: number | null;
 };
 
 type StatBarChartProps = {
@@ -37,7 +37,9 @@ export function StatBarChart({
   valueUnit,
 }: StatBarChartProps) {
   const limit = data[0]?.limit ?? 0;
-  const maxValue = data.length ? Math.max(...data.flatMap(({ value, limit }) => [value, limit])) : 0;
+  const maxValue = data.length
+    ? Math.max(...data.flatMap(({ value, limit }) => (value === null ? [limit] : [value, limit])))
+    : 0;
   const yAxisMax = Math.ceil((maxValue * 1.1) / 10) * 10;
 
   const chartCard = (
@@ -96,17 +98,20 @@ export function StatBarChart({
                   <ChartTooltipContent
                     hideIndicator
                     labelFormatter={(_, payload) => payload[0]?.payload?.label ?? ""}
-                    formatter={(value, _, item) => {
+                    formatter={(_value, _name, item) => {
                       const payload = item.payload as StatBarChartDatum | undefined;
-                      const percentOfLimit = payload
-                        ? Math.round((payload.value / (payload.limit || 1)) * 100)
-                        : 0;
+                      const value = payload?.value;
+                      const percentOfLimit =
+                        payload && value !== null && value !== undefined
+                          ? Math.round((value / (payload.limit || 1)) * 100)
+                          : null;
+                      const isMissing = percentOfLimit === null;
                       const unitLabel = valueUnit ?? "";
 
                       return (
                         <span className="font-medium text-foreground">
-                          {Number(value).toFixed(0)}
-                          {unitLabel} / {percentOfLimit}% of limit
+                          {isMissing ? "-" : value?.toFixed(0)}
+                          {unitLabel} / {percentOfLimit === null ? "-" : `${percentOfLimit}%`} of limit
                         </span>
                       );
                     }}

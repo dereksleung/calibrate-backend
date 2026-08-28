@@ -1,4 +1,5 @@
-// import { cn } from "#/lib/utils.ts";
+import { buildGoalsChartData, type GoalsWeightChartDatum } from "#/pages/goals/goals-chart-data.ts";
+import { apiTransport } from "#/shared/api/api-client.ts";
 import { Button } from "#/shared/components/base/Button.tsx";
 import { Card, CardContent, CardTitle } from "#/shared/components/base/Card.tsx";
 import {
@@ -15,13 +16,16 @@ import {
   DrawerTitle,
 } from "#/shared/components/base/drawer.tsx";
 import { Typography } from "#/shared/components/base/typography/Typography.tsx";
+import { getRollingSevenDayDateRange } from "#/shared/date/local-date-range.ts";
 import { useIsMobile } from "#/shared/hooks/use-media-query.ts";
 import { FatBarChart } from "#/verticals/goals-analytics/components/FatBarChart.tsx";
 import { FatsAnalytics } from "#/verticals/goals-analytics/components/FatsAnalytics.tsx";
+import { useDayLogRange } from "@calibrate/api-client";
 import { useSearch } from "@tanstack/react-router";
 import { TrendingDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Line, LineChart, XAxis, YAxis } from "recharts";
+import { toast } from "sonner";
 
 // const GOAL_TABS = ["1W", "1M", "3M", "Plan"] as const;
 
@@ -31,28 +35,6 @@ type AnalyticsDrawerContent = "fats";
 const JOURNEY_IMAGE_URL =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuCXHD-C_7DzoORGBlhQEayIAZvNgeTVMM4FMeM6BGWET_HfdXvcm_MnHFn2_7QL9hVMQ9RmC-ROXAkFA-epORDLxaZ9WCyairiFsWBnyJ9Pn5izptULWIha5Y55osPr1oYFHNMnHWYEii2t-QY8fsQ-4q1M-lW2zDbO7KSS1A2Ow-fp1aC9DKB9Ziy2R5jCrytOBxlWqRkFHuAVjZwcO2LHVcMFlzJU5GLt0NdBU8ILQudTuPJTi7Ma2_suLfSE7hC1H79MXm3Iol0";
 
-const weeklyWeightData = [
-  { date: "2024-01-12", label: "Jan 12", weight: 144.5 },
-  { date: "2024-01-13", label: "Jan 13", weight: 144.1 },
-  { date: "2024-01-14", label: "Jan 14", weight: 144.3 },
-  { date: "2024-01-15", label: "Jan 15", weight: 143.1 },
-  { date: "2024-01-16", label: "Jan 16", weight: 142.8 },
-  { date: "2024-01-17", label: "Jan 17", weight: 142.9 },
-  { date: "2024-01-18", label: "Jan 18", weight: 137.1 },
-] as const;
-
-const FAT_DAILY_LIMIT_GRAMS = 58;
-
-const weeklyFatData = [
-  { label: "M", eaten: 29, limit: FAT_DAILY_LIMIT_GRAMS },
-  { label: "T", eaten: 35, limit: FAT_DAILY_LIMIT_GRAMS },
-  { label: "W", eaten: 44, limit: FAT_DAILY_LIMIT_GRAMS },
-  { label: "Th", eaten: 52, limit: FAT_DAILY_LIMIT_GRAMS },
-  { label: "F", eaten: 58, limit: FAT_DAILY_LIMIT_GRAMS },
-  { label: "Sa", eaten: 61, limit: FAT_DAILY_LIMIT_GRAMS },
-  { label: "Sn", eaten: 64, limit: FAT_DAILY_LIMIT_GRAMS },
-];
-
 const weightChartConfig = {
   weight: {
     label: "Weight",
@@ -60,11 +42,59 @@ const weightChartConfig = {
   },
 } satisfies ChartConfig;
 
+function LiveGoalsChartSkeleton() {
+  return (
+    <Card
+      aria-hidden="true"
+      className="flex-1 rounded-[14px] border-white/70 bg-white/60 py-0 shadow-[0_28px_70px_-44px_rgba(0,0,0,0.65)]"
+    >
+      <CardContent className="p-4 md:p-8">
+        <div className="flex justify-between gap-3">
+          <div className="h-3 w-16 animate-pulse rounded-full bg-surface-container-high" />
+          <div className="h-3 w-28 animate-pulse rounded-full bg-surface-container-high" />
+        </div>
+        <div className="mt-4 flex aspect-video items-end gap-2 rounded-xl bg-surface-container-low p-4">
+          {Array.from({ length: 7 }, (_, index) => (
+            <div className="h-1/2 flex-1 animate-pulse rounded-t bg-surface-container-high" key={index} />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function formatWeightChange(change: number | null): string {
+  if (change === null) {
+    return "—";
+  }
+
+  return `${change > 0 ? "+" : ""}${change.toFixed(1)} lbs`;
+}
+
 export function Goals() {
   const { openFatsAnalytics = false } = useSearch({ from: "/goals" });
+  const dayLogRange = getRollingSevenDayDateRange();
+  const { data, error, isPending, refetch } = useDayLogRange(apiTransport, dayLogRange);
+  const chartData = data ? buildGoalsChartData(data) : undefined;
+  const hasChartData = data !== undefined;
   // const [activeTab, setActiveTab] = useState<GoalTab>("1M");
   const [activeDrawerContent, setActiveDrawerContent] = useState<AnalyticsDrawerContent | null>(null);
   const fatsChartRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isPending && error) {
+      toast.error(error.message, {
+        action: {
+          label: "Try again",
+          onClick: () => void refetch(),
+        },
+        classNames: {
+          actionButton: "justify-center min-h-11 min-w-24 whitespace-nowrap px-4 py-2",
+        },
+        closeButton: true,
+      });
+    }
+  }, [error, isPending, refetch]);
 
   const handleAnalyticsDrawerOpenChange = (open: boolean) => {
     if (!open) {
@@ -81,6 +111,10 @@ export function Goals() {
 
     setActiveDrawerContent("fats");
 
+    if (!hasChartData) {
+      return;
+    }
+
     const animationFrameId = window.requestAnimationFrame(() => {
       fatsChartRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -89,7 +123,16 @@ export function Goals() {
     });
 
     return () => window.cancelAnimationFrame(animationFrameId);
-  }, [openFatsAnalytics]);
+  }, [hasChartData, openFatsAnalytics]);
+
+  if (isPending || !hasChartData) {
+    return (
+      <div aria-label="Loading live Goals charts" className="flex flex-col gap-8 md:flex-row" role="status">
+        <LiveGoalsChartSkeleton />
+        <LiveGoalsChartSkeleton />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -130,7 +173,7 @@ export function Goals() {
               <Typography
                 variant="headlineLg"
                 as="h1"
-                // className="font-heading text-[2.5rem] font-light leading-none text-primary md:text-[3rem]"
+              // className="font-heading text-[2.5rem] font-light leading-none text-primary md:text-[3rem]"
               >
                 Goals
               </Typography>
@@ -180,89 +223,98 @@ export function Goals() {
             </div>
           </section>
 
-          <div className="flex flex-col gap-8 md:flex-row">
-            <Card className="flex-1 rounded-[14px] border-white/70 bg-white/60 py-0 shadow-[0_28px_70px_-44px_rgba(0,0,0,0.65)]">
-              <CardContent className="p-4 md:p-8">
-                <div className="flex space-between gap-3">
-                  <div className="flex-1">
-                    <Typography variant="capsCardTitle" color="onSurface">
-                      Weight
-                    </Typography>
+          {chartData && (
+            <div className="flex flex-col gap-8 md:flex-row">
+              <Card className="flex-1 rounded-[14px] border-white/70 bg-white/60 py-0 shadow-[0_28px_70px_-44px_rgba(0,0,0,0.65)]">
+                <CardContent className="p-4 md:p-8">
+                  <div className="flex space-between gap-3">
+                    <div className="flex-1">
+                      <Typography variant="capsCardTitle" color="onSurface">
+                        Weight
+                      </Typography>
+                    </div>
+                    <div className="flex-1 justify-end text-right">
+                      <Typography variant="capsCardTitle" color="primary" as="p">
+                        {formatWeightChange(chartData.weightChange)}
+                      </Typography>
+                    </div>
                   </div>
-                  <div className="flex-1 justify-end text-right">
-                    <Typography variant="capsCardTitle" color="primary" as="p">
-                      -7.4 lbs
-                    </Typography>
-                  </div>
-                </div>
 
-                <ChartContainer config={weightChartConfig} className="mt-4 w-full">
-                  <LineChart
-                    accessibilityLayer
-                    data={weeklyWeightData}
-                    margin={{ top: 16, right: 8, left: 8 }}
-                    responsive
-                    className="flex-1"
-                  >
-                    <YAxis dataKey="weight" padding={{ top: 8 }} width="auto" />
-                    <XAxis
-                      dataKey="label"
-                      axisLine={{ stroke: "var(--color-border)" }}
-                      tickLine={false}
-                      tickMargin={16}
-                      tick={{
-                        fill: "var(--color-on-surface)",
-                        fontSize: 12,
-                        fontWeight: 400,
-                      }}
-                      height={48}
-                    />
-                    <ChartTooltip
-                      cursor={false}
-                      content={
-                        <ChartTooltipContent
-                          hideIndicator
-                          labelFormatter={(_, payload) => payload[0]?.payload?.label ?? ""}
-                          formatter={(value) => (
-                            <span className="font-medium text-foreground">
-                              {Number(value).toFixed(1)} lbs lost
-                            </span>
-                          )}
+                  <ChartContainer config={weightChartConfig} className="mt-4 w-full">
+                    <LineChart
+                      accessibilityLayer
+                      data={chartData.weight}
+                      margin={{ top: 16, right: 8, left: 8 }}
+                      responsive
+                      className="flex-1"
+                    >
+                      <YAxis dataKey="weight" padding={{ top: 8 }} width="auto" />
+                      <XAxis
+                        dataKey="label"
+                        axisLine={{ stroke: "var(--color-border)" }}
+                        tickLine={false}
+                        tickMargin={16}
+                        tick={{
+                          fill: "var(--color-on-surface)",
+                          fontSize: 12,
+                          fontWeight: 400,
+                        }}
+                        height={48}
+                      />
+                      <ChartTooltip
+                        cursor={false}
+                        content={
+                          <ChartTooltipContent
+                            hideIndicator
+                            labelFormatter={(_, payload) => payload[0]?.payload?.label ?? ""}
+                            formatter={(_value, _name, item) => {
+                              const weight = (item.payload as GoalsWeightChartDatum | undefined)?.weight;
+
+                              return (
+                                <span className="font-medium text-foreground">
+                                  {weight === null || weight === undefined ? "-" : weight.toFixed(1)} lbs
+                                </span>
+                              );
+                            }}
+                          />
+                        }
+                      />
+                      {chartData.weight.some(({ weight }) => weight !== null) ? (
+                        <Line
+                          type="monotone"
+                          dataKey="weight"
+                          connectNulls
+                          stroke="var(--color-weight)"
+                          strokeWidth={2}
+                          dot={{
+                            r: 4,
+                            fill: "var(--color-primary)",
+                            stroke: "var(--color-primary)",
+                            strokeWidth: 1,
+                          }}
+                          activeDot={{
+                            r: 5,
+                            fill: "var(--color-primary)",
+                            stroke: "var(--color-primary)",
+                          }}
+                          isAnimationActive={false}
                         />
-                      }
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="weight"
-                      stroke="var(--color-weight)"
-                      strokeWidth={2}
-                      dot={{
-                        r: 4,
-                        fill: "var(--color-primary)",
-                        stroke: "var(--color-primary)",
-                        strokeWidth: 1,
-                      }}
-                      activeDot={{
-                        r: 5,
-                        fill: "var(--color-primary)",
-                        stroke: "var(--color-primary)",
-                      }}
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
+                      ) : null}
+                    </LineChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
 
-            <div ref={fatsChartRef} className="flex-1">
-              <FatBarChart
-                ariaLabel="Open fats analytics"
-                data={weeklyFatData}
-                onClick={() => setActiveDrawerContent("fats")}
-                tooltipContent="Click to open a more detailed fats view."
-              />
+              <div ref={fatsChartRef} className="flex-1">
+                <FatBarChart
+                  ariaLabel="Open fats analytics"
+                  data={chartData.fat}
+                  onClick={() => setActiveDrawerContent("fats")}
+                  tooltipContent="Click to open a more detailed fats view."
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
 

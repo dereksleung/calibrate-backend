@@ -17,17 +17,17 @@ Replace the Goals page’s hard-coded seven-day weight and fat chart values with
   - x-axis labels are dynamically derived weekday abbreviations for all seven slots.
 - Missing weights remain null in the chart data. Recharts should use connectNulls so nearby recorded points are visually connected without inventing inferred values.
 - The weight-change label is the latest observed weight minus the earliest observed weight in the range. If fewer than two observations exist, show a neutral placeholder rather than zero.
-- Initial loading shows a usable loading state; an initial failure shows an inline retryable error. During a background refresh failure, keep the last successful charts visible and expose a non-blocking retry affordance.
+- Initial loading shows a usable loading state; fetch failures show a non-blocking Sonner error toast with a spacious Try again action inside the toast. During a background refresh failure, keep the last successful charts visible.
 - This task is read-only for weight because the current weight UI has no active mutation path. Future weight writes must invalidate both the selected-day query and the day-log range prefix.
 
 ## Current state
 
-- Goals currently declares weeklyWeightData and weeklyFatData fixtures in apps/web-frontend/src/pages/goals/Goals.tsx.
+- Goals now derives both seven-day charts from the authenticated range response through apps/web-frontend/src/pages/goals/goals-chart-data.ts; the old weekly fixtures are removed.
 - The existing range hook lives in packages/api-client/src/day-logs/get-day-log-range.ts and validates the shared DayLogRangeResponse contract.
 - Dashboard already derives seven-day nutrition data from the same response in apps/web-frontend/src/verticals/dashboard/dashboard-nutrition-model.ts.
 - The shared nutrition helper already sums calories, fat, protein, and carbohydrate values across nullable meal arrays.
 - Food-entry saves already invalidate both the selected-day key and all range keys.
-- No dedicated Goals page live-data test exists today.
+- Focused coverage now lives in apps/web-frontend/src/pages/goals/goals-chart-data.test.ts and apps/web-frontend/src/pages/goals/goals-live-analytics.integration.test.tsx.
 
 ## Architecture impact
 
@@ -45,13 +45,12 @@ Likely files:
 
 - apps/web-frontend/src/shared/date/local-date-range.ts (new)
 - apps/web-frontend/src/verticals/dashboard/dashboard-nutrition-model.ts
-- apps/web-frontend/src/verticals/dashboard/dashboard-nutrition-model.test.ts
+- apps/web-frontend/src/verticals/dashboard/dashboard-nutrition-model.test.ts (compatibility coverage)
+- apps/web-frontend/src/shared/date/local-date-range.test.ts
 
 ### 2. Add a frontend-owned Goals chart-data builder
 
-Start with a pure buildGoalsChartData function in apps/web-frontend/src/pages/goals/Goals.tsx. It should accept DayLogRangeResponse and return the exact data and metadata needed by the two chart cards. Keep the function colocated with the page while it remains small and page-specific.
-
-Extract it into a focused goals-analytics chart-data module only if the Goals page becomes unwieldy, the calculation gains substantial complexity, or another consumer needs the same transformation. The extraction should preserve the same pure interface and move its direct tests with it.
+The pure buildGoalsChartData function lives in apps/web-frontend/src/pages/goals/goals-chart-data.ts. It accepts DayLogRangeResponse and returns the exact data and metadata needed by the two chart cards, keeping the transformation separate from Recharts rendering.
 
 The builder should:
 
@@ -65,7 +64,7 @@ The builder should:
 
 ### 3. Wire Goals to the existing TanStack query
 
-Update Goals to call useDayLogRange(apiTransport, range), remove the hard-coded weekly arrays and 58g fixture limit, and pass the buildGoalsChartData result into the chart components.
+Update Goals to call useDayLogRange(apiTransport, range), remove the hard-coded weekly arrays, use the canonical 60g target, and pass the buildGoalsChartData result into the chart components.
 
 Update the weight chart to:
 
@@ -77,23 +76,23 @@ Update the weight chart to:
 
 Update the fat chart to consume live daily totals and the canonical 60g limit. Keep its existing click behavior and Fats drawer navigation.
 
-Add loading and failure states around the live chart region using the Dashboard’s existing accessible patterns:
+Add loading and failure states around the live chart region using the app’s existing accessible and Sonner feedback patterns:
 
 - pending with no cached data: preserve the page shell and show chart-card skeletons with a status label;
-- initial error with no cached data: show an alert and Try again action wired to refetch;
-- background error with cached data: retain the chart and show a non-blocking retry affordance.
+- initial error with no cached data: show a Sonner error toast with a Try again action inside the toast, wired to refetch;
+- background error with cached data: retain the chart and show the same non-blocking retry toast.
 
 Leave the Active Program, Journey, and 28-day FatsAnalytics content unchanged.
 
 Likely files:
 
 - apps/web-frontend/src/pages/goals/Goals.tsx
-- apps/web-frontend/src/pages/goals/Goals.test.tsx (new, if direct builder tests are needed)
+- apps/web-frontend/src/pages/goals/goals-chart-data.test.ts
 - apps/web-frontend/src/pages/goals/goals-live-analytics.integration.test.tsx (new)
 
 ### 4. Add focused tests
 
-If buildGoalsChartData remains colocated, add direct pure-function coverage in Goals.test.tsx. If it is extracted, move that coverage beside the extracted module. Cover:
+The extracted goals-chart-data module has direct pure-function coverage. Cover:
 
 - seven slots with dynamically derived weekday labels;
 - weight values, null observations, first-to-last change, and insufficient observations;
