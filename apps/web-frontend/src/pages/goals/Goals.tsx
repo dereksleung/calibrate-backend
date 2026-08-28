@@ -89,7 +89,7 @@ export function Goals() {
           onClick: () => void refetch(),
         },
         classNames: {
-          actionButton: "min-h-11 min-w-24 whitespace-nowrap px-4 py-2",
+          actionButton: "justify-center min-h-11 min-w-24 whitespace-nowrap px-4 py-2",
         },
         closeButton: true,
       });
@@ -177,7 +177,7 @@ export function Goals() {
               <Typography
                 variant="headlineLg"
                 as="h1"
-                // className="font-heading text-[2.5rem] font-light leading-none text-primary md:text-[3rem]"
+              // className="font-heading text-[2.5rem] font-light leading-none text-primary md:text-[3rem]"
               >
                 Goals
               </Typography>
