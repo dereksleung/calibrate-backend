@@ -1,4 +1,6 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { LOCAL_RUNTIME_ENV_FILE_NAME } from "@calibrate/local-runtime-config";
+import { createHmac, createPrivateKey } from "node:crypto";
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,9 +13,11 @@ import {
 } from "./e2e-runtime.js";
 
 const originalEnvironment = { ...process.env };
+const originalCwd = process.cwd();
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
+  process.chdir(originalCwd);
   process.env = { ...originalEnvironment };
   await Promise.all(
     temporaryDirectories.splice(0).map((directory) => rm(directory, { force: true, recursive: true })),
@@ -24,6 +28,44 @@ async function createTemporaryDirectory(): Promise<string> {
   const directory = await mkdtemp(path.join(tmpdir(), "calibrate-e2e-runtime-"));
   temporaryDirectories.push(directory);
   return directory;
+}
+
+function createIsolatedE2eEnvironment() {
+  return createE2eEnvironment(
+    {
+      database: "calibrate_e2e_test",
+      host: "127.0.0.1",
+      maxConnections: 10,
+      password: "database-password",
+      port: 54_321,
+      user: "calibrate_e2e",
+    },
+    { frontend: 43_100, backend: 43_101 },
+  );
+}
+
+function expectUsableGeneratedRuntimeKeys(environment: NodeJS.ProcessEnv): void {
+  const otpKeyBytes = Buffer.from(environment.OTP_HMAC_KEY ?? "", "base64url");
+  expect(otpKeyBytes.byteLength).toBeGreaterThanOrEqual(32);
+  expect(createHmac("sha256", otpKeyBytes).update("calibrate-email-otp").digest("base64url")).toMatch(
+    /^[A-Za-z0-9_-]+$/,
+  );
+
+  const ipKeyBytes = Buffer.from(environment.EMAIL_REQUEST_IP_HMAC_KEY ?? "", "hex");
+  expect(ipKeyBytes.byteLength).toBeGreaterThanOrEqual(32);
+  expect(createHmac("sha256", ipKeyBytes).update("127.0.0.1").digest("base64url")).toMatch(
+    /^[A-Za-z0-9_-]+$/,
+  );
+  expect(createPrivateKey(environment.JWT_PRIVATE_KEY_PEM ?? "").asymmetricKeyType).toBe("ed25519");
+}
+
+async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 describe("E2E runtime", () => {
@@ -55,6 +97,27 @@ describe("E2E runtime", () => {
     expect(environment.OTP_HMAC_KEY).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(environment.EMAIL_REQUEST_IP_HMAC_KEY).toMatch(/^[a-f0-9]{64}$/);
     expect(environment.JWT_PRIVATE_KEY_PEM).toContain("BEGIN PRIVATE KEY");
+    expect(environment.JWT_ACCESS_TOKEN_TTL_SECONDS).toBe("900");
+    expect(environment.OTP_HMAC_CURRENT_KEY_VERSION).toBe("1");
+    expectUsableGeneratedRuntimeKeys(environment);
+  });
+
+  it("uses a fresh generated runtime without writing dotenvx or local config files", async () => {
+    const directory = await createTemporaryDirectory();
+    process.chdir(directory);
+    delete process.env.DOTENV_PRIVATE_KEY;
+    process.env.EMAIL_SERVICE_CREDENTIAL = "developer-credential";
+
+    const first = createIsolatedE2eEnvironment();
+    const second = createIsolatedE2eEnvironment();
+
+    expectUsableGeneratedRuntimeKeys(first);
+    expectUsableGeneratedRuntimeKeys(second);
+    expect(first.OTP_HMAC_KEY).not.toBe(second.OTP_HMAC_KEY);
+    expect(first.EMAIL_REQUEST_IP_HMAC_KEY).not.toBe(second.EMAIL_REQUEST_IP_HMAC_KEY);
+    expect(first.JWT_PRIVATE_KEY_PEM).not.toBe(second.JWT_PRIVATE_KEY_PEM);
+    await expect(pathExists(path.join(directory, LOCAL_RUNTIME_ENV_FILE_NAME))).resolves.toBe(false);
+    await expect(pathExists(path.join(directory, ".env.keys"))).resolves.toBe(false);
   });
 
   it("selects an adjacent unprivileged localhost port pair", async () => {
