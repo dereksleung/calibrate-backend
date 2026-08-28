@@ -2,7 +2,7 @@
 
 ## Status
 
-Specification published; ready for ticket breakdown.
+Specification and ticket breakdown published; tickets are ready for implementation.
 
 ## Goal
 
