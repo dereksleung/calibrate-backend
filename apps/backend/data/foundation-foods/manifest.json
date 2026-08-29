@@ -1,0 +1,10 @@
+{
+  "releaseId": "FoodData_Central_foundation_food_json_2026-04-30",
+  "releaseDate": "2026-04-30",
+  "sourceFile": "FoodData_Central_foundation_food_json_2026-04-30.json",
+  "sha256": "4495596e6f94a904adb0ec61788d8ae2c3c728839d3e668f4c41ca8dc24008ab",
+  "expectedTotalRecordCount": 395,
+  "expectedImportableRecordCount": 363,
+  "expectedMappingErrorCount": 32,
+  "expectedUnreportedNutrientCount": 1096
+}

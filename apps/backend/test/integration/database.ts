@@ -29,6 +29,7 @@ export async function clearIntegrationDatabase(databaseClient: DatabaseClient): 
       "webauthn_challenges",
       "signup_enrollment_authorizations",
       "food_entries",
+      "food_catalog",
       "day_logs",
       "users",
       "email_otp_challenges"
