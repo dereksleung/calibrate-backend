@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard V2 — Implementation Plan</title>
+    <style>
+      :root {
+        --surface: #f9f9f9;
+        --ink: #1a1c1c;
+        --muted: #434840;
+        --green: #334f2b;
+        --green-soft: #caecbc;
+        --line: rgba(255, 255, 255, 0.7);
+        --glass: rgba(255, 255, 255, 0.52);
+        --rose: #f72585;
+        --violet: #7209b7;
+        --azure: #4cc9f0;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: radial-gradient(circle at top left, #caecbc 0%, #f9f9f9 40%, #dee4e0 100%);
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+      main { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: 56px 0 80px; }
+      h1, h2, h3 { font-family: Manrope, Inter, ui-sans-serif, sans-serif; letter-spacing: -0.035em; }
+      h1 { max-width: 720px; margin: 0; font-size: clamp(2.65rem, 7vw, 5.25rem); line-height: .98; font-weight: 400; }
+      h2 { margin: 0; font-size: 1.55rem; font-weight: 500; }
+      h3 { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: -0.02em; }
+      p { margin: 0; line-height: 1.55; }
+      .eyebrow { margin-bottom: 14px; color: var(--green); font-size: .73rem; font-weight: 750; letter-spacing: .15em; text-transform: uppercase; }
+      .lede { max-width: 720px; margin-top: 22px; color: var(--muted); font-size: 1.1rem; }
+      .glass { border: 1px solid var(--line); background: var(--glass); box-shadow: 0 20px 40px -15px rgba(0,0,0,.04); backdrop-filter: blur(20px); }
+      .summary { display: grid; grid-template-columns: 1.25fr repeat(3, 1fr); gap: 12px; margin-top: 40px; }
+      .metric { min-width: 0; border-radius: 20px; padding: 20px; }
+      .metric strong { display: block; margin-top: 8px; font-family: Manrope, sans-serif; font-size: 1.5rem; font-weight: 500; }
+      .metric span { color: var(--muted); font-size: .82rem; }
+      section { margin-top: 52px; }
+      .section-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+      .section-head p { max-width: 500px; color: var(--muted); font-size: .92rem; text-align: right; }
+      .flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+      .stage { position: relative; min-width: 0; min-height: 152px; border-radius: 20px; padding: 20px; }
+      .stage:not(:last-child)::after { content: "→"; position: absolute; z-index: 2; top: 56px; right: -18px; color: var(--green); font-size: 1.4rem; }
+      .stage small { display: block; margin-bottom: 14px; color: var(--green); font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+      .stage p { margin-top: 8px; color: var(--muted); font-size: .88rem; }
+      .tasks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+      .task { min-width: 0; border-radius: 24px; padding: 24px; }
+      .task-top { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+      .badge { flex: none; border-radius: 999px; background: color-mix(in srgb, var(--green-soft) 66%, white); padding: 5px 9px; color: var(--green); font-size: .72rem; font-weight: 750; letter-spacing: .06em; }
+      .task p { margin-top: 12px; color: var(--muted); font-size: .9rem; }
+      .task ul { margin: 16px 0 0; padding-left: 18px; color: var(--muted); font-size: .86rem; line-height: 1.6; }
+      .dep { display: inline-block; margin-top: 18px; border-left: 3px solid var(--green); padding-left: 9px; color: var(--green); font-size: .79rem; font-weight: 700; }
+      .callout { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: start; border-radius: 22px; padding: 20px; }
+      .dot { width: 11px; height: 11px; margin-top: 6px; border-radius: 50%; background: var(--azure); box-shadow: 0 0 0 5px rgba(76, 201, 240, .16); }
+      .callout strong { display: block; margin-bottom: 4px; }
+      .scope { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+      .scope > div { min-width: 0; border-radius: 18px; padding: 18px; }
+      .scope h3 { font-size: .94rem; }
+      .scope p { margin-top: 8px; color: var(--muted); font-size: .86rem; }
+      .yes { border-top: 3px solid var(--green); }
+      .later { border-top: 3px solid var(--violet); }
+      .no { border-top: 3px solid var(--rose); }
+      code { border-radius: 5px; background: rgba(51,79,43,.09); padding: .1em .3em; color: var(--green); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .86em; }
+      @media (max-width: 760px) {
+        main { width: min(100% - 24px, 540px); padding-top: 32px; }
+        .summary, .flow, .tasks, .scope { grid-template-columns: 1fr; }
+        .stage:not(:last-child)::after { top: auto; right: auto; bottom: -22px; left: 50%; transform: rotate(90deg); }
+        .section-head { align-items: start; flex-direction: column; }
+        .section-head p { text-align: left; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">Calibrate / Frontend implementation plan</p>
+      <h1>Dashboard V2: one focused screen, four testable checkpoints.</h1>
+      <p class="lede">Replace the overview route with a 450px-first dashboard that turns the existing seven-day Day Log range into a calm nutrition overview, partial habit history, and metric detail drawers—without changing the shared API client or adding a 28-day request.</p>
+
+      <div class="summary">
+        <div class="metric glass"><span>Route</span><strong>/</strong><span>Existing Dashboard replacement</span></div>
+        <div class="metric glass"><span>Data now</span><strong>7 days</strong><span>Live Day Logs</span></div>
+        <div class="metric glass"><span>Viewport</span><strong>450px</strong><span>Content cap</span></div>
+        <div class="metric glass"><span>Tasks</span><strong>4</strong><span>Dependency ordered</span></div>
+      </div>
+
+      <section>
+        <div class="section-head"><h2>Data to screen</h2><p>The query cache remains generic Day Log data. Dashboard V2 receives selected view-model data.</p></div>
+        <div class="flow">
+          <div class="stage glass"><small>01 · Fetch</small><h3>Existing range query</h3><p>Current rolling seven-day Day Log range, unchanged.</p></div>
+          <div class="stage glass"><small>02 · Select</small><h3>Pure V2 mapper</h3><p><code>dashboard-v2-model.ts</code> derives summaries, habits, and analytics.</p></div>
+          <div class="stage glass"><small>03 · Present</small><h3>V2 page</h3><p>Static overview, two-column cards, and local drawer selection.</p></div>
+          <div class="stage glass"><small>04 · Detail</small><h3>Nutrient drawer</h3><p>Total is live; Change is explicitly provisional until history arrives.</p></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head"><h2>Implementation checkpoints</h2><p>Each issue is a small mergeable unit with focused tests and one dependency direction.</p></div>
+        <div class="tasks">
+          <article class="task glass"><div class="task-top"><h3>01 · View model</h3><span class="badge">Foundation</span></div><p>Derive seven-day nutrition, partial 30-cell habit grids, exact-name contribution totals, and provisional/real change states.</p><ul><li>Pure mapper and sort behavior</li><li>Empty-day and zero-baseline coverage</li><li>No React or route dependencies</li></ul><span class="dep">Unblocks 02 and 03</span></article>
+          <article class="task glass"><div class="task-top"><h3>02 · Presentation</h3><span class="badge">Layout</span></div><p>Build Dashboard V2, SevenDayNutrition, and MiniAnalyticsCard as page-local composed components.</p><ul><li>Aurora + glass treatment</li><li>450px cap, two columns at 320px</li><li>Bottom-summary-only nutrition buttons</li></ul><span class="dep">Depends on 01</span></article>
+          <article class="task glass"><div class="task-top"><h3>03 · Analytics drawer</h3><span class="badge">Interaction</span></div><p>Reusable calories/fat/protein/carbohydrates detail content with Total and Change tabs.</p><ul><li>Accessible tab and sort controls</li><li>Blue seven-day provisional banner</li><li>No food images or fake data</li></ul><span class="dep">Depends on 01 and 02</span></article>
+          <article class="task glass"><div class="task-top"><h3>04 · Route wiring</h3><span class="badge">Integration</span></div><p>Connect the selected model to <code>/</code>, preserve live refresh, loading, error, and retry behavior.</p><ul><li>TanStack Query <code>select</code></li><li>Focused future-cache TODO</li><li>Viewport and query-invalidation checks</li></ul><span class="dep">Depends on 01, 02, and 03</span></article>
+        </div>
+      </section>
+
+      <section class="callout glass" aria-label="Deferred-history note"><span class="dot" aria-hidden="true"></span><div><strong>Change is deliberately honest in the first delivery.</strong><p>The UI explains that seven days cannot form two consecutive 14-day windows, then renders available foods as <code>New</code>. The existing date-keyed IndexedDB and conditional-revalidation effort owns the later history-backed calculation.</p></div></section>
+
+      <section>
+        <div class="section-head"><h2>Scope guardrails</h2><p>These constraints keep the first delivery focused and preserve existing package ownership.</p></div>
+        <div class="scope">
+          <div class="glass yes"><h3>In this delivery</h3><p>Live seven-day totals, partial habit history, V2 components, drawer behavior, accessibility, and focused tests.</p></div>
+          <div class="glass later"><h3>Later</h3><p>30-day IndexedDB history, conditional revalidation, genuine two-week change calculations, and the future package rename discussion.</p></div>
+          <div class="glass no"><h3>Not included</h3><p>A 28-day endpoint, a new API-client module interface, food thumbnails, or a Nutrition “See All” action.</p></div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
