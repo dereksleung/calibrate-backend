@@ -24,6 +24,18 @@ _Avoid_: calendar week, arbitrary seven-day period
 A non-null weight recorded on a Day Log for a specific calendar date. A visually connected chart line does not create additional weight observations.
 _Avoid_: inferred weight, estimated weight
 
+**Weigh-In day**:
+A Day Log with a Weight observation. It is the completed state for the Weigh-In habit display.
+_Avoid_: weight day, completed weight log
+
+**Food Logging day**:
+A Day Log containing at least one Food Entry. It is the completed state for the Food Logging habit display.
+_Avoid_: meal day, completed food log
+
+**Food contribution**:
+The total amount of one nutrient supplied by Food Entries with exactly the same recorded name during an analysis window.
+_Avoid_: food source, fuzzy food match
+
 **Nutrition target**:
 A daily comparison value for a nutrient. Until user-specific goals exist, Calibrate may use a shared placeholder target such as the current 60g fat target.
 _Avoid_: personalized goal, persisted goal
