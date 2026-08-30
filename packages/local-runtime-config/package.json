@@ -23,7 +23,7 @@
         "cache": true,
         "options": {
           "cwd": "packages/local-runtime-config",
-          "command": "tsc --noEmit -p tsconfig.json"
+          "command": "oxlint --type-aware --type-check --tsconfig tsconfig.json src"
         }
       },
       "lint": {
