@@ -97,7 +97,7 @@ const NUTRIENT_CONFIGURATIONS: readonly NutrientConfiguration[] = [
 
 export function buildDashboardV2ViewModel(response: DayLogRangeResponse): DashboardV2ViewModel {
   const rows = NUTRIENT_CONFIGURATIONS.map((configuration) =>
-    buildSevenDayNutritionRow(response.days, configuration),
+    buildSevenDayNutritionRow(response.days, response.endDate, configuration),
   );
   const nutritionCards = NUTRIENT_CONFIGURATIONS.reduce<Partial<DashboardV2ViewModel["nutritionCards"]>>(
     (cards, configuration) => {
@@ -180,14 +180,23 @@ export function buildNutrientAnalyticsModel({
 
 function buildSevenDayNutritionRow(
   days: readonly DashboardHistoryDay[],
+  endDate: string,
   configuration: NutrientConfiguration,
 ): SevenDayNutritionRowModel {
+  const daysByDate = new Map(days.map((day) => [day.date, day]));
+  const startDate = offsetDate(endDate, -6);
+
   return {
-    days: days.map(({ date, dayLog }) => ({
-      amount: getDayLogNutritionTotals(dayLog)[configuration.metric],
-      date,
-      label: getLocalWeekdayAbbreviation(date),
-    })),
+    days: Array.from({ length: 7 }, (_, index) => {
+      const date = offsetDate(startDate, index);
+      const day = daysByDate.get(date);
+
+      return {
+        amount: getDayLogNutritionTotals(day?.dayLog ?? null)[configuration.metric],
+        date,
+        label: getLocalWeekdayAbbreviation(date),
+      };
+    }),
     metric: configuration.metric,
     target: DAILY_TARGETS[configuration.metric],
     title: configuration.title,

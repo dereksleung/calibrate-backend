@@ -115,6 +115,28 @@ describe("buildDashboardV2ViewModel", () => {
     expect(model.sevenDayNutrition.rows[3]?.days.map(({ amount }) => amount)).toEqual([9, 0, 0, 0, 0, 0, 9]);
   });
 
+  it("anchors the seven-day nutrition chart on the response end date and fills missing prior days", () => {
+    const model = buildDashboardV2ViewModel({
+      startDate: "2026-08-25",
+      endDate: "2026-08-31",
+      days: [
+        buildDay("2026-08-25", { breakfast: [buildFoodEntry({ calories: 125 })] }),
+        buildDay("2026-08-28", { lunch: [buildFoodEntry({ id: "friday", calories: 280, meal: "LUNCH" })] }),
+        buildDay("2026-08-31", { dinner: [buildFoodEntry({ id: "today", calories: 310, meal: "DINNER" })] }),
+      ],
+    });
+
+    expect(model.sevenDayNutrition.rows[0]?.days).toEqual([
+      { amount: 125, date: "2026-08-25", label: "T" },
+      { amount: 0, date: "2026-08-26", label: "W" },
+      { amount: 0, date: "2026-08-27", label: "Th" },
+      { amount: 280, date: "2026-08-28", label: "F" },
+      { amount: 0, date: "2026-08-29", label: "Sa" },
+      { amount: 0, date: "2026-08-30", label: "Sn" },
+      { amount: 310, date: "2026-08-31", label: "M" },
+    ]);
+  });
+
   it("marks unavailable history separately from completed and incomplete live habit days", () => {
     const model = buildDashboardV2ViewModel(
       buildRange([

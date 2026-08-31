@@ -1,17 +1,30 @@
 import type { DashboardV2ViewModel } from "#/verticals/dashboard/dashboard-v2-model.ts";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
+import { getLocalWeekdayAbbreviation } from "#/shared/date/local-date-range.ts";
+
 import "../../../styles.css";
 import { DashboardV2Page } from "./DashboardV2Page.tsx";
 
-const labels = ["M", "T", "W", "T", "F", "S", "S"];
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
 
-const createDays = (amounts: number[]) =>
-  amounts.map((amount, index) => ({
-    amount,
-    date: `2026-08-${String(24 + index).padStart(2, "0")}`,
-    label: labels[index],
-  }));
+  return `${year}-${month}-${day}`;
+}
+
+const createDays = (amounts: number[]) => {
+  const today = new Date();
+
+  return amounts.map((amount, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - 6 + index);
+    const dateString = formatLocalDate(date);
+
+    return { amount, date: dateString, label: getLocalWeekdayAbbreviation(dateString) };
+  });
+};
 
 const createHabitHistory = (completedIndexes: number[]) =>
   Array.from({ length: 30 }, (_, index) => ({
