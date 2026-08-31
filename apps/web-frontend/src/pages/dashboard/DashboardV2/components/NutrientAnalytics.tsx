@@ -146,7 +146,7 @@ function ContributionChange({
     <section className="flex flex-col gap-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <Typography as="h2" variant="cardTitle">
+          <Typography as="h2" variant="h2SectionTitle">
             Food contribution change
           </Typography>
           <Typography as="p" color="muted" variant="body">
@@ -211,7 +211,7 @@ function ChangeSection({
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <Typography as="h3" className="tracking-[0.12em]" color="muted" id={headingId} variant="label">
+      <Typography as="h3" color="muted" id={headingId} variant="h3">
         {title}
       </Typography>
       {rows.length === 0 ? (

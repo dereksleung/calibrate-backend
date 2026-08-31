@@ -5,6 +5,10 @@ import * as React from "react";
 const typographyVariants = cva("", {
   variants: {
     variant: {
+      h1PageTitle: "text-lg font-semibold",
+      h2SectionTitle: "font-heading text-xl font-semibold tracking-[-0.02em]",
+      h3: "font-heading text-lg font-semibold tracking-[-0.02em]",
+      miniCardSubtitle: "text-xs",
       display: "font-heading text-[2.5rem] leading-[3rem] tracking-[-0.02em] font-[300] text-balance",
       headline: "font-headline-md text-[1.5rem] leading-[2rem] tracking-[-0.01em] font-[400] text-balance",
       headlineLg:
