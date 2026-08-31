@@ -4,6 +4,10 @@ import "../../../../styles.css";
 import { Typography } from "./Typography";
 
 const variants = [
+  "h1PageTitle",
+  "h2SectionTitle",
+  "h3",
+  "miniCardSubtitle",
   "display",
   "headline",
   "headlineLg",
