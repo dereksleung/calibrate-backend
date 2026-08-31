@@ -9,7 +9,6 @@ import {
 
 export type DashboardHistoryDay = DayLogRangeResponse["days"][number];
 export type DashboardNutritionMetric = keyof NutritionTotals;
-export type ChangeSortDirection = "ascending" | "descending";
 
 type NutrientConfiguration = {
   metric: DashboardNutritionMetric;
@@ -73,11 +72,11 @@ export type ChangeEntry = {
 
 export type NutrientAnalyticsModel = {
   change: {
-    sections: [
-      { entries: ChangeEntry[]; kind: "reductions" },
-      { entries: ChangeEntry[]; kind: "increases" },
-      { entries: ChangeEntry[]; kind: "newFoods" },
-    ];
+    sections: {
+      reductions: ChangeEntry[];
+      increases: ChangeEntry[];
+      newFoods: ChangeEntry[];
+    };
     showInsufficientHistoryBanner: boolean;
   };
   metric: DashboardNutritionMetric;
@@ -142,12 +141,10 @@ export function buildNutrientAnalyticsModel({
   days,
   endDate,
   metric,
-  sortDirection = "ascending",
 }: {
   days: readonly DashboardHistoryDay[];
   endDate: string;
   metric: DashboardNutritionMetric;
-  sortDirection?: ChangeSortDirection;
 }): NutrientAnalyticsModel {
   const configuration = getNutrientConfiguration(metric);
   const totalContributions = collectFoodContributions(days, metric);
@@ -166,7 +163,7 @@ export function buildNutrientAnalyticsModel({
 
   return {
     change: {
-      sections: buildChangeSections(currentContributions, previousContributions, sortDirection),
+      sections: buildChangeSections(currentContributions, previousContributions),
       showInsufficientHistoryBanner: currentContributions.size > 0 && previousContributions.size === 0,
     },
     metric,
@@ -233,7 +230,6 @@ function buildHabitModels(response: DayLogRangeResponse): DashboardV2ViewModel["
 function buildChangeSections(
   current: ReadonlyMap<string, number>,
   previous: ReadonlyMap<string, number>,
-  sortDirection: ChangeSortDirection,
 ): NutrientAnalyticsModel["change"]["sections"] {
   const reductions: ChangeEntry[] = [];
   const increases: ChangeEntry[] = [];
@@ -262,36 +258,19 @@ function buildChangeSections(
     }
   }
 
-  return [
-    {
-      entries: orderEntries(
-        reductions,
-        (left, right) => {
-          return (left.change as number) - (right.change as number) || left.name.localeCompare(right.name);
-        },
-        sortDirection,
-      ),
-      kind: "reductions",
-    },
-    {
-      entries: orderEntries(
-        increases,
-        (left, right) => {
-          return (right.change as number) - (left.change as number) || left.name.localeCompare(right.name);
-        },
-        sortDirection,
-      ),
-      kind: "increases",
-    },
-    {
-      entries: orderEntries(
-        newFoods,
-        (left, right) => right.amount - left.amount || left.name.localeCompare(right.name),
-        sortDirection,
-      ),
-      kind: "newFoods",
-    },
-  ];
+  return {
+    reductions: reductions.sort(
+      (left, right) =>
+        (left.change as number) - (right.change as number) || left.name.localeCompare(right.name),
+    ),
+    increases: increases.sort(
+      (left, right) =>
+        (right.change as number) - (left.change as number) || left.name.localeCompare(right.name),
+    ),
+    newFoods: newFoods.sort(
+      (left, right) => right.amount - left.amount || left.name.localeCompare(right.name),
+    ),
+  };
 }
 
 function collectFoodContributions(
@@ -337,16 +316,6 @@ function offsetDate(date: string, offset: number): string {
   const result = new Date(Date.UTC(year, month - 1, day + offset));
 
   return result.toISOString().slice(0, 10);
-}
-
-function orderEntries(
-  entries: ChangeEntry[],
-  compare: (left: ChangeEntry, right: ChangeEntry) => number,
-  sortDirection: ChangeSortDirection,
-): ChangeEntry[] {
-  const ordered = [...entries].sort(compare);
-
-  return sortDirection === "ascending" ? ordered : ordered.reverse();
 }
 
 function sumContributions(contributions: ReadonlyMap<string, number>): number {

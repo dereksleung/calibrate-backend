@@ -188,17 +188,14 @@ describe("buildDashboardV2ViewModel", () => {
     });
 
     expect(analytics.change.showInsufficientHistoryBanner).toBe(true);
-    expect(analytics.change.sections).toEqual([
-      { kind: "reductions", entries: [] },
-      { kind: "increases", entries: [] },
-      {
-        kind: "newFoods",
-        entries: [
-          { name: "Tofu", amount: 100, change: "new" },
-          { name: "Pineapple", amount: 60, change: "new" },
-        ],
-      },
-    ]);
+    expect(analytics.change.sections).toEqual({
+      reductions: [],
+      increases: [],
+      newFoods: [
+        { name: "Tofu", amount: 100, change: "new" },
+        { name: "Pineapple", amount: 60, change: "new" },
+      ],
+    });
   });
 
   it("calculates and groups reductions, increases, removals, and new foods from arbitrary dated history", () => {
@@ -220,30 +217,20 @@ describe("buildDashboardV2ViewModel", () => {
     const analytics = buildNutrientAnalyticsModel({ metric: "calories", endDate: "2026-08-30", days });
 
     expect(analytics.change.showInsufficientHistoryBanner).toBe(false);
-    expect(analytics.change.sections).toEqual([
-      {
-        kind: "reductions",
-        entries: [
-          { name: "Crackers", amount: 0, change: -1 },
-          { name: "Tofu", amount: 50, change: -0.5 },
-        ],
-      },
-      {
-        kind: "increases",
-        entries: [{ name: "Rice", amount: 50, change: 1 }],
-      },
-      {
-        kind: "newFoods",
-        entries: [{ name: "Oats", amount: 40, change: "new" }],
-      },
-    ]);
+    expect(analytics.change.sections).toEqual({
+      reductions: [
+        { name: "Crackers", amount: 0, change: -1 },
+        { name: "Tofu", amount: 50, change: -0.5 },
+      ],
+      increases: [{ name: "Rice", amount: 50, change: 1 }],
+      newFoods: [{ name: "Oats", amount: 40, change: "new" }],
+    });
   });
 
-  it("reverses contribution ordering within every change section", () => {
+  it("provides independently reversible default orderings for each change section", () => {
     const analytics = buildNutrientAnalyticsModel({
       metric: "calories",
       endDate: "2026-08-30",
-      sortDirection: "descending",
       days: [
         buildDay("2026-08-03", { breakfast: [buildFoodEntry({ name: "A", calories: 100 })] }),
         buildDay("2026-08-04", { breakfast: [buildFoodEntry({ id: "b-prior", name: "B", calories: 50 })] }),
@@ -259,10 +246,19 @@ describe("buildDashboardV2ViewModel", () => {
       ],
     });
 
-    expect(analytics.change.sections.map(({ entries }) => entries.map(({ name }) => name))).toEqual([
-      ["A", "C"],
-      ["E", "B"],
-      ["D", "F"],
-    ]);
+    expect(analytics.change.sections).toEqual({
+      reductions: [
+        { name: "C", amount: 0, change: -1 },
+        { name: "A", amount: 50, change: -0.5 },
+      ],
+      increases: [
+        { name: "B", amount: 100, change: 1 },
+        { name: "E", amount: 30, change: 0.5 },
+      ],
+      newFoods: [
+        { name: "F", amount: 40, change: "new" },
+        { name: "D", amount: 20, change: "new" },
+      ],
+    });
   });
 });
