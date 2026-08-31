@@ -15,7 +15,6 @@ type SevenDayNutritionProps = {
 };
 
 type SevenDayNutritionRowProps = {
-  activeDayIndex: number;
   row: SevenDayNutritionRowModel;
   showDayLabels: boolean;
 };
@@ -53,32 +52,32 @@ function SevenDaySummaryStat({ row }: { row: SevenDayNutritionRowModel }) {
   );
 }
 
-function SevenDayBarChart({ activeDayIndex, row, showDayLabels }: SevenDayNutritionRowProps) {
+function DayLabels({ row }: { row: SevenDayNutritionRowModel }) {
+  return (
+    <div
+      aria-hidden="true"
+      className="grid grid-cols-7 pt-1 text-center text-xs font-semibold leading-3 text-on-surface-variant"
+    >
+      {row.days.map(({ date, label }) => (
+        <span key={date}>{label}</span>
+      ))}
+    </div>
+  );
+}
+
+function SevenDayBarChart({ row, showDayLabels }: SevenDayNutritionRowProps) {
   const color = ROW_COLORS[row.metric];
   const domainMaximum = Math.max(row.target, ...row.days.map(({ amount }) => amount)) * 1.15;
 
   return (
-    <div className={showDayLabels ? "relative h-24 min-w-0" : "relative h-20 min-w-0"}>
-      <div
-        aria-hidden="true"
-        className={
-          showDayLabels
-            ? "absolute inset-x-0 top-0 bottom-5 grid grid-cols-7"
-            : "absolute inset-0 grid grid-cols-7"
-        }
-      >
-        <span
-          className="rounded-xl border border-black/[0.04] bg-white/65 shadow-[0_2px_5px_rgba(27,38,29,0.06)]"
-          style={{ gridColumnStart: activeDayIndex + 1 }}
-        />
-      </div>
+    <div className="relative h-12 min-w-0 sm:h-20">
       <ResponsiveContainer height="100%" width="100%">
         <BarChart data={row.days} margin={{ bottom: 0, left: 0, right: 0, top: 0 }}>
           <XAxis
             dataKey="label"
             axisLine={false}
             className={showDayLabels ? undefined : "hidden"}
-            hide={!showDayLabels}
+            hide
             interval={0}
             tick={{ fill: "var(--color-on-surface-variant)", fontSize: 12, fontWeight: 600 }}
             tickLine={false}
@@ -105,11 +104,17 @@ function SevenDayBarChart({ activeDayIndex, row, showDayLabels }: SevenDayNutrit
   );
 }
 
-function Row({ activeDayIndex, row, showDayLabels }: SevenDayNutritionRowProps) {
+function Row({ row, showDayLabels }: SevenDayNutritionRowProps) {
   return (
-    <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] gap-2 border-b border-black/[0.06] py-2 last:border-b-0">
+    <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] gap-2 border-b border-black/[0.06] py-2 first:pt-0 last:pb-0 last:border-b-0">
       <SevenDaySummaryStat row={row} />
-      <SevenDayBarChart activeDayIndex={activeDayIndex} row={row} showDayLabels={showDayLabels} />
+      <SevenDayBarChart row={row} showDayLabels={showDayLabels} />
+      {showDayLabels ? (
+        <>
+          <span aria-hidden="true" />
+          <DayLabels row={row} />
+        </>
+      ) : null}
     </div>
   );
 }
@@ -119,15 +124,19 @@ function SevenDayNutrition({ rows }: SevenDayNutritionProps) {
 
   return (
     <section aria-label="Seven-day nutrition overview" className="glass-card rounded-xl p-3">
-      <div aria-hidden="true">
-        {rows.map((row, index) => (
-          <Row
-            activeDayIndex={activeDayIndex}
-            key={row.metric}
-            row={row}
-            showDayLabels={index === rows.length - 1}
+      <div aria-hidden="true" className="relative isolate">
+        <div className="pointer-events-none absolute inset-y-0 left-[calc(4.75rem+0.5rem)] right-0 z-0 grid grid-cols-7">
+          <span
+            className="rounded-xl border border-black/[0.04] bg-white/65 shadow-[0_2px_5px_rgba(27,38,29,0.06)]"
+            style={{ gridColumnStart: activeDayIndex + 1 }}
           />
-        ))}
+        </div>
+
+        <div className="relative z-10">
+          {rows.map((row, index) => (
+            <Row key={row.metric} row={row} showDayLabels={index === rows.length - 1} />
+          ))}
+        </div>
       </div>
       <div className="sr-only">
         <table>
