@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 
-import type { DashboardV2ViewModel } from "#/verticals/dashboard/dashboard-v2-model.ts";
+import type {
+  DashboardV2ViewModel,
+  NutrientAnalyticsModel,
+} from "#/verticals/dashboard/dashboard-v2-model.ts";
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DashboardV2Page } from "./DashboardV2Page.tsx";
 
@@ -15,6 +18,30 @@ vi.mock("recharts", () => ({
   XAxis: () => null,
   YAxis: () => null,
 }));
+
+function analyticsModel(
+  metric: NutrientAnalyticsModel["metric"],
+  title: NutrientAnalyticsModel["title"],
+  unit: NutrientAnalyticsModel["unit"],
+): NutrientAnalyticsModel {
+  return {
+    metric,
+    title,
+    unit,
+    total: {
+      amount: unit === "kcal" ? 150 : 40,
+      contributions: [{ amount: unit === "kcal" ? 150 : 40, name: `${title} food`, share: 1 }],
+    },
+    change: {
+      showInsufficientHistoryBanner: true,
+      sections: {
+        reductions: [],
+        increases: [],
+        newFoods: [{ amount: unit === "kcal" ? 150 : 40, change: "new", name: `${title} food` }],
+      },
+    },
+  };
+}
 
 const viewModel: DashboardV2ViewModel = {
   sevenDayNutrition: {
@@ -106,12 +133,36 @@ const viewModel: DashboardV2ViewModel = {
     },
   },
   analytics: {
-    calories: {} as DashboardV2ViewModel["analytics"]["calories"],
-    proteinGrams: {} as DashboardV2ViewModel["analytics"]["proteinGrams"],
-    totalFatGrams: {} as DashboardV2ViewModel["analytics"]["totalFatGrams"],
-    totalCarbohydrateGrams: {} as DashboardV2ViewModel["analytics"]["totalCarbohydrateGrams"],
+    calories: analyticsModel("calories", "Calories", "kcal"),
+    proteinGrams: analyticsModel("proteinGrams", "Protein", "g"),
+    totalFatGrams: analyticsModel("totalFatGrams", "Fats", "g"),
+    totalCarbohydrateGrams: analyticsModel("totalCarbohydrateGrams", "Carbs", "g"),
   },
 };
+
+beforeAll(() => {
+  if (!HTMLElement.prototype.hasPointerCapture) {
+    HTMLElement.prototype.hasPointerCapture = () => false;
+    HTMLElement.prototype.setPointerCapture = () => undefined;
+    HTMLElement.prototype.releasePointerCapture = () => undefined;
+  }
+  if (!HTMLElement.prototype.scrollIntoView) {
+    HTMLElement.prototype.scrollIntoView = () => undefined;
+  }
+});
+
+beforeEach(() => {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    addEventListener: vi.fn(),
+    addListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+    matches: false,
+    media: query,
+    onchange: null,
+    removeEventListener: vi.fn(),
+    removeListener: vi.fn(),
+  }));
+});
 
 afterEach(() => {
   cleanup();
@@ -119,7 +170,7 @@ afterEach(() => {
 
 describe("DashboardV2Page", () => {
   it("renders the required heading hierarchy and titled chart cards", () => {
-    render(<DashboardV2Page onOpenNutrientAnalytics={vi.fn()} viewModel={viewModel} />);
+    render(<DashboardV2Page viewModel={viewModel} />);
 
     expect(screen.getByRole("heading", { level: 2, name: "Seven-day nutrition" })).toBeTruthy();
     expect(screen.getByRole("heading", { level: 2, name: "Habits" })).toBeTruthy();
@@ -130,20 +181,38 @@ describe("DashboardV2Page", () => {
     expect(screen.getByRole("region", { name: "Calories" })).toBeTruthy();
   });
 
-  it("makes only nutrition summaries keyboard-reachable analytics buttons", () => {
-    const onOpenNutrientAnalytics = vi.fn();
-    render(<DashboardV2Page onOpenNutrientAnalytics={onOpenNutrientAnalytics} viewModel={viewModel} />);
+  it("opens the selected nutrient drawer from the nutrition summary button", () => {
+    render(<DashboardV2Page viewModel={viewModel} />);
+
+    expect(within(screen.getByTestId("nutrition-card-grid")).getAllByRole("button")).toHaveLength(4);
+    expect(within(screen.getByRole("region", { name: "Weighing" })).queryByRole("button")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Calories analytics" }));
+
+    expect(screen.getByRole("dialog", { name: "Calories analytics" })).toBeTruthy();
+    expect(screen.getByText("Calories food")).toBeTruthy();
+    expect(screen.getByText("150 kcal")).toBeTruthy();
+  });
+
+  it("restores focus to the BottomSummary button when the drawer closes", async () => {
+    render(<DashboardV2Page viewModel={viewModel} />);
 
     const caloriesButton = screen.getByRole("button", { name: "Open Calories analytics" });
+    caloriesButton.focus();
     fireEvent.click(caloriesButton);
 
-    expect(onOpenNutrientAnalytics).toHaveBeenCalledWith("calories");
-    expect(screen.getAllByRole("button")).toHaveLength(4);
-    expect(within(screen.getByRole("region", { name: "Weighing" })).queryByRole("button")).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Calories analytics" })).toBeTruthy();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Calories analytics" })).toBeNull();
+    });
+    expect(document.activeElement).toBe(caloriesButton);
   });
 
   it("provides the seven-day chart values as an accessible static table", () => {
-    render(<DashboardV2Page onOpenNutrientAnalytics={vi.fn()} viewModel={viewModel} />);
+    render(<DashboardV2Page viewModel={viewModel} />);
 
     const table = screen.getByRole("table", { name: "Seven-day nutrition summary" });
     expect(within(table).getByRole("columnheader", { name: "Metric" })).toBeTruthy();
@@ -152,7 +221,7 @@ describe("DashboardV2Page", () => {
   });
 
   it("keeps both mini-card groups in two columns at the narrowest viewport", () => {
-    render(<DashboardV2Page onOpenNutrientAnalytics={vi.fn()} viewModel={viewModel} />);
+    render(<DashboardV2Page viewModel={viewModel} />);
 
     expect(screen.getByTestId("habit-card-grid").className).toContain("grid-cols-2");
     expect(screen.getByTestId("nutrition-card-grid").className).toContain("grid-cols-2");

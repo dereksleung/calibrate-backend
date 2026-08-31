@@ -92,10 +92,71 @@ const viewModel: DashboardV2ViewModel = {
     },
   },
   analytics: {
-    calories: {} as DashboardV2ViewModel["analytics"]["calories"],
-    proteinGrams: {} as DashboardV2ViewModel["analytics"]["proteinGrams"],
-    totalFatGrams: {} as DashboardV2ViewModel["analytics"]["totalFatGrams"],
-    totalCarbohydrateGrams: {} as DashboardV2ViewModel["analytics"]["totalCarbohydrateGrams"],
+    calories: {
+      metric: "calories",
+      title: "Calories",
+      unit: "kcal",
+      total: {
+        amount: 661,
+        contributions: [
+          { amount: 330, name: "Tofu, Extra Firm", share: 0.5 },
+          { amount: 331, name: "Oats, Organic", share: 0.5 },
+        ],
+      },
+      change: {
+        showInsufficientHistoryBanner: true,
+        sections: {
+          reductions: [],
+          increases: [],
+          newFoods: [
+            { amount: 330, change: "new", name: "Tofu, Extra Firm" },
+            { amount: 331, change: "new", name: "Oats, Organic" },
+          ],
+        },
+      },
+    },
+    proteinGrams: {
+      metric: "proteinGrams",
+      title: "Protein",
+      unit: "g",
+      total: { amount: 55.5, contributions: [{ amount: 55.5, name: "Tofu, Extra Firm", share: 1 }] },
+      change: {
+        showInsufficientHistoryBanner: true,
+        sections: {
+          reductions: [],
+          increases: [],
+          newFoods: [{ amount: 55.5, change: "new", name: "Tofu, Extra Firm" }],
+        },
+      },
+    },
+    totalFatGrams: {
+      metric: "totalFatGrams",
+      title: "Fats",
+      unit: "g",
+      total: { amount: 16.8, contributions: [{ amount: 16.8, name: "Tofu, Extra Firm", share: 1 }] },
+      change: {
+        showInsufficientHistoryBanner: true,
+        sections: {
+          reductions: [],
+          increases: [],
+          newFoods: [{ amount: 16.8, change: "new", name: "Tofu, Extra Firm" }],
+        },
+      },
+    },
+    totalCarbohydrateGrams: {
+      metric: "totalCarbohydrateGrams",
+      title: "Carbs",
+      unit: "g",
+      total: { amount: 70.8, contributions: [{ amount: 70.8, name: "Oats, Organic", share: 1 }] },
+      change: {
+        showInsufficientHistoryBanner: true,
+        sections: {
+          reductions: [],
+          increases: [],
+          newFoods: [{ amount: 70.8, change: "new", name: "Oats, Organic" }],
+        },
+      },
+    },
   },
 };
 
@@ -104,7 +165,6 @@ const meta = {
   component: DashboardV2Page,
   parameters: { layout: "fullscreen" },
   args: {
-    onOpenNutrientAnalytics: () => undefined,
     viewModel,
   },
   decorators: [

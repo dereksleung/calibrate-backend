@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps, MouseEventHandler, ReactNode } from "react";
 
 import { cn } from "#/lib/utils.ts";
 import { ChevronRight } from "lucide-react";
@@ -11,7 +11,7 @@ type BottomSummaryProps = {
   accessibleName?: string;
   children: ReactNode;
   interactive: boolean;
-  onClick?: () => void;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
 };
 
 function MiniAnalyticsCard({ className, title, ...props }: MiniAnalyticsCardProps) {

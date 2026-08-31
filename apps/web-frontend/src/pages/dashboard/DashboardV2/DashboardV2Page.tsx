@@ -5,6 +5,9 @@ import type {
   NutritionCardModel,
 } from "#/verticals/dashboard/dashboard-v2-model.ts";
 
+import { useRef, useState } from "react";
+
+import { DashboardAnalyticsDrawer } from "./components/DashboardAnalyticsDrawer.tsx";
 import { MiniAnalyticsCard } from "./components/MiniAnalyticsCard.tsx";
 import { SevenDayNutrition } from "./components/SevenDayNutrition.tsx";
 
@@ -23,7 +26,6 @@ const NUTRITION_COLORS = {
 } as const;
 
 type DashboardV2PageProps = {
-  onOpenNutrientAnalytics: (metric: DashboardNutritionMetric) => void;
   viewModel: DashboardV2ViewModel;
 };
 
@@ -64,7 +66,13 @@ function HabitCard({ model }: { model: HabitCardModel }) {
   );
 }
 
-function NutritionCard({ model, onOpen }: { model: NutritionCardModel; onOpen: () => void }) {
+function NutritionCard({
+  model,
+  onOpen,
+}: {
+  model: NutritionCardModel;
+  onOpen: (trigger: HTMLButtonElement) => void;
+}) {
   const fillPercentage = Math.min((model.amount / (model.target * 1.25)) * 100, 100);
 
   return (
@@ -91,7 +99,7 @@ function NutritionCard({ model, onOpen }: { model: NutritionCardModel; onOpen: (
       <MiniAnalyticsCard.BottomSummary
         accessibleName={`Open ${model.title} analytics`}
         interactive
-        onClick={onOpen}
+        onClick={(event) => onOpen(event.currentTarget)}
       >
         <span className="flex min-w-0 items-baseline gap-1">
           <MiniAnalyticsCard.SummaryStat>{formatAmount(model.amount)}</MiniAnalyticsCard.SummaryStat>
@@ -102,7 +110,11 @@ function NutritionCard({ model, onOpen }: { model: NutritionCardModel; onOpen: (
   );
 }
 
-function DashboardV2Page({ onOpenNutrientAnalytics, viewModel }: DashboardV2PageProps) {
+function DashboardV2Page({ viewModel }: DashboardV2PageProps) {
+  const [selectedMetric, setSelectedMetric] = useState<DashboardNutritionMetric | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const selectedModel = selectedMetric ? viewModel.analytics[selectedMetric] : null;
+
   return (
     <>
       <main className="min-h-screen px-4 pt-4 pb-10">
@@ -142,13 +154,22 @@ function DashboardV2Page({ onOpenNutrientAnalytics, viewModel }: DashboardV2Page
                 <NutritionCard
                   key={metric}
                   model={viewModel.nutritionCards[metric]}
-                  onOpen={() => onOpenNutrientAnalytics(metric)}
+                  onOpen={(trigger) => {
+                    returnFocusRef.current = trigger;
+                    setSelectedMetric(metric);
+                  }}
                 />
               ))}
             </div>
           </section>
         </div>
       </main>
+
+      <DashboardAnalyticsDrawer
+        model={selectedModel}
+        onClose={() => setSelectedMetric(null)}
+        returnFocusRef={returnFocusRef}
+      />
     </>
   );
 }
