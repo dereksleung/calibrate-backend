@@ -121,7 +121,6 @@ describe("DashboardV2Page", () => {
   it("renders the required heading hierarchy and titled chart cards", () => {
     render(<DashboardV2Page onOpenNutrientAnalytics={vi.fn()} viewModel={viewModel} />);
 
-    expect(screen.getByRole("heading", { level: 1, name: "Dashboard" })).toBeTruthy();
     expect(screen.getByRole("heading", { level: 2, name: "Seven-day nutrition" })).toBeTruthy();
     expect(screen.getByRole("heading", { level: 2, name: "Habits" })).toBeTruthy();
     expect(screen.getByRole("heading", { level: 2, name: "Nutrition" })).toBeTruthy();

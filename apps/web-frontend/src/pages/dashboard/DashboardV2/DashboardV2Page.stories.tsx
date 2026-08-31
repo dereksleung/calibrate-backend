@@ -107,6 +107,16 @@ const meta = {
     onOpenNutrientAnalytics: () => undefined,
     viewModel,
   },
+  decorators: [
+    (Story) => (
+      <div className="subtle-aurora-fade-page-background">
+        <header className="bg-white/80 px-4 py-3 md:px-10 backdrop-blur-md text-lg font-semibold text-[#4A6741] docked full-width top-0 sticky z-50 shadow-[0_20px_40px_rgba(0,0,0,0.04)] no-border tonal-shift">
+          <h1 className="font-heading text-2xl font-semibold tracking-[-0.03em]">Dashboard</h1>
+        </header>
+        <Story />
+      </div>
+    ),
+  ],
 } satisfies Meta<typeof DashboardV2Page>;
 
 export default meta;

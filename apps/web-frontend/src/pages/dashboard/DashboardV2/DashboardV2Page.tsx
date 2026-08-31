@@ -104,54 +104,52 @@ function NutritionCard({ model, onOpen }: { model: NutritionCardModel; onOpen: (
 
 function DashboardV2Page({ onOpenNutrientAnalytics, viewModel }: DashboardV2PageProps) {
   return (
-    <main className="min-h-screen px-4 py-10 subtle-aurora-fade-page-background">
-      <div className="mx-auto w-full max-w-[450px] space-y-10">
-        <h1 className="font-heading text-3xl font-semibold tracking-[-0.03em] text-on-primary-fixed">
-          Dashboard
-        </h1>
+    <>
+      <main className="min-h-screen px-4 pt-4 pb-10">
+        <div className="mx-auto w-full max-w-[450px] space-y-8">
+          <section aria-labelledby="seven-day-nutrition-heading" className="space-y-3">
+            <h2
+              className="font-heading text-xl font-semibold tracking-[-0.02em] text-on-primary-fixed"
+              id="seven-day-nutrition-heading"
+            >
+              Seven-day nutrition
+            </h2>
+            <SevenDayNutrition rows={viewModel.sevenDayNutrition.rows} />
+          </section>
 
-        <section aria-labelledby="seven-day-nutrition-heading" className="space-y-3">
-          <h2
-            className="font-heading text-xl font-semibold tracking-[-0.02em] text-on-primary-fixed"
-            id="seven-day-nutrition-heading"
-          >
-            Seven-day nutrition
-          </h2>
-          <SevenDayNutrition rows={viewModel.sevenDayNutrition.rows} />
-        </section>
+          <section aria-labelledby="habits-heading" className="space-y-3">
+            <h2
+              className="font-heading text-xl font-semibold tracking-[-0.02em] text-on-primary-fixed"
+              id="habits-heading"
+            >
+              Habits
+            </h2>
+            <div className="grid grid-cols-2 gap-3" data-testid="habit-card-grid">
+              <HabitCard model={viewModel.habits.weighIn} />
+              <HabitCard model={viewModel.habits.foodLogging} />
+            </div>
+          </section>
 
-        <section aria-labelledby="habits-heading" className="space-y-3">
-          <h2
-            className="font-heading text-xl font-semibold tracking-[-0.02em] text-on-primary-fixed"
-            id="habits-heading"
-          >
-            Habits
-          </h2>
-          <div className="grid grid-cols-2 gap-3" data-testid="habit-card-grid">
-            <HabitCard model={viewModel.habits.weighIn} />
-            <HabitCard model={viewModel.habits.foodLogging} />
-          </div>
-        </section>
-
-        <section aria-labelledby="nutrition-heading" className="space-y-3">
-          <h2
-            className="font-heading text-xl font-semibold tracking-[-0.02em] text-on-primary-fixed"
-            id="nutrition-heading"
-          >
-            Nutrition
-          </h2>
-          <div className="grid grid-cols-2 gap-3" data-testid="nutrition-card-grid">
-            {NUTRITION_CARD_ORDER.map((metric) => (
-              <NutritionCard
-                key={metric}
-                model={viewModel.nutritionCards[metric]}
-                onOpen={() => onOpenNutrientAnalytics(metric)}
-              />
-            ))}
-          </div>
-        </section>
-      </div>
-    </main>
+          <section aria-labelledby="nutrition-heading" className="space-y-3">
+            <h2
+              className="font-heading text-xl font-semibold tracking-[-0.02em] text-on-primary-fixed"
+              id="nutrition-heading"
+            >
+              Nutrition
+            </h2>
+            <div className="grid grid-cols-2 gap-3" data-testid="nutrition-card-grid">
+              {NUTRITION_CARD_ORDER.map((metric) => (
+                <NutritionCard
+                  key={metric}
+                  model={viewModel.nutritionCards[metric]}
+                  onOpen={() => onOpenNutrientAnalytics(metric)}
+                />
+              ))}
+            </div>
+          </section>
+        </div>
+      </main>
+    </>
   );
 }
 

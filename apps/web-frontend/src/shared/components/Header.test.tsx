@@ -195,10 +195,10 @@ describe("Header", () => {
       mockUseIsMobile.mockReturnValue(true);
     });
 
-    it("renders the brand link", async () => {
+    it("renders the current page title", async () => {
       await renderHeader();
 
-      expect(screen.getByRole("link", { name: "Calibrate" }).getAttribute("href")).toBe("/");
+      expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
     });
 
     it("renders the login button for logged-out users", async () => {
@@ -220,6 +220,12 @@ describe("Header", () => {
       expect(screen.queryByRole("link", { name: "Overview" })).toBeNull();
       expect(screen.queryByRole("link", { name: "Logs" })).toBeNull();
       expect(screen.queryByRole("link", { name: "Goals" })).toBeNull();
+    });
+
+    it("does not render a navigation landmark", async () => {
+      await renderHeader();
+
+      expect(screen.queryByRole("navigation")).toBeNull();
     });
   });
 });
