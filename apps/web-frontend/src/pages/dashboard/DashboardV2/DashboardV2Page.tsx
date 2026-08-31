@@ -5,6 +5,7 @@ import type {
   NutritionCardModel,
 } from "#/verticals/dashboard/dashboard-v2-model.ts";
 
+import { Typography } from "#/shared/components/base/typography/Typography.tsx";
 import { useRef, useState } from "react";
 
 import { DashboardAnalyticsDrawer } from "./components/DashboardAnalyticsDrawer.tsx";
@@ -120,22 +121,26 @@ function DashboardV2Page({ viewModel }: DashboardV2PageProps) {
       <main className="min-h-screen px-4 pt-4 pb-10">
         <div className="mx-auto w-full max-w-[450px] space-y-8">
           <section aria-labelledby="seven-day-nutrition-heading" className="space-y-3">
-            <h2
-              className="font-heading text-xl font-semibold tracking-[-0.02em] text-on-primary-fixed"
+            <Typography
+              as="h2"
+              className="text-on-primary-fixed"
               id="seven-day-nutrition-heading"
+              variant="h2SectionTitle"
             >
               Seven-day nutrition
-            </h2>
+            </Typography>
             <SevenDayNutrition rows={viewModel.sevenDayNutrition.rows} />
           </section>
 
           <section aria-labelledby="habits-heading" className="space-y-3">
-            <h2
-              className="font-heading text-xl font-semibold tracking-[-0.02em] text-on-primary-fixed"
+            <Typography
+              as="h2"
+              className="text-on-primary-fixed"
               id="habits-heading"
+              variant="h2SectionTitle"
             >
               Habits
-            </h2>
+            </Typography>
             <div className="grid grid-cols-2 gap-3" data-testid="habit-card-grid">
               <HabitCard model={viewModel.habits.weighIn} />
               <HabitCard model={viewModel.habits.foodLogging} />
@@ -143,12 +148,14 @@ function DashboardV2Page({ viewModel }: DashboardV2PageProps) {
           </section>
 
           <section aria-labelledby="nutrition-heading" className="space-y-3">
-            <h2
-              className="font-heading text-xl font-semibold tracking-[-0.02em] text-on-primary-fixed"
+            <Typography
+              as="h2"
+              className="text-on-primary-fixed"
               id="nutrition-heading"
+              variant="h2SectionTitle"
             >
               Nutrition
-            </h2>
+            </Typography>
             <div className="grid grid-cols-2 gap-3" data-testid="nutrition-card-grid">
               {NUTRITION_CARD_ORDER.map((metric) => (
                 <NutritionCard

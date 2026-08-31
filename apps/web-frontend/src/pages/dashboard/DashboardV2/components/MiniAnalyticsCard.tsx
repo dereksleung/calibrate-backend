@@ -1,11 +1,14 @@
 import type { ComponentProps, MouseEventHandler, ReactNode } from "react";
 
 import { cn } from "#/lib/utils.ts";
+import { Typography } from "#/shared/components/base/typography/Typography.tsx";
 import { ChevronRight } from "lucide-react";
 
 type MiniAnalyticsCardProps = ComponentProps<"section"> & {
   title: string;
 };
+
+type TypographyElementProps<TElement extends "h3" | "span"> = Omit<ComponentProps<TElement>, "color">;
 
 type BottomSummaryProps = {
   accessibleName?: string;
@@ -20,13 +23,12 @@ function MiniAnalyticsCard({ className, title, ...props }: MiniAnalyticsCardProp
   );
 }
 
-function Title({ className, ...props }: ComponentProps<"h3">) {
+function Title({ className, ...props }: TypographyElementProps<"h3">) {
   return (
-    <h3
-      className={cn(
-        "break-words font-heading text-lg font-semibold tracking-[-0.02em] text-on-primary-fixed",
-        className,
-      )}
+    <Typography
+      as="h3"
+      className={cn("break-words text-on-primary-fixed", className)}
+      variant="h3"
       {...props}
     />
   );
@@ -44,13 +46,12 @@ function Separator({ className, ...props }: ComponentProps<"div">) {
   return <div aria-hidden="true" className={cn("h-px bg-black/[0.07]", className)} {...props} />;
 }
 
-function SummaryStat({ className, ...props }: ComponentProps<"span">) {
+function SummaryStat({ className, ...props }: TypographyElementProps<"span">) {
   return (
-    <span
-      className={cn(
-        "font-heading text-lg font-semibold leading-none tracking-[-0.035em] text-on-primary-fixed",
-        className,
-      )}
+    <Typography
+      as="span"
+      className={cn("leading-none tracking-[-0.035em] text-on-primary-fixed", className)}
+      variant="h3"
       {...props}
     />
   );
