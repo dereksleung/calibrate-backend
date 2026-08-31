@@ -129,31 +129,33 @@ function SevenDayNutrition({ rows }: SevenDayNutritionProps) {
           />
         ))}
       </div>
-      <table className="sr-only">
-        <caption>Seven-day nutrition summary</caption>
-        <thead>
-          <tr>
-            <th scope="col">Metric</th>
-            {rows[0]?.days.map(({ date, label }) => (
-              <th key={date} scope="col">
-                {label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.metric}>
-              <th scope="row">{row.title}</th>
-              {row.days.map(({ amount, date }) => (
-                <td key={date}>
-                  {formatAmount(amount)} {row.unit}
-                </td>
+      <div className="sr-only">
+        <table>
+          <caption>Seven-day nutrition summary</caption>
+          <thead>
+            <tr>
+              <th scope="col">Metric</th>
+              {rows[0]?.days.map(({ date, label }) => (
+                <th key={date} scope="col">
+                  {label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.metric}>
+                <th scope="row">{row.title}</th>
+                {row.days.map(({ amount, date }) => (
+                  <td key={date}>
+                    {formatAmount(amount)} {row.unit}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

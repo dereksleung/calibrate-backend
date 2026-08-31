@@ -157,5 +157,8 @@ describe("DashboardV2Page", () => {
 
     expect(screen.getByTestId("habit-card-grid").className).toContain("grid-cols-2");
     expect(screen.getByTestId("nutrition-card-grid").className).toContain("grid-cols-2");
+    expect(
+      screen.getByRole("table", { name: "Seven-day nutrition summary" }).parentElement?.className,
+    ).toContain("sr-only");
   });
 });
