@@ -41,11 +41,11 @@ export const InteractiveNutritionSummary: Story = {
 };
 
 export const StaticHabitSummary: Story = {
-  args: { title: "Weigh-In" },
+  args: { title: "Weighing" },
   render: (args) => (
     <div className="w-52">
       <MiniAnalyticsCard {...args}>
-        <MiniAnalyticsCard.Title>Weigh-In</MiniAnalyticsCard.Title>
+        <MiniAnalyticsCard.Title>Weighing</MiniAnalyticsCard.Title>
         <MiniAnalyticsCard.Subtitle>Last 30 Days</MiniAnalyticsCard.Subtitle>
         <MiniAnalyticsCard.ChartArea className="mt-4 grid grid-cols-10 gap-1.5">
           {Array.from({ length: 30 }, (_, index) => (

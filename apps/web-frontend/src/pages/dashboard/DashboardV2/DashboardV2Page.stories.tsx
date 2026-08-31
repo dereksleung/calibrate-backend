@@ -54,13 +54,13 @@ const viewModel: DashboardV2ViewModel = {
   },
   habits: {
     weighIn: {
-      title: "Weigh-In",
+      title: "Weighing",
       subtitle: "Last 30 Days",
       completedCurrentWeek: 2,
       days: createHabitHistory([28, 29]),
     },
     foodLogging: {
-      title: "Food Logging",
+      title: "Food Logs",
       subtitle: "Last 30 Days",
       completedCurrentWeek: 5,
       days: createHabitHistory([25, 26, 27, 28, 29]),

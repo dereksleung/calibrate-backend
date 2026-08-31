@@ -75,7 +75,7 @@ const viewModel: DashboardV2ViewModel = {
   },
   habits: {
     weighIn: {
-      title: "Weigh-In",
+      title: "Weighing",
       subtitle: "Last 30 Days",
       completedCurrentWeek: 2,
       days: Array.from({ length: 30 }, (_, index) => ({
@@ -84,7 +84,7 @@ const viewModel: DashboardV2ViewModel = {
       })),
     },
     foodLogging: {
-      title: "Food Logging",
+      title: "Food Logs",
       subtitle: "Last 30 Days",
       completedCurrentWeek: 5,
       days: Array.from({ length: 30 }, (_, index) => ({
@@ -127,7 +127,7 @@ describe("DashboardV2Page", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Nutrition" })).toBeTruthy();
     expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(6);
     expect(screen.getByRole("region", { name: "Seven-day nutrition overview" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Weigh-In" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Weighing" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Calories" })).toBeTruthy();
   });
 
@@ -140,7 +140,7 @@ describe("DashboardV2Page", () => {
 
     expect(onOpenNutrientAnalytics).toHaveBeenCalledWith("calories");
     expect(screen.getAllByRole("button")).toHaveLength(4);
-    expect(within(screen.getByRole("region", { name: "Weigh-In" })).queryByRole("button")).toBeNull();
+    expect(within(screen.getByRole("region", { name: "Weighing" })).queryByRole("button")).toBeNull();
   });
 
   it("provides the seven-day chart values as an accessible static table", () => {

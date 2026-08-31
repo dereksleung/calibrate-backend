@@ -47,7 +47,7 @@ export type HabitCardModel = {
     status: "complete" | "incomplete" | "unavailable";
   }>;
   subtitle: "Last 30 Days";
-  title: "Weigh-In" | "Food Logging";
+  title: "Weighing" | "Food Logs";
 };
 
 export type NutritionCardModel = {
@@ -222,8 +222,8 @@ function buildHabitModels(response: DayLogRangeResponse): DashboardV2ViewModel["
   };
 
   return {
-    foodLogging: buildHabit("Food Logging", (day) => getFoodEntries(day).length > 0),
-    weighIn: buildHabit("Weigh-In", (day) => day.dayLog?.weight !== null && day.dayLog?.weight !== undefined),
+    foodLogging: buildHabit("Food Logs", (day) => getFoodEntries(day).length > 0),
+    weighIn: buildHabit("Weighing", (day) => day.dayLog?.weight !== null && day.dayLog?.weight !== undefined),
   };
 }
 
