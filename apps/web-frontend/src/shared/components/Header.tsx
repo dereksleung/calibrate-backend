@@ -92,9 +92,7 @@ export default function Header() {
     }
   }
 
-  const authAction = isLoggedIn ? (
-    <AccountMenu onLogout={() => void handleLogout()} isLogoutPending={isLogoutPending} />
-  ) : isMobile ? (
+  const signUpButton = isMobile ? (
     <Button size="sm" onClick={() => navigate({ to: "/signup-login" })}>
       <UserRoundPlus />
       <span className="text-xs">Sign Up</span>
@@ -105,26 +103,38 @@ export default function Header() {
     </Button>
   );
 
-  const headerContent = (
-    <>
-      {isMobile ? (
-        <h1>{PAGE_TITLES[pathname] || "Overview"}</h1>
-      ) : (
-        <Link to="/" className="font-heading text-lg font-bold tracking-tight text-primary no-underline">
-          Calibrate
-        </Link>
-      )}
+  const authAction = isLoggedIn ? (
+    <AccountMenu onLogout={() => void handleLogout()} isLogoutPending={isLogoutPending} />
+  ) : (
+    signUpButton
+  );
 
-      <div className="flex flex-1 items-center gap-6">
-        {logoutError ? (
-          <p role="alert" className="text-sm text-destructive">
-            Unable to log out. Please try again.
-          </p>
-        ) : null}
-        {isMobile ? (
-          <div className="flex flex-1 justify-end">{authAction}</div>
-        ) : (
-          <>
+  const logoutAlert = logoutError ? (
+    <p role="alert" className="text-sm text-destructive">
+      Unable to log out. Please try again.
+    </p>
+  ) : null;
+
+  return (
+    <header className="bg-white/80 backdrop-blur-md text-lg font-semibold text-[#4A6741] docked full-width top-0 sticky z-50 shadow-[0_20px_40px_rgba(0,0,0,0.04)] no-border tonal-shift">
+      {isMobile ? (
+        <div className="mx-auto flex w-full flex-wrap items-center gap-x-8 gap-y-2 px-4 py-3 md:px-10">
+          <h1>{PAGE_TITLES[pathname] || "Overview"}</h1>
+          <div className="flex flex-1 items-center gap-6">
+            {logoutAlert}
+            <div className="flex flex-1 justify-end">{authAction}</div>
+          </div>
+          <div className="hidden ml-auto flex items-center gap-2">
+            <ThemeToggle />
+          </div>
+        </div>
+      ) : (
+        <nav className="mx-auto flex w-full flex-wrap items-center gap-x-8 gap-y-2 px-4 py-3 md:px-10">
+          <Link to="/" className="font-heading text-lg font-bold tracking-tight text-primary no-underline">
+            Calibrate
+          </Link>
+          <div className="flex flex-1 items-center gap-6">
+            {logoutAlert}
             <div className="flex flex-1 items-center gap-6">
               <Link
                 to="/"
@@ -150,27 +160,11 @@ export default function Header() {
                 Goals
               </Link>
             </div>
-
             <div className="flex justify-end">{authAction}</div>
-          </>
-        )}
-      </div>
-
-      <div className="hidden ml-auto flex items-center gap-2">
-        <ThemeToggle />
-      </div>
-    </>
-  );
-
-  return (
-    <header className="bg-white/80 backdrop-blur-md text-lg font-semibold text-[#4A6741] docked full-width top-0 sticky z-50 shadow-[0_20px_40px_rgba(0,0,0,0.04)] no-border tonal-shift">
-      {isMobile ? (
-        <div className="mx-auto flex w-full flex-wrap items-center gap-x-8 gap-y-2 px-4 py-3 md:px-10">
-          {headerContent}
-        </div>
-      ) : (
-        <nav className="mx-auto flex w-full flex-wrap items-center gap-x-8 gap-y-2 px-4 py-3 md:px-10">
-          {headerContent}
+          </div>
+          <div className="hidden ml-auto flex items-center gap-2">
+            <ThemeToggle />
+          </div>
         </nav>
       )}
     </header>
