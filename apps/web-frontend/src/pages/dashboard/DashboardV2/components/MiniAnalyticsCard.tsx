@@ -48,7 +48,7 @@ function SummaryStat({ className, ...props }: ComponentProps<"span">) {
   return (
     <span
       className={cn(
-        "font-heading text-2xl font-semibold leading-none tracking-[-0.035em] text-on-primary-fixed",
+        "font-heading text-lg font-semibold leading-none tracking-[-0.035em] text-on-primary-fixed",
         className,
       )}
       {...props}
