@@ -19,7 +19,7 @@ export function MealSection({ meal, title, entries, onAddFood }: MealSectionProp
   return (
     <section
       aria-labelledby={headingId}
-      className="space-y-4 md:rounded-2xl md:bg-surface-container-lowest md:px-10 md:py-8 md:shadow-[0_18px_45px_-30px_rgba(26,28,28,0.45)] md:ring-1 md:ring-on-surface/5"
+      className="glass-card space-y-4 rounded-[2rem] px-8 py-9 md:rounded-2xl md:px-10 md:py-8"
     >
       <div className="flex items-end justify-between gap-4">
         <h2
@@ -33,7 +33,7 @@ export function MealSection({ meal, title, entries, onAddFood }: MealSectionProp
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-[2rem] bg-surface-container-lowest shadow-[0_18px_45px_-32px_rgba(26,28,28,0.42)] ring-1 ring-on-surface/5 md:rounded-none md:bg-transparent md:shadow-none md:ring-0">
+      <div className="overflow-hidden rounded-[2rem] md:rounded-none">
         {entries.length > 0 ? (
           <>
             <ul role="list" className="divide-y divide-outline-variant/60">
@@ -60,7 +60,7 @@ export function MealSection({ meal, title, entries, onAddFood }: MealSectionProp
           <button
             type="button"
             onClick={() => onAddFood(meal)}
-            className="flex min-h-40 w-full flex-col items-center justify-center gap-3 rounded-[2rem] border border-dashed border-outline-variant bg-surface-container-lowest px-8 py-10 text-center text-on-surface-variant/60 transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30 md:min-h-28 md:rounded-xl"
+            className="flex min-h-40 w-full flex-col items-center justify-center gap-3 rounded-[2rem] border border-dashed border-outline-variant bg-white/10 px-8 py-10 text-center text-on-surface-variant/60 transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30 md:min-h-28 md:rounded-xl"
           >
             <Utensils aria-hidden className="size-8" strokeWidth={1.5} />
             <span className="text-lg font-light">No items logged yet</span>

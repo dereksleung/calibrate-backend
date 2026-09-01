@@ -1,4 +1,5 @@
 import { WarningBanner } from "#/shared/components/base/WarningBanner.tsx";
+import { APP_CONTENT_FRAME_CLASS_NAME } from "#/shared/layout/app-content-frame.ts";
 import { Search } from "lucide-react";
 
 import type { FoodConfirmationState, SelectedFoodForConfirmation } from "../../food-confirmation-state.ts";
@@ -120,8 +121,8 @@ export function FoodSearchPage({
   const isSearching = query.trim().length >= 3;
   const heading = isSearching ? "Search results" : "Recently logged";
   return (
-    <main className="min-h-screen bg-surface subtle-aurora-fade-page-background px-6 pb-24 pt-8 antialiased md:px-10 md:pt-16">
-      <div className="mx-auto w-full max-w-2xl">
+    <main className="min-h-screen bg-surface subtle-aurora-fade-page-background pb-24 pt-8 antialiased md:pt-16">
+      <div className={APP_CONTENT_FRAME_CLASS_NAME}>
         <div className="relative">
           <Search
             aria-hidden

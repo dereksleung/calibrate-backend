@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { APP_CONTENT_FRAME_CLASS_NAME } from "#/shared/layout/app-content-frame.ts";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -16,6 +17,7 @@ describe("FoodSearchPage", () => {
     expect(screen.getByRole("button", { name: /select Zero Sugar Oat/i })).toBeTruthy();
     expect(screen.getByText("40 cal · 1 cup · Earth's Own")).toBeTruthy();
     expect(screen.getByText("376 cal · 1 meal")).toBeTruthy();
+    expect(screen.getByRole("main").firstElementChild?.className).toContain(APP_CONTENT_FRAME_CLASS_NAME);
 
     fireEvent.click(screen.getByRole("button", { name: /select Zero Sugar Oat/i }));
 

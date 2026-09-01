@@ -74,7 +74,7 @@ export function DailySummary({ totals, progress, weight }: DailySummaryProps) {
   return (
     <section
       aria-labelledby="daily-summary-heading"
-      className="rounded-[2rem] bg-surface-container-lowest px-8 py-9 shadow-[0_18px_45px_-30px_rgba(26,28,28,0.45)] ring-1 ring-on-surface/5 md:rounded-2xl md:px-12 md:py-10"
+      className="glass-card rounded-[2rem] px-8 py-9 md:rounded-2xl md:px-12 md:py-10"
     >
       <Typography
         id="daily-summary-heading"

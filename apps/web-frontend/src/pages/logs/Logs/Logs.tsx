@@ -1,4 +1,5 @@
 import { apiTransport } from "#/shared/api/api-client.ts";
+import { APP_CONTENT_FRAME_CLASS_NAME } from "#/shared/layout/app-content-frame.ts";
 import { useSelectedDayLog } from "@calibrate/api-client";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo } from "react";
@@ -22,7 +23,7 @@ type LogsProps = {
 function LogsOverviewSkeleton() {
   return (
     <div className="space-y-10 md:space-y-8" aria-busy="true" aria-label="Loading day log">
-      <div className="rounded-[2rem] bg-surface-container-lowest px-8 py-9 shadow-[0_18px_45px_-30px_rgba(26,28,28,0.45)] ring-1 ring-on-surface/5 md:rounded-2xl md:px-12 md:py-10">
+      <div className="glass-card rounded-[2rem] px-8 py-9 md:rounded-2xl md:px-12 md:py-10">
         <div className="grid gap-8 md:gap-10">
           <div className="grid grid-cols-[1fr_auto] gap-8">
             <div className="space-y-4">
@@ -51,13 +52,13 @@ function LogsOverviewSkeleton() {
       {MEAL_SECTIONS.map((section) => (
         <div
           key={section.meal}
-          className="space-y-4 md:rounded-2xl md:bg-surface-container-lowest md:px-10 md:py-8 md:shadow-[0_18px_45px_-30px_rgba(26,28,28,0.45)] md:ring-1 md:ring-on-surface/5"
+          className="glass-card space-y-4 rounded-[2rem] px-8 py-9 md:rounded-2xl md:px-10 md:py-8"
         >
           <div className="flex items-end justify-between gap-4">
             <div className="h-9 w-32 animate-pulse rounded-lg bg-surface-container-high md:h-8" />
             <div className="h-7 w-16 animate-pulse rounded-lg bg-surface-container-high" />
           </div>
-          <div className="min-h-40 overflow-hidden rounded-[2rem] bg-surface-container-lowest shadow-[0_18px_45px_-32px_rgba(26,28,28,0.42)] ring-1 ring-on-surface/5 md:rounded-none md:bg-transparent md:shadow-none md:ring-0">
+          <div className="min-h-40 overflow-hidden rounded-[2rem] md:rounded-none">
             <div className="flex min-h-40 items-center justify-center px-8 py-10 md:min-h-28">
               <div className="h-10 w-full max-w-xs animate-pulse rounded-xl bg-surface-container-high" />
             </div>
@@ -87,8 +88,8 @@ export function Logs({ selectedDate }: LogsProps) {
   const progress = getDailyProgress(totals);
 
   return (
-    <main className="min-h-screen bg-surface px-6 pb-24 pt-8 antialiased md:px-10 md:pb-20 md:pt-16 subtle-aurora-fade-page-background">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 md:gap-9">
+    <main className="min-h-screen bg-surface pb-24 pt-8 antialiased md:pb-20 md:pt-16 subtle-aurora-fade-page-background">
+      <div className={`${APP_CONTENT_FRAME_CLASS_NAME} flex flex-col gap-10 md:gap-9`}>
         <DateStepper selectedDate={selectedDate} date={headingDate} />
 
         {isPending ? <LogsOverviewSkeleton /> : null}
