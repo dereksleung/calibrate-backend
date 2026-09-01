@@ -10,6 +10,14 @@
   },
   "nx": {
     "targets": {
+      "demo-setup": {
+        "executor": "nx:run-commands",
+        "cache": false,
+        "options": {
+          "cwd": "packages/local-runtime-config",
+          "command": "tsx src/local-demo-setup.ts"
+        }
+      },
       "test": {
         "executor": "nx:run-commands",
         "cache": true,

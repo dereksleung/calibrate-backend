@@ -15,6 +15,7 @@ import {
   readLocalRuntimeConfiguration,
   type LocalRuntimeConfiguration,
 } from "./local-runtime-configuration.js";
+import { runLocalDemoSetup } from "./local-demo-setup.js";
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const originalCwd = process.cwd();
@@ -108,6 +109,22 @@ describe("local runtime configuration", () => {
     expect(persisted).toContain("Do not commit or use in production");
     expect(persisted).not.toContain("CORS_ORIGIN=");
     expect(persisted).not.toContain("WEBAUTHN_ORIGIN=");
+    await expect(readFile(ignoredKeysPath, "utf8")).resolves.toBe(
+      "DOTENV_PRIVATE_KEY=must-not-be-required\n",
+    );
+  });
+
+  it("runs the local demo setup target with generated configuration", async () => {
+    const directory = await createTemporaryDirectory();
+    const ignoredKeysPath = path.join(directory, ".env.keys");
+    await writeFile(ignoredKeysPath, "DOTENV_PRIVATE_KEY=must-not-be-required\n");
+    delete process.env.DOTENV_PRIVATE_KEY;
+
+    const generated = await runLocalDemoSetup(directory);
+    const persisted = await readLocalRuntimeConfiguration(directory);
+
+    expect(persisted).toEqual(generated);
+    assertUsableByBackendConsumers(generated);
     await expect(readFile(ignoredKeysPath, "utf8")).resolves.toBe(
       "DOTENV_PRIVATE_KEY=must-not-be-required\n",
     );
