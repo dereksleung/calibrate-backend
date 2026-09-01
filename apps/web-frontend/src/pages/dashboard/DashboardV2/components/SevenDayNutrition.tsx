@@ -24,7 +24,11 @@ function formatAmount(amount: number) {
 }
 
 function SevenDaySummaryStat({ row }: { row: SevenDayNutritionRowModel }) {
-  const amount = row.days.at(-1)?.amount ?? 0;
+  const daysWithData = row.days.filter(({ hasData }) => hasData ?? true);
+  const amount =
+    daysWithData.length === 0
+      ? 0
+      : daysWithData.reduce((total, day) => total + day.amount, 0) / daysWithData.length;
   const color = ROW_COLORS[row.metric];
 
   return (

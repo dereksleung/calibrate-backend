@@ -36,6 +36,7 @@ export type SevenDayNutritionRowModel = {
   days: Array<{
     amount: number;
     date: string;
+    hasData?: boolean;
     label: string;
   }>;
 };
@@ -194,6 +195,7 @@ function buildSevenDayNutritionRow(
       return {
         amount: getDayLogNutritionTotals(day?.dayLog ?? null)[configuration.metric],
         date,
+        hasData: Boolean(day?.dayLog),
         label: getLocalWeekdayAbbreviation(date),
       };
     }),

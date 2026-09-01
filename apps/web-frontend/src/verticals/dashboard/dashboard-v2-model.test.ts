@@ -113,6 +113,15 @@ describe("buildDashboardV2ViewModel", () => {
     expect(model.sevenDayNutrition.rows[1]?.days.map(({ amount }) => amount)).toEqual([7, 0, 0, 0, 0, 0, 8]);
     expect(model.sevenDayNutrition.rows[2]?.days.map(({ amount }) => amount)).toEqual([5, 0, 0, 0, 0, 0, 7]);
     expect(model.sevenDayNutrition.rows[3]?.days.map(({ amount }) => amount)).toEqual([9, 0, 0, 0, 0, 0, 9]);
+    expect(model.sevenDayNutrition.rows[0]?.days.map(({ hasData }) => hasData)).toEqual([
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+    ]);
   });
 
   it("anchors the seven-day nutrition chart on the response end date and fills missing prior days", () => {
@@ -127,13 +136,13 @@ describe("buildDashboardV2ViewModel", () => {
     });
 
     expect(model.sevenDayNutrition.rows[0]?.days).toEqual([
-      { amount: 125, date: "2026-08-25", label: "T" },
-      { amount: 0, date: "2026-08-26", label: "W" },
-      { amount: 0, date: "2026-08-27", label: "Th" },
-      { amount: 280, date: "2026-08-28", label: "F" },
-      { amount: 0, date: "2026-08-29", label: "Sa" },
-      { amount: 0, date: "2026-08-30", label: "Sn" },
-      { amount: 310, date: "2026-08-31", label: "M" },
+      { amount: 125, date: "2026-08-25", hasData: true, label: "T" },
+      { amount: 0, date: "2026-08-26", hasData: false, label: "W" },
+      { amount: 0, date: "2026-08-27", hasData: false, label: "Th" },
+      { amount: 280, date: "2026-08-28", hasData: true, label: "F" },
+      { amount: 0, date: "2026-08-29", hasData: false, label: "Sa" },
+      { amount: 0, date: "2026-08-30", hasData: false, label: "Sn" },
+      { amount: 310, date: "2026-08-31", hasData: true, label: "M" },
     ]);
   });
 
