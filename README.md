@@ -17,7 +17,9 @@ A calorie tracker application, because I've gotten into healthier eating, joggin
 
 ## Frontend Current State
 
-The current UI is partly a prototype built with mock data, with the Logs page able to load data for a day and add new food entries if you run the frontend and backend in development and sign up a user. The Goals page now loads live seven-day weight and fat charts, while the Overview (Dashboard) page loads live data for its charts and the Daily Insights area remains mock UI.
+The Overview (Dashboard) page and Logs pages load data and let you add new food entries if you run the frontend and backend dev servers and sign up a user. 
+
+There are some planned "Daily Insights" and "Smart Swap" features, if they show up, they are mock UI right now, while I learn the AI backing needed to properly create them.
 
 One goal is to show product judgment: take what could easily become dense, data-heavy areas in the Dashboard page, and keep it simple enough to be useful. The target user is not an expert mathematician or nutrition analyst, rather they are people wanting to change themselves, who may need help building new habits, and need to understand what to do next, and what is working or not working. The most important product work is surfacing actions and actionable insights that help them keep momentum with new habits, while suggesting small tweaks they may not have realized they can do that will help them get results.
 
@@ -39,8 +41,10 @@ Initial page:
 ##### Nutrient Analytics
 - Clicking a nutrient mini card from the Dashboard's **Nutrition** section opens an analytics panel, surfacing simple, actionable insights.
 <br></br>
-<img width="1197" height="850" src="https://github.com/user-attachments/assets/7aa0e2da-0bf5-4b1e-b1f0-7328e146e43f" />
-<img width="487" height="906" alt="Screenshot 2026-09-01 at 11 29 52 AM" src="https://github.com/user-attachments/assets/ff7ab55b-3382-478a-95ac-b1c7f637212a" />
+<div style="column-gap: 20px">
+  <img width="1197" height="850" src="https://github.com/user-attachments/assets/7aa0e2da-0bf5-4b1e-b1f0-7328e146e43f" />
+  <img width="487" height="906" alt="Screenshot 2026-09-01 at 11 29 52 AM" src="https://github.com/user-attachments/assets/ff7ab55b-3382-478a-95ac-b1c7f637212a" />
+</div>
 <br></br>
 - In the Total tab, seeing what recently had the highest contributions to calories or fats especially can drive what to try reducing next.
 <br></br>
@@ -51,9 +55,8 @@ Initial page:
 
 <img width="1185" height="886" src="https://github.com/user-attachments/assets/da88edd0-00c5-4067-9104-35ae1b2640af" />
 <br></br>
-Each day starts with a compact summary of calories eaten, calories remaining, and macros with line graphs to give the user a quick sense of if their day is on the right track, and what they can still afford. As they are working on building new habits, it helps to know this information so they can quickly adjust in the same day.
-
-Logging can be done via the floating Plus button, or an Add Item button under the specific meal to quickly reach logging for it, which a user will frequently do.
+- Each day starts with a compact summary of calories eaten, calories remaining, and macros with line graphs to give the user a quick sense of if their day is on the right track, and what they can still afford. As they are working on building new habits, it helps to know this information so they can quickly adjust in the same day.
+- Logging can be done via the floating Plus button, or an Add Item button under the specific meal to quickly reach logging for it, which a user will frequently do.
 
 # Tech Stack
 
