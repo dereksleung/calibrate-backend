@@ -1,6 +1,7 @@
 import { cn } from "#/lib/utils";
 import { getTodayDateString } from "#/pages/logs/log-page-helpers.ts";
 import { apiTransport } from "#/shared/api/api-client.ts";
+import { APP_CONTENT_FRAME_CLASS_NAME } from "#/shared/layout/app-content-frame.ts";
 import {
   clearAuthenticatedSession,
   useAuthenticatedSession,
@@ -61,7 +62,6 @@ function AccountMenu({ onLogout, isLogoutPending }: { onLogout: () => void; isLo
 const PAGE_TITLES: Record<string, string> = {
   "/": "Overview",
   "/logs": "Logs",
-  "/goals": "Goals",
 };
 
 export default function Header() {
@@ -118,7 +118,7 @@ export default function Header() {
   return (
     <header className="bg-white/80 backdrop-blur-md text-lg font-semibold text-[#4A6741] docked full-width top-0 sticky z-50 shadow-[0_20px_40px_rgba(0,0,0,0.04)] no-border tonal-shift">
       {isMobile ? (
-        <div className="mx-auto flex w-full flex-wrap items-center gap-x-8 gap-y-2 px-4 py-3 md:px-10">
+        <div className={cn(APP_CONTENT_FRAME_CLASS_NAME, "flex flex-wrap items-center gap-x-8 gap-y-2 py-3")}>
           <h1>{PAGE_TITLES[pathname] || "Overview"}</h1>
           <div className="flex flex-1 items-center gap-6">
             {logoutAlert}
@@ -129,7 +129,7 @@ export default function Header() {
           </div>
         </div>
       ) : (
-        <nav className="mx-auto flex w-full flex-wrap items-center gap-x-8 gap-y-2 px-4 py-3 md:px-10">
+        <nav className={cn(APP_CONTENT_FRAME_CLASS_NAME, "flex flex-wrap items-center gap-x-8 gap-y-2 py-3")}>
           <Link to="/" className="font-heading text-lg font-bold tracking-tight text-primary no-underline">
             Calibrate
           </Link>
@@ -151,13 +151,6 @@ export default function Header() {
                 activeProps={{ className: cn(navLinkBase, navLinkActive) }}
               >
                 Logs
-              </Link>
-              <Link
-                to="/goals"
-                className={navLinkBase}
-                activeProps={{ className: cn(navLinkBase, navLinkActive) }}
-              >
-                Goals
               </Link>
             </div>
             <div className="flex justify-end">{authAction}</div>

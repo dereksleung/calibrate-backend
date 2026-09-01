@@ -5,7 +5,9 @@ import type {
   NutritionCardModel,
 } from "#/verticals/dashboard/dashboard-v2-model.ts";
 
+import { cn } from "#/lib/utils.ts";
 import { Typography } from "#/shared/components/base/typography/Typography.tsx";
+import { APP_CONTENT_FRAME_CLASS_NAME } from "#/shared/layout/app-content-frame.ts";
 import { useRef, useState } from "react";
 
 import { DashboardAnalyticsDrawer } from "./components/DashboardAnalyticsDrawer.tsx";
@@ -26,8 +28,14 @@ const NUTRITION_COLORS = {
   totalCarbohydrateGrams: "bg-carbs-vibrant-azure",
 } as const;
 
+const PENDING_NUTRITION_TITLES = ["Calories", "Protein", "Fats", "Carbs"] as const;
+const PENDING_HABIT_TITLES = ["Weighing", "Food Logs"] as const;
+
 type DashboardV2PageProps = {
-  viewModel: DashboardV2ViewModel;
+  error?: Error | null;
+  isPending?: boolean;
+  onRetry?: () => void;
+  viewModel?: DashboardV2ViewModel;
 };
 
 function formatAmount(amount: number) {
@@ -111,64 +119,190 @@ function NutritionCard({
   );
 }
 
-function DashboardV2Page({ viewModel }: DashboardV2PageProps) {
+function PendingSevenDayNutrition() {
+  return (
+    <section aria-hidden="true" className="glass-card rounded-xl p-3">
+      {Array.from({ length: 4 }, (_, index) => (
+        <div
+          className="grid grid-cols-[4.75rem_minmax(0,1fr)] gap-2 border-b border-black/[0.06] py-2 first:pt-0 last:border-b-0 last:pb-0"
+          key={index}
+        >
+          <div className="h-8 animate-pulse rounded bg-black/[0.055]" />
+          <div className="h-12 animate-pulse rounded bg-black/[0.055] sm:h-20" />
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function PendingHabitCard({ title }: { title: (typeof PENDING_HABIT_TITLES)[number] }) {
+  return (
+    <MiniAnalyticsCard title={title}>
+      <MiniAnalyticsCard.Title>{title}</MiniAnalyticsCard.Title>
+      <MiniAnalyticsCard.Subtitle>Last 30 Days</MiniAnalyticsCard.Subtitle>
+      <MiniAnalyticsCard.ChartArea
+        aria-label={`${title}: history unavailable`}
+        className="mt-4 grid grid-cols-10 gap-1.5"
+        role="img"
+      >
+        {Array.from({ length: 30 }, (_, index) => (
+          <span aria-hidden="true" className="aspect-square rounded-sm bg-black/[0.055]" key={index} />
+        ))}
+      </MiniAnalyticsCard.ChartArea>
+      <MiniAnalyticsCard.Separator className="my-4" />
+      <MiniAnalyticsCard.BottomSummary interactive={false}>
+        <span aria-hidden="true" className="h-5 w-12 animate-pulse rounded bg-black/[0.055]" />
+      </MiniAnalyticsCard.BottomSummary>
+    </MiniAnalyticsCard>
+  );
+}
+
+function PendingNutritionCard({ title }: { title: (typeof PENDING_NUTRITION_TITLES)[number] }) {
+  return (
+    <MiniAnalyticsCard title={title}>
+      <MiniAnalyticsCard.Title>{title}</MiniAnalyticsCard.Title>
+      <MiniAnalyticsCard.Subtitle>Today</MiniAnalyticsCard.Subtitle>
+      <MiniAnalyticsCard.ChartArea className="mt-5">
+        <div aria-hidden="true" className="h-2 animate-pulse rounded-full bg-black/[0.055]" />
+      </MiniAnalyticsCard.ChartArea>
+      <MiniAnalyticsCard.Separator className="my-4" />
+      <MiniAnalyticsCard.BottomSummary interactive={false}>
+        <span aria-hidden="true" className="h-5 w-16 animate-pulse rounded bg-black/[0.055]" />
+      </MiniAnalyticsCard.BottomSummary>
+    </MiniAnalyticsCard>
+  );
+}
+
+function DashboardSections({
+  onOpenNutrition,
+  viewModel,
+}: {
+  onOpenNutrition: (metric: DashboardNutritionMetric, trigger: HTMLButtonElement) => void;
+  viewModel: DashboardV2ViewModel;
+}) {
+  return (
+    <>
+      <section aria-labelledby="seven-day-nutrition-heading" className="space-y-3">
+        <Typography
+          as="h2"
+          className="text-on-primary-fixed"
+          id="seven-day-nutrition-heading"
+          variant="h2SectionTitle"
+        >
+          Seven-day nutrition
+        </Typography>
+        <SevenDayNutrition rows={viewModel.sevenDayNutrition.rows} />
+      </section>
+
+      <section aria-labelledby="habits-heading" className="space-y-3">
+        <Typography as="h2" className="text-on-primary-fixed" id="habits-heading" variant="h2SectionTitle">
+          Habits
+        </Typography>
+        <div className="grid grid-cols-2 gap-3" data-testid="habit-card-grid">
+          <HabitCard model={viewModel.habits.weighIn} />
+          <HabitCard model={viewModel.habits.foodLogging} />
+        </div>
+      </section>
+
+      <section aria-labelledby="nutrition-heading" className="space-y-3">
+        <Typography as="h2" className="text-on-primary-fixed" id="nutrition-heading" variant="h2SectionTitle">
+          Nutrition
+        </Typography>
+        <div className="grid grid-cols-2 gap-3" data-testid="nutrition-card-grid">
+          {NUTRITION_CARD_ORDER.map((metric) => (
+            <NutritionCard
+              key={metric}
+              model={viewModel.nutritionCards[metric]}
+              onOpen={(trigger) => onOpenNutrition(metric, trigger)}
+            />
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function PendingDashboardSections() {
+  return (
+    <>
+      <section aria-labelledby="seven-day-nutrition-heading" className="space-y-3">
+        <Typography
+          as="h2"
+          className="text-on-primary-fixed"
+          id="seven-day-nutrition-heading"
+          variant="h2SectionTitle"
+        >
+          Seven-day nutrition
+        </Typography>
+        <PendingSevenDayNutrition />
+      </section>
+
+      <section aria-labelledby="habits-heading" className="space-y-3">
+        <Typography as="h2" className="text-on-primary-fixed" id="habits-heading" variant="h2SectionTitle">
+          Habits
+        </Typography>
+        <div className="grid grid-cols-2 gap-3" data-testid="habit-card-grid">
+          {PENDING_HABIT_TITLES.map((title) => (
+            <PendingHabitCard key={title} title={title} />
+          ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="nutrition-heading" className="space-y-3">
+        <Typography as="h2" className="text-on-primary-fixed" id="nutrition-heading" variant="h2SectionTitle">
+          Nutrition
+        </Typography>
+        <div className="grid grid-cols-2 gap-3" data-testid="nutrition-card-grid">
+          {PENDING_NUTRITION_TITLES.map((title) => (
+            <PendingNutritionCard key={title} title={title} />
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function DashboardLoadError({ onRetry }: { onRetry?: () => void }) {
+  return (
+    <div className="glass-card rounded-xl p-4" role="alert">
+      <p className="font-heading text-lg font-semibold text-on-primary-fixed">
+        Live nutrition is unavailable
+      </p>
+      <p className="mt-1 text-sm text-on-surface-variant">Your dashboard could not be loaded.</p>
+      {onRetry ? (
+        <button className="mt-3 self-start text-primary underline" onClick={onRetry} type="button">
+          Try again
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function DashboardV2Page({ error = null, isPending = false, onRetry, viewModel }: DashboardV2PageProps) {
   const [selectedMetric, setSelectedMetric] = useState<DashboardNutritionMetric | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
-  const selectedModel = selectedMetric ? viewModel.analytics[selectedMetric] : null;
+  const selectedModel = viewModel && selectedMetric ? viewModel.analytics[selectedMetric] : null;
 
   return (
     <>
-      <main className="min-h-screen px-4 pt-4 pb-10">
-        <div className="mx-auto w-full max-w-[450px] space-y-8">
-          <section aria-labelledby="seven-day-nutrition-heading" className="space-y-3">
-            <Typography
-              as="h2"
-              className="text-on-primary-fixed"
-              id="seven-day-nutrition-heading"
-              variant="h2SectionTitle"
-            >
-              Seven-day nutrition
-            </Typography>
-            <SevenDayNutrition rows={viewModel.sevenDayNutrition.rows} />
-          </section>
-
-          <section aria-labelledby="habits-heading" className="space-y-3">
-            <Typography
-              as="h2"
-              className="text-on-primary-fixed"
-              id="habits-heading"
-              variant="h2SectionTitle"
-            >
-              Habits
-            </Typography>
-            <div className="grid grid-cols-2 gap-3" data-testid="habit-card-grid">
-              <HabitCard model={viewModel.habits.weighIn} />
-              <HabitCard model={viewModel.habits.foodLogging} />
+      <main className="min-h-screen pt-4 pb-10">
+        <div className={cn(APP_CONTENT_FRAME_CLASS_NAME, "space-y-8")}>
+          {error ? <DashboardLoadError onRetry={onRetry} /> : null}
+          {viewModel ? (
+            <DashboardSections
+              onOpenNutrition={(metric, trigger) => {
+                returnFocusRef.current = trigger;
+                setSelectedMetric(metric);
+              }}
+              viewModel={viewModel}
+            />
+          ) : isPending ? (
+            <div aria-busy="true" aria-label="Loading dashboard" role="status">
+              <PendingDashboardSections />
             </div>
-          </section>
-
-          <section aria-labelledby="nutrition-heading" className="space-y-3">
-            <Typography
-              as="h2"
-              className="text-on-primary-fixed"
-              id="nutrition-heading"
-              variant="h2SectionTitle"
-            >
-              Nutrition
-            </Typography>
-            <div className="grid grid-cols-2 gap-3" data-testid="nutrition-card-grid">
-              {NUTRITION_CARD_ORDER.map((metric) => (
-                <NutritionCard
-                  key={metric}
-                  model={viewModel.nutritionCards[metric]}
-                  onOpen={(trigger) => {
-                    returnFocusRef.current = trigger;
-                    setSelectedMetric(metric);
-                  }}
-                />
-              ))}
-            </div>
-          </section>
+          ) : (
+            <PendingDashboardSections />
+          )}
         </div>
       </main>
 

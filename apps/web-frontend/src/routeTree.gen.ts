@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupLoginRouteImport } from './routes/signup-login'
 import { Route as LogsRouteImport } from './routes/logs'
-import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LogsFoodSearchRouteImport } from './routes/logs/food-search'
@@ -28,11 +27,6 @@ const SignupLoginRoute = SignupLoginRouteImport.update({
 const LogsRoute = LogsRouteImport.update({
   id: '/logs',
   path: '/logs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GoalsRoute = GoalsRouteImport.update({
-  id: '/goals',
-  path: '/goals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -74,7 +68,6 @@ const AuthLoginRecoveryRoute = AuthLoginRecoveryRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/goals': typeof GoalsRoute
   '/logs': typeof LogsRouteWithChildren
   '/signup-login': typeof SignupLoginRoute
   '/auth/login-recovery': typeof AuthLoginRecoveryRoute
@@ -86,7 +79,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/goals': typeof GoalsRoute
   '/logs': typeof LogsRouteWithChildren
   '/signup-login': typeof SignupLoginRoute
   '/auth/login-recovery': typeof AuthLoginRecoveryRoute
@@ -99,7 +91,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/goals': typeof GoalsRoute
   '/logs': typeof LogsRouteWithChildren
   '/signup-login': typeof SignupLoginRoute
   '/auth/login-recovery': typeof AuthLoginRecoveryRoute
@@ -113,7 +104,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
-    | '/goals'
     | '/logs'
     | '/signup-login'
     | '/auth/login-recovery'
@@ -125,7 +115,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
-    | '/goals'
     | '/logs'
     | '/signup-login'
     | '/auth/login-recovery'
@@ -137,7 +126,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/about'
-    | '/goals'
     | '/logs'
     | '/signup-login'
     | '/auth/login-recovery'
@@ -150,7 +138,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
-  GoalsRoute: typeof GoalsRoute
   LogsRoute: typeof LogsRouteWithChildren
   SignupLoginRoute: typeof SignupLoginRoute
   AuthLoginRecoveryRoute: typeof AuthLoginRecoveryRoute
@@ -172,13 +159,6 @@ declare module '@tanstack/react-router' {
       path: '/logs'
       fullPath: '/logs'
       preLoaderRoute: typeof LogsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/goals': {
-      id: '/goals'
-      path: '/goals'
-      fullPath: '/goals'
-      preLoaderRoute: typeof GoalsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -248,7 +228,6 @@ const LogsRouteWithChildren = LogsRoute._addFileChildren(LogsRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
-  GoalsRoute: GoalsRoute,
   LogsRoute: LogsRouteWithChildren,
   SignupLoginRoute: SignupLoginRoute,
   AuthLoginRecoveryRoute: AuthLoginRecoveryRoute,

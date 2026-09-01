@@ -2,6 +2,7 @@ import type { DashboardV2ViewModel } from "#/verticals/dashboard/dashboard-v2-mo
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { getLocalWeekdayAbbreviation } from "#/shared/date/local-date-range.ts";
+import { APP_CONTENT_FRAME_CLASS_NAME } from "#/shared/layout/app-content-frame.ts";
 
 import "../../../styles.css";
 import { DashboardV2Page } from "./DashboardV2Page.tsx";
@@ -170,8 +171,10 @@ const meta = {
   decorators: [
     (Story) => (
       <div className="subtle-aurora-fade-page-background">
-        <header className="bg-white/80 px-4 py-3 md:px-10 backdrop-blur-md text-lg font-semibold text-[#4A6741] docked full-width top-0 sticky z-50 shadow-[0_20px_40px_rgba(0,0,0,0.04)] no-border tonal-shift">
-          <h1 className="font-heading text-2xl font-semibold tracking-[-0.03em]">Dashboard</h1>
+        <header className="bg-white/80 backdrop-blur-md text-lg font-semibold text-[#4A6741] docked full-width top-0 sticky z-50 shadow-[0_20px_40px_rgba(0,0,0,0.04)] no-border tonal-shift">
+          <div className={`${APP_CONTENT_FRAME_CLASS_NAME} py-3`}>
+            <h1 className="font-heading text-2xl font-semibold tracking-[-0.03em]">Dashboard</h1>
+          </div>
         </header>
         <Story />
       </div>

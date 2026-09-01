@@ -26,7 +26,7 @@ test("local development passkey signup creates a disposable account without emai
 
   await page.getByRole("button", { name: "Create passkey" }).click();
 
-  await expect(page.getByRole("heading", { name: "Daily Insights" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Seven-day nutrition" })).toBeVisible();
   await expect(context.credentials.get({ rpId: "localhost" })).resolves.toHaveLength(1);
   if (process.env.CALIBRATE_E2E_CAPTURE_SCREENSHOTS === "1") {
     await testInfo.attach("authenticated-daily-insights", {

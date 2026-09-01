@@ -1,50 +1,21 @@
 // @vitest-environment jsdom
 
-import { TooltipProvider } from "#/shared/components/base/tooltip/Tooltip.tsx";
-import { dayLogRangeQueryKeyPrefix } from "@calibrate/api-client";
+import { getRollingSevenDayDateRange } from "#/shared/date/local-date-range.ts";
+import { dayLogRangeQueryKey, dayLogRangeQueryKeyPrefix } from "@calibrate/api-client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  RouterContextProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from "@tanstack/react-router";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Dashboard } from "./Dashboard.tsx";
+import { DashboardV2Container } from "./DashboardV2/DashboardV2Container.tsx";
 
-const { mockToastError } = vi.hoisted(() => ({ mockToastError: vi.fn() }));
-
-vi.mock("#/shared/components/charts/EatenDonutChart.tsx", () => ({
-  EatenDonutChart: ({ eaten, metricLabel }: { eaten: number; metricLabel: string }) => (
-    <div data-testid={`donut-chart-${metricLabel}`}>{eaten}</div>
-  ),
+vi.mock("recharts", () => ({
+  Bar: () => null,
+  BarChart: ({ children }: { children: React.ReactNode }) => <svg>{children}</svg>,
+  ReferenceLine: () => null,
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  XAxis: () => null,
+  YAxis: () => null,
 }));
-
-vi.mock("#/shared/components/charts/WeeklyBarChart.tsx", () => ({
-  WeeklyBarChart: ({ seriesLabel }: { seriesLabel: string }) => (
-    <div data-testid={`weekly-chart-${seriesLabel}`} />
-  ),
-}));
-
-vi.mock("sonner", () => ({
-  toast: { error: mockToastError },
-}));
-
-const rootRoute = createRootRoute();
-const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/",
-  component: () => null,
-});
-const goalsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/goals",
-  component: () => null,
-});
-const routeTree = rootRoute.addChildren([indexRoute, goalsRoute]);
 
 function createDashboardQueryClient() {
   return new QueryClient({
@@ -57,21 +28,10 @@ function createDashboardQueryClient() {
   });
 }
 
-async function renderDashboard(queryClient = createDashboardQueryClient()) {
-  const router = createRouter({
-    routeTree,
-    history: createMemoryHistory({ initialEntries: ["/"] }),
-  });
-
-  await router.load();
-
+function renderDashboard(queryClient = createDashboardQueryClient()) {
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterContextProvider router={router}>
-        <TooltipProvider>
-          <Dashboard />
-        </TooltipProvider>
-      </RouterContextProvider>
+      <DashboardV2Container />
     </QueryClientProvider>,
   );
 
@@ -159,6 +119,17 @@ function dayLogRangeResponse(url: string, calories: number) {
   };
 }
 
+beforeAll(() => {
+  if (!HTMLElement.prototype.hasPointerCapture) {
+    HTMLElement.prototype.hasPointerCapture = () => false;
+    HTMLElement.prototype.setPointerCapture = () => undefined;
+    HTMLElement.prototype.releasePointerCapture = () => undefined;
+  }
+  if (!HTMLElement.prototype.scrollIntoView) {
+    HTMLElement.prototype.scrollIntoView = () => undefined;
+  }
+});
+
 beforeEach(() => {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches: false,
@@ -175,11 +146,10 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  mockToastError.mockReset();
 });
 
 describe("dashboard live nutrition", () => {
-  it("requests the inclusive seven-day range and renders API totals", async () => {
+  it("requests the inclusive seven-day range and renders selected Dashboard V2 values", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
       const url = getFetchUrl(input);
 
@@ -191,13 +161,14 @@ describe("dashboard live nutrition", () => {
       );
     });
 
-    await renderDashboard();
+    const queryClient = renderDashboard();
 
-    expect(await screen.findByText(/425 calories eaten out of a 1,800 calorie limit/)).toBeTruthy();
-    expect(screen.getByTestId("donut-chart-Calories").textContent).toBe("425");
-    expect(screen.getByRole("link", { name: "Open fats analytics details" }).getAttribute("href")).toBe(
-      "/goals?openFatsAnalytics=true",
-    );
+    expect(await screen.findByRole("button", { name: "Open Calories analytics" })).toBeTruthy();
+    const calories = screen.getByRole("region", { name: "Calories" });
+    expect(within(calories).getByText("425")).toBeTruthy();
+    expect(screen.getByRole("table", { name: "Seven-day nutrition summary" })).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "Weighing" })).queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Daily Insights" })).toBeNull();
 
     const requestUrl = new URL(getFetchUrl(fetchMock.mock.calls[0][0]));
     const startDate = requestUrl.searchParams.get("startDate");
@@ -207,15 +178,32 @@ describe("dashboard live nutrition", () => {
     expect(startDate).toBeTruthy();
     expect(endDate).toBeTruthy();
     expect(dateRange(startDate!, endDate!)).toHaveLength(7);
+
+    const cached = queryClient.getQueryData(dayLogRangeQueryKey(getRollingSevenDayDateRange()));
+    expect(cached).toEqual(
+      expect.objectContaining({
+        days: expect.any(Array),
+        endDate,
+        startDate,
+      }),
+    );
+    expect(cached).not.toHaveProperty("nutritionCards");
+    expect(cached).not.toHaveProperty("analytics");
   });
 
-  it("keeps the stats area usable while loading", async () => {
+  it("keeps the page structure usable while loading", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise<Response>(() => undefined));
 
-    await renderDashboard();
+    renderDashboard();
 
-    expect(screen.getByRole("status", { name: "Loading live nutrition statistics" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Daily & Weekly Stats" })).toBeTruthy();
+    expect(screen.getByRole("status", { name: "Loading dashboard" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Seven-day nutrition" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Habits" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Nutrition" })).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "Weighing" })).getByRole("img").children).toHaveLength(
+      30,
+    );
+    expect(screen.queryByRole("button", { name: "Open Calories analytics" })).toBeNull();
   });
 
   it("shows an inline error, then refetches after retry", async () => {
@@ -233,14 +221,15 @@ describe("dashboard live nutrition", () => {
       ),
     );
 
-    await renderDashboard();
+    renderDashboard();
 
     expect((await screen.findByRole("alert")).textContent).toContain("Live nutrition is unavailable");
-    expect(mockToastError).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("425")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
-    expect(await screen.findByText(/425 calories eaten out of a 1,800 calorie limit/)).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Open Calories analytics" })).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "Calories" })).getByText("425")).toBeTruthy();
   });
 
   it("updates the active dashboard range after a day-log range invalidation", async () => {
@@ -256,14 +245,33 @@ describe("dashboard live nutrition", () => {
       );
     });
 
-    const queryClient = await renderDashboard();
+    const queryClient = renderDashboard();
 
-    expect(await screen.findByText(/100 calories eaten out of a 1,800 calorie limit/)).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Open Calories analytics" })).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "Calories" })).getByText("100")).toBeTruthy();
 
     await queryClient.invalidateQueries({ queryKey: dayLogRangeQueryKeyPrefix });
 
     await waitFor(() => {
-      expect(screen.getByText(/250 calories eaten out of a 1,800 calorie limit/)).toBeTruthy();
+      expect(within(screen.getByRole("region", { name: "Calories" })).getByText("250")).toBeTruthy();
     });
+  });
+
+  it("opens the selected Nutrition card drawer", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) =>
+      Promise.resolve(
+        new Response(JSON.stringify(dayLogRangeResponse(getFetchUrl(input), 425)), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+
+    renderDashboard();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Open Calories analytics" }));
+
+    expect(screen.getByRole("dialog", { name: "Calories analytics" })).toBeTruthy();
+    expect(screen.getByText("Live breakfast")).toBeTruthy();
   });
 });
