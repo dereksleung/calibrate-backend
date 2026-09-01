@@ -40,23 +40,22 @@ Initial page:
 
 ##### Nutrient Analytics
 - Clicking a nutrient mini card from the Dashboard's **Nutrition** section opens an analytics panel, surfacing simple, actionable insights.
+- In the **Total** tab, seeing what recently had the highest contributions to calories or fats especially can drive what to try reducing next.
+- The **Change** tab lets you see both what you've been hard at work reducing, and what you didn't notice you've been increasing.
+  - You get both some congratulations and reinforcement, as well as suggestions about further eating trends to watch.
 <br></br>
 <div style="column-gap: 20px">
   <img width="1197" height="850" src="https://github.com/user-attachments/assets/7aa0e2da-0bf5-4b1e-b1f0-7328e146e43f" />
   <img width="487" height="906" alt="Screenshot 2026-09-01 at 11 29 52 AM" src="https://github.com/user-attachments/assets/ff7ab55b-3382-478a-95ac-b1c7f637212a" />
 </div>
-<br></br>
-- In the Total tab, seeing what recently had the highest contributions to calories or fats especially can drive what to try reducing next.
-<br></br>
-- The Change tab lets you see both what you've been hard at work reducing, and what you didn't notice you've been increasing.
-- You get both some congratulations and reinforcement, as well as suggestions about further eating trends to watch.
+
 
 #### Daily Logs Page
-
-<img width="1185" height="886" src="https://github.com/user-attachments/assets/da88edd0-00c5-4067-9104-35ae1b2640af" />
-<br></br>
 - Each day starts with a compact summary of calories eaten, calories remaining, and macros with line graphs to give the user a quick sense of if their day is on the right track, and what they can still afford. As they are working on building new habits, it helps to know this information so they can quickly adjust in the same day.
 - Logging can be done via the floating Plus button, or an Add Item button under the specific meal to quickly reach logging for it, which a user will frequently do.
+<br></br>
+<img width="1185" height="886" src="https://github.com/user-attachments/assets/da88edd0-00c5-4067-9104-35ae1b2640af" />
+
 
 # Tech Stack
 
