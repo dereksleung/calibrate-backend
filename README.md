@@ -5,7 +5,7 @@ A calorie tracker application, because I've gotten into healthier eating, joggin
 ## Experimenting with scaling myself with AI development flows - code may not be perfect
 
 - I am changing when and how much I review code, including after first merging lower-risk feature changes
-  onto the main branch, creating refactor commits after when I see issues, and updating skills and other agent context to
+  onto the main branch, creating refactor commits after when I see chances to improve things, and updating skills and other agent context to
   catch things automatically.
 - I may catch things later than I previously would have as a result.
 - The reason I am doing this is that the industry is trending toward engineers scaling themselves by acting more like an engineering manager over a fleet of agents.
@@ -19,7 +19,7 @@ A calorie tracker application, because I've gotten into healthier eating, joggin
 
 The current UI is partly a prototype built with mock data, with the Logs page able to load data for a day and add new food entries if you run the frontend and backend in development and sign up a user. The Goals page now loads live seven-day weight and fat charts, while the Overview (Dashboard) page loads live data for its charts and the Daily Insights area remains mock UI.
 
-One goal is to show product judgment: take what could easily become dense, data-heavy areas in the Dashboard and Goals pages, and keep them simple enough to be useful. The target user is not an expert mathematician or nutrition analyst, rather they are people wanting to change themselves, who may need help building new habits, and need to understand what to do next, and what is working or not working. The most important product work is surfacing actions and actionable insights that help them keep momentum with new habits, while suggesting small tweaks they may not have realized they can do that will help them get results.
+One goal is to show product judgment: take what could easily become dense, data-heavy areas in the Dashboard page, and keep it simple enough to be useful. The target user is not an expert mathematician or nutrition analyst, rather they are people wanting to change themselves, who may need help building new habits, and need to understand what to do next, and what is working or not working. The most important product work is surfacing actions and actionable insights that help them keep momentum with new habits, while suggesting small tweaks they may not have realized they can do that will help them get results.
 
 Charts and data stay at overview level by default. When a user chooses to drill deeper, the app should still be selective about what it shows. More data is only useful when it creates a clearer insight, a better decision, or a practical adjustment the user can actually make.
 
@@ -29,44 +29,27 @@ Charts and data stay at overview level by default. When a user chooses to drill 
 
 Initial page:
 <br></br>
-<img width="1069" height="830" alt="Screenshot 2026-08-06 at 8 33 18 AM" src="https://github.com/user-attachments/assets/3136d5ef-6ad9-4a32-8011-b54b3f832ccd" />
+<img width="1186" height="945" src="https://github.com/user-attachments/assets/5cce7cf3-c249-47bf-8a06-8b2ad832c64e" />
 <br></br>
-On clicking the High Impact Swap card's Learn More link -> panel with actionable insights:
-<br></br>
-<img width="1307" height="939" alt="Screenshot 2026-06-25 at 8 54 35 PM" src="https://github.com/user-attachments/assets/24ca45ca-3fd2-4fc7-80ac-6a22f000e99c" />
+- A compact, rolling **Seven-Day Nutrition** section with both daily charts and the average over the last 7 days lets the user quickly gain a sense of how they are doing and if it is good to give efforts for special adjustments today. 
+- On mobile screens it takes up half the screen, so that the next section for Habits also appears without scrolling and help the user build their habits.
+- The **Habits** section is next in sequence, and gently encourages the user with to keep up their good work with calendar heatmaps and weekly usage stats. The acts of logging food and weight are so key to making progress; the awareness they bring to your current habits and how much for example snacking or higher calorie foods in your meals account for are priceless.
+- The **Nutrition** section after has mini cards you can use to drill in deeper for that nutrient.
 
+##### Nutrient Analytics
+- Clicking a nutrient mini card from the Dashboard's **Nutrition** section opens an analytics panel, surfacing simple, actionable insights.
 <br></br>
-Hovering over the Dashboard's Fats chart will show a tooltip saying you can click the chart to go to [a panel on the Goals page](#fats-analytics-panel), making that discoverable. The Fats Analytics detail view remains mock UI right now.
+<img width="1197" height="850" src="https://github.com/user-attachments/assets/7aa0e2da-0bf5-4b1e-b1f0-7328e146e43f" />
+<img width="487" height="906" alt="Screenshot 2026-09-01 at 11 29 52 AM" src="https://github.com/user-attachments/assets/ff7ab55b-3382-478a-95ac-b1c7f637212a" />
 <br></br>
-
-#### Goals page
-
-Allows deeper drilling into stats and progress.
-
-Initial view - can see encouragement about journey, scrolling down you can see charts (weight and fats consumption only for now):
+- In the Total tab, seeing what recently had the highest contributions to calories or fats especially can drive what to try reducing next.
 <br></br>
-<img width="1067" height="908" alt="Screenshot 2026-08-06 at 8 34 05 AM" src="https://github.com/user-attachments/assets/9ca56e79-7b8f-45ba-bae8-7c78e8dbe670" />
-
-<br></br>
-
-#### Fats Analytics panel
-
-Clicking the Fats bar chart opens a panel with deeper data the user can find trends with.
-<br></br>
-Greatest sources of fats by food in the last month:
-<br></br>
-<img width="1072" height="911" alt="Screenshot 2026-08-06 at 8 34 58 AM" src="https://github.com/user-attachments/assets/c5ec2173-62a7-4aa8-b7be-a7778005f236" />
-
-<br></br>
-Largest changes in fat contributions from food between last month to this month:
-<br></br>
-<img width="1076" height="904" alt="Screenshot 2026-08-06 at 8 35 08 AM" src="https://github.com/user-attachments/assets/4dfe83ae-75b3-4f83-bb6f-6e59b498ad06" />
-
-<br></br>
+- The Change tab lets you see both what you've been hard at work reducing, and what you didn't notice you've been increasing.
+- You get both some congratulations and reinforcement, as well as suggestions about further eating trends to watch.
 
 #### Daily Logs Page
 
-<img width="1032" height="851" alt="Screenshot 2026-08-06 at 8 59 02 AM" src="https://github.com/user-attachments/assets/8551ae2f-2a4c-4004-b300-507664362af0" />
+<img width="1185" height="886" src="https://github.com/user-attachments/assets/da88edd0-00c5-4067-9104-35ae1b2640af" />
 <br></br>
 Each day starts with a compact summary of calories eaten, calories remaining, and macros with line graphs to give the user a quick sense of if their day is on the right track, and what they can still afford. As they are working on building new habits, it helps to know this information so they can quickly adjust in the same day.
 
