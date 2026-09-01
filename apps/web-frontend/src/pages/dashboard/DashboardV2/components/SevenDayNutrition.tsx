@@ -74,7 +74,7 @@ function SevenDayBarChart({ row, showDayLabels }: SevenDayNutritionRowProps) {
   const domainMaximum = Math.max(row.target, ...row.days.map(({ amount }) => amount)) * 1.15;
 
   return (
-    <div className="relative h-12 min-w-0 sm:h-20">
+    <div className="relative h-12 min-w-0 md:h-16">
       <ResponsiveContainer height="100%" width="100%">
         <BarChart data={row.days} margin={{ bottom: 0, left: 0, right: 0, top: 0 }}>
           <XAxis
