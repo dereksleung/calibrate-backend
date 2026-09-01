@@ -285,7 +285,7 @@ function DashboardV2Page({ error = null, isPending = false, onRetry, viewModel }
 
   return (
     <>
-      <main className="min-h-screen pt-4 pb-10">
+      <main className="pt-4">
         <div className={cn(APP_CONTENT_FRAME_CLASS_NAME, "space-y-8")}>
           {error ? <DashboardLoadError onRetry={onRetry} /> : null}
           {viewModel ? (
