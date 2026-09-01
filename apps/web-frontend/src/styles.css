@@ -91,6 +91,13 @@
   --font-label-sm: Inter Variable, sans-serif;
 }
 
+.app-content-frame {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 28.125rem;
+  padding-inline: 1rem;
+}
+
 .glass-card {
   background-color: rgba(255, 255, 255, 0.4);
   backdrop-filter: blur(20px);

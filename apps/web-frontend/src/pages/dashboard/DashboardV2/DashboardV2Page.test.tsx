@@ -5,6 +5,7 @@ import type {
   NutrientAnalyticsModel,
 } from "#/verticals/dashboard/dashboard-v2-model.ts";
 
+import { APP_CONTENT_FRAME_CLASS_NAME } from "#/shared/layout/app-content-frame.ts";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -228,5 +229,44 @@ describe("DashboardV2Page", () => {
     expect(
       screen.getByRole("table", { name: "Seven-day nutrition summary" }).parentElement?.className,
     ).toContain("sr-only");
+  });
+
+  it("uses the shared content frame for page content", () => {
+    render(<DashboardV2Page viewModel={viewModel} />);
+
+    expect(screen.getByRole("main").firstElementChild?.className).toContain(APP_CONTENT_FRAME_CLASS_NAME);
+  });
+
+  it("keeps page structure with skeleton nutrition cards and neutral habit cells while pending", () => {
+    render(<DashboardV2Page isPending />);
+
+    expect(screen.getByRole("status", { name: "Loading dashboard" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Seven-day nutrition" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Habits" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Nutrition" })).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "Weighing" })).getByRole("img").children).toHaveLength(
+      30,
+    );
+    expect(screen.getByRole("region", { name: "Calories" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open Calories analytics" })).toBeNull();
+    expect(screen.queryByText("661")).toBeNull();
+    expect(screen.queryByRole("table", { name: "Seven-day nutrition summary" })).toBeNull();
+  });
+
+  it("announces load failure with inline retry and does not render fixture values", () => {
+    const onRetry = vi.fn();
+
+    render(<DashboardV2Page error={new Error("offline")} onRetry={onRetry} />);
+
+    expect(screen.getByRole("alert").textContent).toContain("Live nutrition is unavailable");
+    expect(screen.getByRole("heading", { name: "Seven-day nutrition" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Habits" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Nutrition" })).toBeTruthy();
+    expect(screen.queryByText("661")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open Calories analytics" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });

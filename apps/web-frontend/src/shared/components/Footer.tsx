@@ -2,13 +2,13 @@ import { cn } from "#/lib/utils";
 import { getTodayDateString } from "#/pages/logs/log-page-helpers.ts";
 import { Typography } from "#/shared/components/base/typography/Typography";
 import { Link } from "@tanstack/react-router";
-import { Gauge, NotebookPen, TrendingDown, type LucideIcon } from "lucide-react";
+import { Gauge, NotebookPen, type LucideIcon } from "lucide-react";
 
 import { useIsMobile } from "../hooks/use-media-query";
 
 type BottomTabNavButton = {
   label: string;
-  to: "/" | "/logs" | "/goals";
+  to: "/" | "/logs";
   icon: LucideIcon;
   exact?: boolean;
 };
@@ -16,7 +16,6 @@ type BottomTabNavButton = {
 const BOTTOM_TAB_NAV_BUTTONS: BottomTabNavButton[] = [
   { label: "Overview", to: "/", icon: Gauge, exact: true },
   { label: "Logs", to: "/logs", icon: NotebookPen },
-  { label: "Goals", to: "/goals", icon: TrendingDown },
 ];
 
 const bottomTabLinkBase =

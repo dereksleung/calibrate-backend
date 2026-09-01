@@ -39,13 +39,7 @@ const logsRoute = createRoute({
   component: () => null,
 });
 
-const goalsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/goals",
-  component: () => null,
-});
-
-const routeTree = rootRoute.addChildren([indexRoute, logsRoute, goalsRoute]);
+const routeTree = rootRoute.addChildren([indexRoute, logsRoute]);
 
 async function renderFooter(initialEntry = "/") {
   const router = createRouter({
@@ -97,12 +91,12 @@ describe("Footer", () => {
       expect(nav.className).toContain("rounded-t-2xl");
     });
 
-    it("renders tab links for overview, logs, and goals", async () => {
+    it("renders tab links for overview and logs", async () => {
       await renderFooter();
 
       expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/");
       expect(screen.getByRole("link", { name: "Logs" }).getAttribute("href")).toBe("/logs?date=2026-07-10");
-      expect(screen.getByRole("link", { name: "Goals" }).getAttribute("href")).toBe("/goals");
+      expect(screen.queryByRole("link", { name: "Goals" })).toBeNull();
     });
 
     it("highlights the active tab for the current route", async () => {

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { createQueryClient } from "#/shared/api/query-client.ts";
+import { APP_CONTENT_FRAME_CLASS_NAME } from "#/shared/layout/app-content-frame.ts";
 import {
   authenticatedSessionQueryKey,
   setAuthenticatedSession,
@@ -55,19 +56,13 @@ const logsRoute = createRoute({
   component: () => null,
 });
 
-const goalsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/goals",
-  component: () => null,
-});
-
 const signupLoginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/signup-login",
   component: () => null,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, logsRoute, goalsRoute, signupLoginRoute]);
+const routeTree = rootRoute.addChildren([indexRoute, logsRoute, signupLoginRoute]);
 
 const authenticatedSession = {
   user: {
@@ -138,13 +133,13 @@ describe("Header", () => {
 
       expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/");
       expect(screen.getByRole("link", { name: "Logs" }).getAttribute("href")).toBe("/logs?date=2026-07-10");
-      expect(screen.getByRole("link", { name: "Goals" }).getAttribute("href")).toBe("/goals");
+      expect(screen.queryByRole("link", { name: "Goals" })).toBeNull();
     });
 
     it("highlights the active navigation link for the current route", async () => {
-      await renderHeader("/goals");
+      await renderHeader("/logs?date=2026-07-10");
 
-      expect(screen.getByRole("link", { name: "Goals" }).className).toContain("text-primary");
+      expect(screen.getByRole("link", { name: "Logs" }).className).toContain("text-primary");
       expect(screen.getByRole("link", { name: "Overview" }).className).not.toContain("text-primary");
     });
 
@@ -154,7 +149,7 @@ describe("Header", () => {
       expect(screen.getByRole("button", { name: "Sign Up" })).toBeTruthy();
       expect(screen.getByRole("link", { name: "Overview" })).toBeTruthy();
       expect(screen.getByRole("link", { name: "Logs" })).toBeTruthy();
-      expect(screen.getByRole("link", { name: "Goals" })).toBeTruthy();
+      expect(screen.queryByRole("link", { name: "Goals" })).toBeNull();
     });
 
     it("shows the account avatar instead of Sign Up when logged in", async () => {
@@ -175,6 +170,12 @@ describe("Header", () => {
         expect(queryClient.getQueryData(authenticatedSessionQueryKey)).toBeUndefined();
         expect(router.state.location.pathname).toBe("/signup-login");
       });
+    });
+
+    it("uses the shared content frame for inner header content", async () => {
+      await renderHeader();
+
+      expect(screen.getByRole("banner").firstElementChild?.className).toContain(APP_CONTENT_FRAME_CLASS_NAME);
     });
 
     it("preserves authenticated state and shows a retryable error when logout fails", async () => {
@@ -226,6 +227,12 @@ describe("Header", () => {
       await renderHeader();
 
       expect(screen.queryByRole("navigation")).toBeNull();
+    });
+
+    it("uses the shared content frame for inner header content", async () => {
+      await renderHeader();
+
+      expect(screen.getByRole("banner").firstElementChild?.className).toContain(APP_CONTENT_FRAME_CLASS_NAME);
     });
   });
 });
