@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { createQueryClient } from "#/shared/api/query-client.ts";
+import { APP_CONTENT_FRAME_CLASS_NAME } from "#/shared/layout/app-content-frame.ts";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRouter } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -106,6 +107,9 @@ describe("Logs", () => {
     expect(screen.getByRole("heading", { name: "Breakfast" })).toBeTruthy();
     expect(screen.getByText("Oatmeal")).toBeTruthy();
     expect(screen.getByText("Black coffee")).toBeTruthy();
+    expect(screen.getByRole("main").firstElementChild?.className).toContain(APP_CONTENT_FRAME_CLASS_NAME);
+    expect(screen.getByRole("region", { name: "Daily summary" }).className).toContain("glass-card");
+    expect(screen.getByRole("region", { name: "Breakfast" }).className).toContain("glass-card");
   });
 
   it("renders empty meal states and meal add actions", async () => {
