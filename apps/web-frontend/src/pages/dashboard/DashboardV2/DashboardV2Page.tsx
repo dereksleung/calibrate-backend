@@ -5,7 +5,6 @@ import type {
   NutritionCardModel,
 } from "#/verticals/dashboard/dashboard-v2-model.ts";
 
-import { cn } from "#/lib/utils.ts";
 import { Typography } from "#/shared/components/base/typography/Typography.tsx";
 import { APP_CONTENT_FRAME_CLASS_NAME } from "#/shared/layout/app-content-frame.ts";
 import { useRef, useState } from "react";
@@ -286,23 +285,26 @@ function DashboardV2Page({ error = null, isPending = false, onRetry, viewModel }
   return (
     <>
       <main className="pt-4">
-        <div className={cn(APP_CONTENT_FRAME_CLASS_NAME, "space-y-8")}>
-          {error ? <DashboardLoadError onRetry={onRetry} /> : null}
-          {viewModel ? (
-            <DashboardSections
-              onOpenNutrition={(metric, trigger) => {
-                returnFocusRef.current = trigger;
-                setSelectedMetric(metric);
-              }}
-              viewModel={viewModel}
-            />
-          ) : isPending ? (
-            <div aria-busy="true" aria-label="Loading dashboard" role="status">
+        <div className={APP_CONTENT_FRAME_CLASS_NAME}>
+          <h1 className="hidden md:block md:sr-only">Overview</h1>
+          <div className="space-y-8">
+            {error ? <DashboardLoadError onRetry={onRetry} /> : null}
+            {viewModel ? (
+              <DashboardSections
+                onOpenNutrition={(metric, trigger) => {
+                  returnFocusRef.current = trigger;
+                  setSelectedMetric(metric);
+                }}
+                viewModel={viewModel}
+              />
+            ) : isPending ? (
+              <div aria-busy="true" aria-label="Loading dashboard" role="status">
+                <PendingDashboardSections />
+              </div>
+            ) : (
               <PendingDashboardSections />
-            </div>
-          ) : (
-            <PendingDashboardSections />
-          )}
+            )}
+          </div>
         </div>
       </main>
 

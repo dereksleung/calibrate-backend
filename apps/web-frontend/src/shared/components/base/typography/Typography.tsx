@@ -11,6 +11,11 @@ const typographyVariants = cva("", {
        * in the rest of the app, as they are better for mobile designs and just look
        * better than the older variants.
        */
+
+      /**
+       * h1PageTitle is smaller as I use it in the mobile header rather than the page contents
+       * to save mobile space for the content.
+       */
       h1PageTitle: "text-lg font-semibold",
       h2SectionTitle: "font-heading text-xl font-semibold tracking-[-0.02em]",
       h3: "font-heading text-lg font-semibold tracking-[-0.02em]",

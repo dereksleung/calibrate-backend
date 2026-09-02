@@ -170,6 +170,16 @@ afterEach(() => {
 });
 
 describe("DashboardV2Page", () => {
+  it("provides the page title only to desktop screen readers, as the mobile h1 title is provided by the app header", () => {
+    render(<DashboardV2Page viewModel={viewModel} />);
+
+    const pageTitle = screen.getByRole("heading", { level: 1, name: "Overview" });
+
+    expect(pageTitle.className).toContain("hidden");
+    expect(pageTitle.className).toContain("md:block");
+    expect(pageTitle.className).toContain("md:sr-only");
+  });
+
   it("renders the required heading hierarchy and titled chart cards", () => {
     render(<DashboardV2Page viewModel={viewModel} />);
 

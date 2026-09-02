@@ -23,6 +23,7 @@ import {
   NavigationMenuTrigger,
 } from "./base/navigation-menu/NavigationMenu";
 import ThemeToggle from "./ThemeToggle";
+import { Typography } from "./base/typography/Typography";
 
 const navLinkBase =
   "inline-block border-b-2 border-transparent px-1 pb-1 pt-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:text-foreground";
@@ -116,10 +117,12 @@ export default function Header() {
   ) : null;
 
   return (
-    <header className="bg-white/80 backdrop-blur-md text-lg font-semibold text-[#4A6741] docked full-width top-0 sticky z-50 shadow-[0_20px_40px_rgba(0,0,0,0.04)] no-border tonal-shift">
+    <header className="bg-white/80 backdrop-blur-md text-[#4A6741] docked full-width top-0 sticky z-50 shadow-[0_20px_40px_rgba(0,0,0,0.04)] no-border tonal-shift">
       {isMobile ? (
         <div className={cn(APP_CONTENT_FRAME_CLASS_NAME, "flex flex-wrap items-center gap-x-8 gap-y-2 py-3")}>
-          <h1>{PAGE_TITLES[pathname] || "Overview"}</h1>
+          <Typography as="h1" variant="h1PageTitle">
+            {PAGE_TITLES[pathname] || "Overview"}
+          </Typography>
           <div className="flex flex-1 items-center gap-6">
             {logoutAlert}
             <div className="flex flex-1 justify-end">{authAction}</div>
