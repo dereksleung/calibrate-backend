@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { runLocalDemoSetup } from "./local-demo-setup.js";
 import {
   ensureLocalRuntimeConfiguration,
   generateLocalRuntimeConfiguration,
@@ -15,7 +16,6 @@ import {
   readLocalRuntimeConfiguration,
   type LocalRuntimeConfiguration,
 } from "./local-runtime-configuration.js";
-import { runLocalDemoSetup } from "./local-demo-setup.js";
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const originalCwd = process.cwd();

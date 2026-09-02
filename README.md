@@ -106,6 +106,18 @@ Will use the backend to explore/practice various backend topics.
 
 1. Run `npm ci` in the project root.
 
+The shared local-only runtime configuration for demo tooling can be generated
+or reused with:
+
+```bash
+npx nx run @calibrate/local-runtime-config:demo-setup
+```
+
+This writes the gitignored `.local.env` file in the repository root. It
+generates fresh, non-production Ed25519 and HMAC values without reading
+`.env.keys` or normal Dotenvx configuration; port, origin, and database
+bindings remain separate.
+
 ## Git worktrees (shared Postgres)
 
 Several linked git worktrees on one machine can share the existing Compose Postgres on `127.0.0.1:5433`. Each checkout gets its own database name, sticky frontend/backend ports, and matching API/CORS/WebAuthn URLs.
@@ -173,7 +185,7 @@ JWT_AUDIENCE="http://localhost:3001/api"
 API_BASE_URL="http://localhost:3001/"
 OTP_HMAC_KEY="<base64url_encoded_random_key_of_at_least_32_bytes>"
 OTP_HMAC_CURRENT_KEY_VERSION="1"
-EMAIL_REQUEST_IP_HMAC_KEY="<independent_base64url_encoded_random_key_of_at_least_32_bytes>"
+EMAIL_REQUEST_IP_HMAC_KEY="<independent_hexadecimal_random_key_of_at_least_32_bytes>"
 EMAIL_VERIFICATION_GLOBAL_HOURLY_LIMIT="1000"
 TRUST_PROXY_HOPS="0"
 WEBAUTHN_RP_ID="localhost"
