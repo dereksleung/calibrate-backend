@@ -51,6 +51,7 @@ Initial page:
 
 
 #### Daily Logs Page
+- Planning to revisit this page's design, it is an older page I tried using Google Stitch to design, but my recent Dashboard page has a different aesthetic from Codex ImageGen that I like better, and want to harmonize this page with.
 - Each day starts with a compact summary of calories eaten, calories remaining, and macros with line graphs to give the user a quick sense of if their day is on the right track, and what they can still afford. As they are working on building new habits, it helps to know this information so they can quickly adjust in the same day.
 - Logging can be done via the floating Plus button, or an Add Item button under the specific meal to quickly reach logging for it, which a user will frequently do.
 <br></br>
