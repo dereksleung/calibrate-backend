@@ -20,6 +20,10 @@ _Avoid_: empty day, deleted Day Log
 An analysis window containing the current local calendar date and the six preceding local calendar dates, ordered from oldest to newest.
 _Avoid_: calendar week, arbitrary seven-day period
 
+**Calendar week**:
+The Sunday-to-Saturday collection of seven local calendar dates. A future date within the current Calendar week is Upcoming, not a Known-empty day.
+_Avoid_: rolling week
+
 **Weight observation**:
 A non-null weight recorded on a Day Log for a specific calendar date. A visually connected chart line does not create additional weight observations.
 _Avoid_: inferred weight, estimated weight
