@@ -94,7 +94,7 @@ describe("logs live day log", () => {
     renderLogsRoute("/logs?date=2026-06-10");
 
     expect(await screen.findByRole("heading", { name: "Wednesday, June 10" })).toBeTruthy();
-    expect(await screen.findByText("282")).toBeTruthy();
+    expect((await screen.findAllByText("282")).length).toBeGreaterThan(0);
     expect(screen.getByText("1,518 calories remaining today.")).toBeTruthy();
     expect(screen.getByText("Oatmeal")).toBeTruthy();
   });
@@ -119,7 +119,7 @@ describe("logs live day log", () => {
     expect(await screen.findByRole("heading", { name: "Thursday, June 11" })).toBeTruthy();
     expect(await screen.findByText("1,800 calories remaining today.")).toBeTruthy();
     expect(screen.queryByText("Oatmeal")).toBeNull();
-    expect(screen.getAllByText("No items logged yet").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "+ Add Item" }).length).toBe(4);
   });
 
   it("shows an error state with retry and refetches successfully", async () => {

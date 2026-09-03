@@ -1,4 +1,5 @@
 import { apiTransport } from "#/shared/api/api-client.ts";
+import { Typography } from "#/shared/components/base/typography/Typography.tsx";
 import { APP_CONTENT_FRAME_CLASS_NAME } from "#/shared/layout/app-content-frame.ts";
 import { useSelectedDayLog } from "@calibrate/api-client";
 import { useNavigate } from "@tanstack/react-router";
@@ -49,22 +50,21 @@ function LogsOverviewSkeleton() {
         </div>
       </div>
 
-      {MEAL_SECTIONS.map((section) => (
-        <div
-          key={section.meal}
-          className="glass-card space-y-4 rounded-[2rem] px-8 py-9 md:rounded-2xl md:px-10 md:py-8"
-        >
-          <div className="flex items-end justify-between gap-4">
-            <div className="h-9 w-32 animate-pulse rounded-lg bg-surface-container-high md:h-8" />
-            <div className="h-7 w-16 animate-pulse rounded-lg bg-surface-container-high" />
-          </div>
-          <div className="min-h-40 overflow-hidden rounded-[2rem] md:rounded-none">
-            <div className="flex min-h-40 items-center justify-center px-8 py-10 md:min-h-28">
-              <div className="h-10 w-full max-w-xs animate-pulse rounded-xl bg-surface-container-high" />
+      <section aria-labelledby="meals-heading" className="space-y-3">
+        <Typography as="h2" className="text-on-primary-fixed" id="meals-heading" variant="h2SectionTitle">
+          Meals
+        </Typography>
+        <div className="flex flex-col gap-3">
+          {MEAL_SECTIONS.map((section) => (
+            <div key={section.meal} className="glass-card rounded-xl p-3">
+              <div className="h-6 w-24 animate-pulse rounded bg-black/[0.055]" />
+              <div className="mt-1 h-3 w-40 animate-pulse rounded bg-black/[0.055]" />
+              <div className="my-3 h-px bg-black/[0.07]" />
+              <div className="mx-auto h-6 w-28 animate-pulse rounded bg-black/[0.055]" />
             </div>
-          </div>
+          ))}
         </div>
-      ))}
+      </section>
     </div>
   );
 }
@@ -98,22 +98,32 @@ export function Logs({ selectedDate }: LogsProps) {
           <>
             <DailySummary totals={totals} progress={progress} weight={dayLog.weight} />
 
-            <div className="space-y-10 md:space-y-8">
-              {MEAL_SECTIONS.map((section) => (
-                <MealSection
-                  key={section.meal}
-                  meal={section.meal}
-                  title={section.title}
-                  entries={dayLog.meals[section.meal]}
-                  onAddFood={(meal) =>
-                    navigate({
-                      to: "/logs/food-search",
-                      search: { date: selectedDate, meal },
-                    })
-                  }
-                />
-              ))}
-            </div>
+            <section aria-labelledby="meals-heading" className="space-y-3">
+              <Typography
+                as="h2"
+                className="text-on-primary-fixed"
+                id="meals-heading"
+                variant="h2SectionTitle"
+              >
+                Meals
+              </Typography>
+              <div className="flex flex-col gap-3">
+                {MEAL_SECTIONS.map((section) => (
+                  <MealSection
+                    key={section.meal}
+                    meal={section.meal}
+                    title={section.title}
+                    entries={dayLog.meals[section.meal]}
+                    onAddFood={(meal) =>
+                      navigate({
+                        to: "/logs/food-search",
+                        search: { date: selectedDate, meal },
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            </section>
           </>
         ) : null}
       </div>

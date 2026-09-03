@@ -100,10 +100,11 @@ describe("Logs", () => {
     renderLogsRoute();
 
     expect(await screen.findByRole("heading", { name: "Monday, May 18" })).toBeTruthy();
-    expect(await screen.findByText("282")).toBeTruthy();
+    expect((await screen.findAllByText("282")).length).toBeGreaterThan(0);
     expect(screen.getByText("/ 1,800")).toBeTruthy();
     expect(screen.getByText("1,518 left")).toBeTruthy();
     expect(screen.getByText("184.2")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Meals" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Breakfast" })).toBeTruthy();
     expect(screen.getByText("Oatmeal")).toBeTruthy();
     expect(screen.getByText("Black coffee")).toBeTruthy();
@@ -116,9 +117,9 @@ describe("Logs", () => {
     renderLogsRoute();
 
     expect(await screen.findByRole("heading", { name: "Lunch" })).toBeTruthy();
-    expect(screen.getAllByText("No items logged yet").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "+ Add Item" }).length).toBe(4);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "No items logged yet" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "+ Add Item" })[1]);
 
     expect(await screen.findByRole("heading", { name: "Recently logged" })).toBeTruthy();
     expect(screen.getByRole("searchbox", { name: "Search foods" })).toBeTruthy();
