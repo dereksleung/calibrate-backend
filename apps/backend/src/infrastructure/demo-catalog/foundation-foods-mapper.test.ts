@@ -75,21 +75,26 @@ describe("mapFoundationFood", () => {
     });
   });
 
-  it("does not keep a volume measure that describes a different food amount", () => {
+  it("normalizes a volume measure that describes a different food amount", () => {
     const { record } = mappedRecord(
       food({
+        fdcId: 321360,
+        description: "Tomatoes, grape, raw",
         foodPortions: [
-          portion({ amount: 1, gramWeight: 50, measureUnit: { name: "piece" } }),
-          portion({ amount: 1, gramWeight: 152, measureUnit: { name: "cup" } }),
+          portion({ id: 118808, amount: 5, gramWeight: 49.7, measureUnit: { name: "tomatoes" } }),
+          portion({ id: 118809, sequenceNumber: 2, amount: 1, gramWeight: 152, measureUnit: { name: "cup" } }),
         ],
       }),
     );
 
-    expect(record.servingLabel).toBe("piece");
-    expect(record.quantityMass).toBe(50);
-    expect(record.quantityVolume).toBeNull();
-    expect(record.volumeUnit).toBeNull();
-    expect(record.calories).toBe(83);
+    expect(record).toMatchObject({
+      servingLabel: "tomatoes",
+      quantityServing: 5,
+      quantityMass: 49.7,
+      quantityVolume: 0.33,
+      volumeUnit: "cup",
+      calories: 82.5,
+    });
   });
 
   it("uses a verified volume measure when no named non-volume measure is available", () => {

@@ -57,11 +57,20 @@ function catalogInsertValues(input: FoodCatalogInput, now: Date) {
   };
 }
 
+function validateBatchSize(batchSize: number): void {
+  if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > FOOD_CATALOG_SEED_BATCH_SIZE) {
+    throw new Error(
+      `Food catalog seed batch size must be an integer between 1 and ${FOOD_CATALOG_SEED_BATCH_SIZE}`,
+    );
+  }
+}
+
 export async function upsertFoodCatalogBatches(
   databaseClient: DatabaseClient,
   records: FoodCatalogInput[],
   batchSize = FOOD_CATALOG_SEED_BATCH_SIZE,
 ): Promise<void> {
+  validateBatchSize(batchSize);
   const now = new Date();
   for (let offset = 0; offset < records.length; offset += batchSize) {
     const batch = records.slice(offset, offset + batchSize).map((record) => catalogInsertValues(record, now));

@@ -1,10 +1,42 @@
+import type { FoodCatalogInput } from "@application/ports/food-catalog-writer.js";
+
 import { mkdirSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
-import { seedFoundationFoodsCatalog } from "./foundation-foods-catalog-seeder.js";
+import {
+  FOOD_CATALOG_SEED_BATCH_SIZE,
+  seedFoundationFoodsCatalog,
+  upsertFoodCatalogBatches,
+} from "./foundation-foods-catalog-seeder.js";
 import { hashFoundationFoodsArchive, type FoundationFoodsSourceManifest } from "./foundation-foods-source.js";
+
+function catalogRecord(): FoodCatalogInput {
+  return {
+    name: "Hummus, commercial",
+    brand: null,
+    quantityServing: 100,
+    servingLabel: "g",
+    quantityMass: 100,
+    massUnit: "g",
+    quantityVolume: null,
+    volumeUnit: null,
+    calories: 100,
+    totalFatGrams: 4,
+    saturatedFatGrams: 1,
+    cholesterolMg: 0,
+    sodiumMg: 50,
+    totalCarbohydrateGrams: 12,
+    fiberGrams: 2,
+    sugarGrams: 1,
+    proteinGrams: 8,
+    source: "fdc",
+    sourceFoodId: "321358",
+    normalizedGtin: null,
+    verificationState: "verified",
+  };
+}
 
 function writeArchive(foods: unknown[]) {
   const directory = path.join(
@@ -56,5 +88,31 @@ describe("seedFoundationFoodsCatalog", () => {
       }),
     ).rejects.toThrow("Foundation Foods archive checksum mismatch");
     expect(transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("upsertFoodCatalogBatches", () => {
+  it.each([0, -1])("rejects non-positive batch size %s", async (batchSize) => {
+    await expect(
+      upsertFoodCatalogBatches({} as never, [catalogRecord()], batchSize),
+    ).rejects.toThrow("must be an integer between 1 and 250");
+  });
+
+  it("rejects a non-integer batch size", async () => {
+    await expect(
+      upsertFoodCatalogBatches({} as never, [catalogRecord()], 1.5),
+    ).rejects.toThrow("must be an integer between 1 and 250");
+  });
+
+  it("rejects a batch size above the maximum", async () => {
+    await expect(
+      upsertFoodCatalogBatches({} as never, [catalogRecord()], FOOD_CATALOG_SEED_BATCH_SIZE + 1),
+    ).rejects.toThrow("must be an integer between 1 and 250");
+  });
+
+  it("accepts the configured maximum batch size", async () => {
+    await expect(
+      upsertFoodCatalogBatches({} as never, [], FOOD_CATALOG_SEED_BATCH_SIZE),
+    ).resolves.toBeUndefined();
   });
 });

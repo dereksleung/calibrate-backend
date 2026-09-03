@@ -178,12 +178,11 @@ function firstOfKind(portions: UsablePortion[], kind: MeasureKind): UsablePortio
 }
 
 function equivalentVolume(reference: UsablePortion, portions: UsablePortion[]): UsablePortion | undefined {
-  const referenceGrams = round2(reference.gramWeight);
-  return [
-    ...portions.filter(
-      (portion) => portion.kind === "volume" && round2(portion.gramWeight) === referenceGrams,
-    ),
-  ].sort(comparePortions)[0];
+  const volume = firstOfKind(portions, "volume");
+  if (!volume) return undefined;
+
+  const normalizedAmount = round2((reference.gramWeight / volume.gramWeight) * volume.amount);
+  return normalizedAmount > 0 ? { ...volume, amount: normalizedAmount } : undefined;
 }
 
 function scalePer100g(value: number, gramWeight: number): number {
