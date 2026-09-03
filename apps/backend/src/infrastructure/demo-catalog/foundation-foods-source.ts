@@ -39,6 +39,20 @@ function readInteger(value: unknown): number | null {
   return typeof value === "number" && Number.isInteger(value) ? value : null;
 }
 
+function assertPinnedFoundationFoodsIdentity(
+  manifest: FoundationFoodsSourceManifest,
+  archivePath: string,
+): void {
+  if (
+    manifest.releaseId !== FOUNDATION_FOODS_RELEASE_ID ||
+    manifest.releaseDate !== FOUNDATION_FOODS_RELEASE_DATE ||
+    manifest.sourceFile !== FOUNDATION_FOODS_SOURCE_FILE_NAME ||
+    manifest.sourceFile !== path.basename(archivePath)
+  ) {
+    throw new Error("Foundation Foods source manifest identity mismatch");
+  }
+}
+
 export function readFoundationFoodsManifest(manifestPath: string): FoundationFoodsSourceManifest {
   const parsed: unknown = JSON.parse(readFileSync(manifestPath, "utf8"));
   if (!isRecord(parsed)) throw new Error("Foundation Foods source manifest is invalid");
@@ -86,6 +100,8 @@ export function preflightFoundationFoodsSource(options: {
   archivePath: string;
   manifest: FoundationFoodsSourceManifest;
 }): FoundationFoodsPreflightResult {
+  assertPinnedFoundationFoodsIdentity(options.manifest, options.archivePath);
+
   let archiveBytes: Buffer;
   try {
     archiveBytes = readFileSync(options.archivePath);

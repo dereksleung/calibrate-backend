@@ -10,7 +10,11 @@ import {
   seedFoundationFoodsCatalog,
   upsertFoodCatalogBatches,
 } from "./foundation-foods-catalog-seeder.js";
-import { hashFoundationFoodsArchive, type FoundationFoodsSourceManifest } from "./foundation-foods-source.js";
+import {
+  FOUNDATION_FOODS_SOURCE_FILE_NAME,
+  hashFoundationFoodsArchive,
+  type FoundationFoodsSourceManifest,
+} from "./foundation-foods-source.js";
 
 function catalogRecord(): FoodCatalogInput {
   return {
@@ -44,7 +48,7 @@ function writeArchive(foods: unknown[]) {
     `foundation-seed-${Date.now()}-${Math.random().toString(16).slice(2)}`,
   );
   mkdirSync(directory, { recursive: true });
-  const archivePath = path.join(directory, "archive.json");
+  const archivePath = path.join(directory, FOUNDATION_FOODS_SOURCE_FILE_NAME);
   const bytes = Buffer.from(JSON.stringify({ FoundationFoods: foods }), "utf8");
   writeFileSync(archivePath, bytes);
   return { archivePath, bytes, reportPath: path.join(directory, "catalog-seed-report.json") };
@@ -57,7 +61,7 @@ function manifestFor(
   return {
     releaseId: "FoodData_Central_foundation_food_json_2026-04-30",
     releaseDate: "2026-04-30",
-    sourceFile: "archive.json",
+    sourceFile: FOUNDATION_FOODS_SOURCE_FILE_NAME,
     sha256: hashFoundationFoodsArchive(bytes),
     expectedTotalRecordCount: 1,
     expectedImportableRecordCount: 1,

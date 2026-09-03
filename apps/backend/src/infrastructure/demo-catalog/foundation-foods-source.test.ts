@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { FoundationFoodsSourceManifest } from "./foundation-foods-source.js";
 
 import {
+  FOUNDATION_FOODS_SOURCE_FILE_NAME,
   defaultFoundationFoodsArchivePath,
   defaultFoundationFoodsManifestPath,
   hashFoundationFoodsArchive,
@@ -42,7 +43,7 @@ function writeArchive(
   foods: unknown[],
   directory = mkdtempSync(path.join(os.tmpdir(), "foundation-foods-")),
 ) {
-  const archivePath = path.join(directory, "FoodData_Central_foundation_food_json_2026-04-30.json");
+  const archivePath = path.join(directory, FOUNDATION_FOODS_SOURCE_FILE_NAME);
   const bytes = Buffer.from(JSON.stringify({ FoundationFoods: foods }), "utf8");
   writeFileSync(archivePath, bytes);
   return { archivePath, bytes, directory };
@@ -55,7 +56,7 @@ function manifestFor(
   return {
     releaseId: "FoodData_Central_foundation_food_json_2026-04-30",
     releaseDate: "2026-04-30",
-    sourceFile: "FoodData_Central_foundation_food_json_2026-04-30.json",
+    sourceFile: FOUNDATION_FOODS_SOURCE_FILE_NAME,
     sha256: hashFoundationFoodsArchive(bytes),
     expectedTotalRecordCount: 1,
     expectedImportableRecordCount: 1,
@@ -89,6 +90,34 @@ describe("readFoundationFoodsManifest", () => {
 });
 
 describe("preflightFoundationFoodsSource", () => {
+  it.each([
+    ["release ID", { releaseId: "different-release" }],
+    ["release date", { releaseDate: "2025-01-01" }],
+    ["source filename", { sourceFile: "different-source.json" }],
+  ] as const)("fails when the manifest %s does not match the pinned source", (_field, override) => {
+    const { archivePath, bytes } = writeArchive([importableFood()]);
+
+    expect(() =>
+      preflightFoundationFoodsSource({
+        archivePath,
+        manifest: manifestFor(bytes, override),
+      }),
+    ).toThrow("Foundation Foods source manifest identity mismatch");
+  });
+
+  it("fails when the archive basename is not the pinned source filename", () => {
+    const { bytes, directory } = writeArchive([importableFood()]);
+    const archivePath = path.join(directory, "different-source.json");
+    writeFileSync(archivePath, bytes);
+
+    expect(() =>
+      preflightFoundationFoodsSource({
+        archivePath,
+        manifest: manifestFor(bytes),
+      }),
+    ).toThrow("Foundation Foods source manifest identity mismatch");
+  });
+
   it("fails before mapping when the archive checksum does not match the manifest", () => {
     const { archivePath, bytes } = writeArchive([importableFood()]);
     const digest = createHash("sha256").update(bytes).digest("hex");
