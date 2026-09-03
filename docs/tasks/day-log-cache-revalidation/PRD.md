@@ -4,7 +4,7 @@ Status for Matt Pocock skills: ready-for-agent
 
 ## Problem statement
 
-Calibrate's Day Log views should paint immediately from recently synchronized private data, then reconcile cheaply when accuracy matters. Repeated visits around meals currently risk fetching and rebuilding food-entry payloads that the client already knows. The earlier ETag plan made an unchanged exact range inexpensive, but required a separate next-day rollover overlap protocol and could not return only the individual dates that had changed.
+Calibrate's Day Log views should paint immediately from recently synchronized private data, then reconcile cheaply when accuracy matters. Repeated visits around meals currently risk fetching and rebuilding food-entry payloads that the client already knows. Calibrate's anticipated usage is daily, with concurrent request spikes around mealtimes as users record food and revisit their stats. Those peaks should not transfer or rehydrate the full seven-day food-entries payload on every visit, so repeat checks stay within free-tier egress.
 
 Persistence has a separate privacy challenge. Browser tabs share IndexedDB. A user can log out in one tab while another tab is suspended or still writing its cache; a BroadcastChannel message is useful but is neither durable nor a sufficient serialization boundary. The design must ensure a prior account's wellness data cannot later be restored or persisted again after successful logout, account transition, or confirmed session loss.
 
