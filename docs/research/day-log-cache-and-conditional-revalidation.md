@@ -1,142 +1,106 @@
-# Day-log cache and conditional revalidation research
+# Day Log cache and bounded synchronization research
 
-_Researched 2026-08-22. External sources in this note are primary sources: TanStack Query's official documentation and the HTTP RFCs._
+_Initially researched 2026-08-22; revised 2026-09-02 after the design grilling session._
 
-## Answer in brief
+External sources in this note are primary documentation: TanStack Query, MDN, and the HTTP RFCs.
 
-Yes, the browser can persist a TanStack Query cache in IndexedDB, and the query cache can hold one date-indexed entry per day even when a single range request supplies the data. TanStack documents both a generic asynchronous persister interface and an IndexedDB implementation example. A range-response handler can seed or replace each individual day entry with `queryClient.setQueryData`.
+## Conclusion
 
-Standard HTTP conditional GET is also applicable, but to the **range response as one representation**. `GET /daylogs?startDate=…&endDate=…` can emit one ETag that represents the complete response for that authenticated user and exact date range. On the next identical request, `If-None-Match` can yield `304 Not Modified` when the complete range is unchanged. That is a good first conditional-revalidation design.
+The chosen design—account-scoped, date-keyed TanStack Query persistence plus bounded `POST /daylogs:sync`—is technically sound and better fits Calibrate's requirements than an ETag-only range protocol.
 
-Standard `If-None-Match` does **not** express "date A has revision x and date B has revision y; return only the dates whose revisions differ." Its tag list is an OR comparison against the entity tag of the single selected representation. A per-day version manifest is possible, but it is an application-specific synchronization protocol, not an HTTP conditional GET. It only improves backend work when the server can validate it using cheaper metadata than loading and serializing the complete range.
+The endpoint is intentionally an application synchronization protocol, not conditional HTTP. A sparse per-date version manifest lets the server use a narrow `(date, version_number)` projection, return `204` with no body when all supplied knowledge matches, and otherwise return only changed or unloaded date slots. It removes the prior special-case next-day overlap protocol while retaining the important performance property: unchanged Day Log aggregates and Food Entries are neither transferred nor rehydrated.
+
+The persistent cache needs a durable, monotonic cache-lifecycle fence in IndexedDB. BroadcastChannel is appropriate to make active tabs react quickly, but is not a durable correctness mechanism. The fence must survive snapshot deletion and must be checked transactionally by restore and persist operations so a stale tab cannot revive a cache after logout.
 
 ## Current codebase baseline
 
-- `GET /api/v1/daylogs?startDate&endDate` already returns every requested date slot, including `dayLog: null` for dates without a log. The client currently caches that result under a range-specific key (`["dayLogs", "range", startDate, endDate]`), while an individual-day read has a different key (`["dayLogs", date]`). See `packages/api-client/src/day-logs/get-day-log-range.ts` and `packages/api-client/src/day-logs/get-day-log.ts`.
-- `apps/web-frontend/src/main.tsx` uses `QueryClientProvider`; `apps/web-frontend/src/shared/api/query-client.ts` does not yet configure persistence.
-- The workspace has `@tanstack/react-query`, but not the official persistence packages documented below. An implementation that uses them would therefore require an explicit dependency-install decision. This research task made no dependency or production-code changes.
+- `GET /api/v1/daylogs?startDate&endDate` currently returns one slot per requested date, including `dayLog: null`. Its client range key is currently `['dayLogs', 'range', startDate, endDate]`; an individual-day key is separately `['dayLogs', date]`. Neither includes account identity.
+- `apps/web-frontend/src/main.tsx` provides the root `QueryClientProvider`. `SessionRestorationGate`, Header, and auth-facing UI use React Query, so a persistence provider cannot simply replace that root with a conditionally mounted provider without disrupting those consumers.
+- The workspace already declares `@tanstack/react-query-persist-client` and `@tanstack/query-async-storage-persister` 5.100.5 in the web frontend lockfile. No new package is required for a native IndexedDB `Persister`.
+- `getRollingSevenDayDateRange` means today minus six days through today. Dashboard V2 requests it once. Logs is currently a single-day editor, while the planned week scroller is a Sunday-to-Saturday presentation concern.
+- `useSaveFoodEntry` currently returns a Food Entry and invalidates the selected-day query plus all range keys. It needs a precise, version-aware write-delta path rather than a global range invalidation.
+- `buildNutrientAnalyticsModel` has 14-plus-14 comparison logic but receives the live seven-day query today. Passing it 28 days without changing Total would incorrectly make the displayed total span 28 days; the plan must retain a seven-day Total while using all 28 for Change.
 
-## 1. Persisting date-indexed query data to IndexedDB
+## 1. TanStack persistence supports the required provider and custom persister
 
-### What TanStack supports
+TanStack documents a `Persister` with `persistClient`, `restoreClient`, and `removeClient`, including an IndexedDB example. Its React `PersistQueryClientProvider` handles subscription lifecycle and prevents mounted queries from fetching while asynchronous restoration is ongoing; queries can render in an idle fetching state until restoration is complete. This supports mounting persistence only below a server-authenticated session gate rather than at the global app root. [TanStack persistence provider and custom persister](https://tanstack.com/query/latest/docs/framework/react/plugins/persistQueryClient)
 
-TanStack's persistence mechanism stores and restores a **dehydrated QueryClient** through a `Persister` with `persistClient`, `restoreClient`, and `removeClient`. The official documentation includes an IndexedDB persister example and recommends the persistence provider so mounting queries do not race the asynchronous restore. It also warns that the query client's `gcTime` must be at least the persistence `maxAge`; otherwise hydrated entries can be collected sooner than intended. [TanStack: persistQueryClient](https://tanstack.com/query/latest/docs/framework/react/plugins/persistQueryClient)
+The persisted value is the dehydrated QueryClient, not a separate IndexedDB record per TanStack key. That remains compatible with one date-keyed query per Day Log: normalize range/sync slots into entries such as `['dayLogs', accountId, yyyyMmDd]`, then use dehydration filtering to persist only that allow list. Query keys must contain account identity because the browser storage is otherwise shared between accounts.
 
-The documented persistence package is `@tanstack/react-query-persist-client`; `createAsyncStoragePersister` is supplied by the separate `@tanstack/query-async-storage-persister` package. The latter takes any storage with the async-storage interface, but TanStack's own IndexedDB example instead builds the general `Persister` interface with an IndexedDB wrapper. [TanStack: createAsyncStoragePersister](https://tanstack.com/query/latest/docs/framework/react/plugins/createAsyncStoragePersister)
+TanStack also documents the retention caveat: `gcTime` should be at least the persisted maximum age, but JavaScript timer limits make a direct 30-day value unsafe. `Infinity` disables Query's timer-based garbage collection. The accepted design uses that with explicit date-slot pruning before hydrate/persist, which makes the 30-day retention rule deterministic rather than timer-dependent. [TanStack persistence and `gcTime`](https://tanstack.com/query/latest/docs/framework/react/plugins/persistQueryClient)
 
-The important distinction is that persistence saves the dehydrated cache as a whole; it does not independently configure a storage record per TanStack key. That is still compatible with per-day query keys: each per-day query becomes an independently addressable cache entry before dehydration, and then the persister saves the resulting client state.
+`createAsyncStoragePersister` demonstrates the storage abstraction but does not solve the needed multi-store transaction or cache-generation protocol by itself. A custom native IndexedDB persister is appropriate because the `Persister` interface is explicitly intended for custom storage implementations. [TanStack async-storage persister](https://tanstack.com/query/latest/docs/framework/react/plugins/createAsyncStoragePersister)
 
-### Normalizing a fetched range into one cache entry per day
+## 2. Why `POST /daylogs:sync` replaces ETags and `304`
 
-TanStack requires serializable, data-unique array query keys and explicitly supports variables such as an identifier in a key. `queryClient.setQueryData` synchronously creates or updates a cache entry for a key from data already held by the application. These APIs support this sequence:
+An ETag validates one selected HTTP representation. A range ETag can efficiently answer “is this exact complete range unchanged?” and a matching `If-None-Match` on a GET can return `304`. It cannot express “date A is revision 2, date B is known absent, and date C is unloaded; return only the mismatches.” `If-None-Match` compares tags to the selected representation rather than providing a date-to-version map. [RFC 9110: entity tags](https://www.rfc-editor.org/rfc/rfc9110#section-8.8.3), [RFC 9110: If-None-Match](https://www.rfc-editor.org/rfc/rfc9110#section-13.1.2)
 
-1. Fetch a seven-day range once.
-2. For every returned date slot, write a value (including an explicit `null` slot) under a per-day key.
-3. Render a date range by composing those day entries, rather than treating the range payload as the durable cache shape.
-
-That is a supported cache operation; immutable updates are required. [TanStack: query keys](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys), [TanStack: QueryClient cache APIs](https://tanstack.com/query/latest/docs/reference/QueryClient)
-
-Suggested **identity shape to decide during design**, not an implementation commitment:
-
-```ts
-['dayLogs', accountId, yyyyMmDd]
-```
-
-The account scope is important because day-log reads are authenticated and a persisted browser cache can outlive a logout. Alternatively, clearing the entire persisted query client on logout/account switch is required. In practice, doing both—account-scoped persistent storage plus clear-on-logout—is the safer posture for a device that can be shared.
-
-`null` must be treated as real cached knowledge: it means "the server confirmed no log for this date", not merely "not loaded". A range cache must preserve enough state to distinguish an unrequested date from a fetched empty date.
-
-### Persistence policy decisions still needed
-
-- **Retention and freshness are separate.** `maxAge`/`gcTime` control how long a persisted entry is retained; TanStack's `staleTime` controls whether restored data refetches. A useful likely policy is a short freshness window for today and a longer one for completed historical days, followed by background validation.
-- **Privacy is a product decision.** Food/weight history remains in IndexedDB after a browser session. Decide whether persistence is available only with an explicit “remember this device” choice, and clear the account's cache on logout. Do not rely on HTTP `no-store` while intentionally retaining the same data in application-managed storage: the directive tells compliant HTTP caches not to store the response. [RFC 9111 §5.2.2.5](https://www.rfc-editor.org/rfc/rfc9111.html#section-5.2.2.5)
-- If HTTP caching is enabled for authenticated day-log responses, `Cache-Control: private` prevents shared caches from storing a single-user response while allowing a private cache to store it subject to the normal rules. That HTTP cache is separate from the application-managed TanStack/IndexedDB cache. [RFC 9111 §5.2.2.7](https://www.rfc-editor.org/rfc/rfc9111.html#section-5.2.2.7)
-
-## 2. What standard conditional GET can do for a day-log range
-
-An ETag is an opaque validator for the **selected representation**. For this API, the selected representation can be the JSON produced by the exact range request for its authenticated user—its start/end dates, all returned slots, and the response format. [RFC 9110 §8.8.3](https://datatracker.ietf.org/doc/html/rfc9110#section-8.8.3)
-
-Therefore this exchange is standards-aligned:
-
-```http
-GET /api/v1/daylogs?startDate=2026-08-16&endDate=2026-08-22
-If-None-Match: "range-validator-from-prior-response"
-```
-
-- If the current representation has that ETag, respond `304 Not Modified` with the appropriate validator metadata and no JSON body. The client composes the already persisted per-day slots.
-- Otherwise return `200 OK`, the full current seven-day response, and a replacement ETag. The client normalizes the returned slots into the seven per-day cache entries.
-
-`If-None-Match` is specifically intended to avoid transferring an unchanged representation. For a tag list, the condition fails if **one** supplied tag matches the selected representation's ETag; a false condition on `GET`/`HEAD` yields `304`. [RFC 9110 §13.1.2](https://datatracker.ietf.org/doc/html/rfc9110#section-13.1.2)
-
-This means an ETag on the range response answers one useful question efficiently: **is this whole requested range still the same?** It does not make the range cache redundant—the day entries are the client’s reusable data model, while the range ETag is compact revalidation metadata.
-
-`Last-Modified` / `If-Modified-Since` could provide a weaker time-based alternative, but RFC 9110 identifies ETags as the more accurate condition when both are present. A day-log range can have several modifications in a short interval, so an opaque range ETag is the sounder default. [RFC 9110 §13.1.3](https://datatracker.ietf.org/doc/html/rfc9110#section-13.1.3)
-
-## 3. Why a list of seven ETags is not a per-day conditional GET
-
-Although `If-None-Match` accepts a comma-separated list, that list is not a date-to-version map. The RFC describes it as a list compared to the selected representation's one entity tag, with a match if **any** listed value matches. HTTP caches likewise validate stored responses that have the same request URI/cache key. [RFC 9110 §13.1.2](https://datatracker.ietf.org/doc/html/rfc9110#section-13.1.2), [RFC 9111 §4.3.1](https://www.rfc-editor.org/rfc/rfc9111.html#section-4.3.1)
-
-Consequences:
-
-| Proposal | Protocol meaning | Result |
-| --- | --- | --- |
-| One range ETag on one range request | Validate the whole range representation. | `304` only when all visible range data is unchanged; otherwise return the range representation. |
-| Seven `GET /daylogs/:date` requests, each with its own ETag | Validate seven independent resources. | Standard and precise, but seven client requests and seven server validation paths. |
-| One range request with seven individual revisions | Not standard `If-None-Match` semantics. | Requires an explicit application-level sync/manifest contract. |
-
-This is why sending seven individual conditional GETs should not be the default for the dashboard. It exchanges a small range payload for seven request lifecycles and does not remove the need for the server to find each resource's current validator. It can be appropriate only when the user is viewing independently navigated individual days or when measurement shows the payload is extremely expensive and request overhead is negligible.
-
-## 4. A validator manifest is possible, but it is a sync API
-
-If partial deltas become necessary, define a separate, explicit contract rather than overloading HTTP validators. For example, a client could submit the requested range and its known per-date revisions; the service responds with changed day slots (including an explicit change from a day log to `null`) and enough metadata to prove the range reconciliation completed. A `POST /daylogs:sync` is often a cleaner shape than putting a multi-month revision map in a GET URL, but the method and contract are design choices.
-
-Illustrative payload shape only:
+The selected manifest format is therefore deliberately application-specific:
 
 ```ts
 type DayLogSyncRequest = {
   startDate: string;
   endDate: string;
-  known: Record<string, string | null>;
+  known: Record<string, number | null>;
 };
 
-type DayLogSyncResponse = {
-  changed: Array<{ date: string; revision: string | null; dayLog: DayLogResponse | null }>;
-  // A range-level token or generation proving the response covers this request.
-  rangeRevision: string;
+type ChangedDayLogSlot = {
+  date: string;
+  versionNumber: number | null;
+  dayLog: DayLogResponse | null;
 };
 ```
 
-Important semantic requirements before choosing this route:
+Omission is distinct from `null`: omission means Unloaded and requires a response slot; `null` says Known-empty and is a match only when the server also has no Day Log. A positive version matches only the same server-owned Day Log revision. On `200`, omitted unchanged slots are still validated by the response's range-complete semantics; this is why the client may timestamp every requested date after either successful status.
 
-1. Every state transition relevant to a slot, including created, updated, and deleted/empty, needs a version the server can compare. A `null` day without durable metadata complicates detection of a future create or deletion.
-2. The server must define a coherent snapshot boundary so the delta list is correct even while writes occur.
-3. Revisions are server-owned opaque values. They need not be exposed as database timestamps or row IDs.
-4. Analytics should not automatically reuse full day-log payload sync. A month/three-month chart likely needs a compact summary/aggregation resource with its own validator and refresh policy.
+The protocol requires the database operation to read the version projection and any returned full aggregates from one coherent snapshot. A narrow projection saves Food Entry loading only when all or many requested slots match; it does not mean a `204` has zero database work. That is the desired trade: lower aggregate/database work and no response body for common unchanged ranges, without misleadingly claiming a cache hit bypasses all storage.
 
-## 5. Does validation still hit the database?
+Plain positive `int32` versions are sufficient. They are not authorization tokens, are never trusted as write preconditions, and disclose only a change count for data the caller is already allowed to read. Opaque tokens would increase protocol and storage complexity without giving a privacy or integrity benefit here.
 
-Yes—unless a cache or maintained metadata answers it first. A `304` saves the response body transfer, JSON work, and potentially the expensive retrieval of all food entries, but the origin still has to establish whether its current representation matches the supplied validator. HTTP deliberately leaves the validator's generation strategy to the service author. [RFC 9110 §8.8.3.1](https://datatracker.ietf.org/doc/html/rfc9110#section-8.8.3.1)
+`Cache-Control: private, no-store` is coherent with intentionally persisting an application-managed, authenticated cache: it keeps HTTP caches out of the design while the explicit IndexedDB policy controls what is retained. RFC 9111 distinguishes `private` from `no-store`; the latter tells HTTP caches not to store the response. [RFC 9111: `no-store`](https://www.rfc-editor.org/rfc/rfc9111#section-5.2.2.5), [RFC 9111: `private`](https://www.rfc-editor.org/rfc/rfc9111#section-5.2.2.7)
 
-The performance question is therefore a data-access design question:
+## 3. Cross-tab logout: durable fence versus notification
 
-- A range ETag recomputed by loading all seven full aggregates can still save bandwidth but may save little database work.
-- A range validator calculated from a narrow, indexed day-log revision/updated-at projection can avoid loading child entries and be substantially cheaper. It still normally examines metadata for the requested range.
-- A maintained per-user change generation or change log can make "anything in this range changed since token T" cheap, but it adds correctness and write-path complexity. A global per-user generation alone creates false positives for changes outside the range unless the design also filters changes by date or accepts that trade-off.
-- An in-memory/distributed server cache can eliminate even that metadata query on a hit, but invalidation, multi-instance behavior, and recovery become new system responsibilities.
+BroadcastChannel lets same-origin browsing contexts exchange messages, which makes it a good fast path for an active tab. It does not persist a message for a tab that is not actively receiving, and it cannot serialize an in-flight IndexedDB snapshot write with a logout in another tab. [MDN: Broadcast Channel API](https://developer.mozilla.org/en-US/docs/Web/API/Broadcast_Channel_API)
 
-These are implementation inferences from the RFC’s rule that the service chooses the validator mechanism; they are not a claim that conditional GET automatically bypasses persistence.
+A deleted cache key is also insufficient evidence: deleting a snapshot removes the very fact a dormant tab needs in order to know a revocation occurred. The selected design instead uses a separate persistent lifecycle record with a monotonically increasing generation:
 
-## Recommended direction to take into planning
+1. A session-confirmed persister captures `(accountId, generation)` as a lease.
+2. Restore reads its snapshot and lifecycle record in one transaction, and returns a snapshot only when the stored generation equals that lease.
+3. Persist reads the lifecycle record and conditionally writes the snapshot in the same overlapping read-write transaction.
+4. Successful logout/confirmed session loss increments generation and deletes the account snapshot in one transaction.
 
-1. **Normalize first.** Keep one durable per-day client entry (including known-empty slots), account-scope it, and persist only after deciding the shared-device/logout policy.
-2. **Keep the first server change narrow.** Retain the batch range endpoint and add a **range-level ETag/If-None-Match** path. It preserves one request for dashboard/goals, returns `304` when the overlap is unchanged, and needs no client-sent per-day manifest.
-3. **Write mutation results/invalidation precisely.** A change to date D should update/invalidate date D and any active composed view that includes D; avoid globally invalidating every historical day. TanStack supports exact and partial-key invalidation, but the query-key hierarchy needs to be decided first. [TanStack: QueryClient invalidation](https://tanstack.com/query/latest/docs/reference/QueryClient)
-4. **Instrument before adding a manifest.** Measure range endpoint database time, payload size, `304` hit rate, IndexedDB restore latency, and stale-data corrections. Only introduce a delta/manifest endpoint if long-range analytics or observed payload/query costs justify its extra consistency machinery.
+IndexedDB supports object stores and transactions; keeping the fence and snapshot stores in the same database lets the implementation establish this atomic ordering boundary. The exact helper API should encapsulate the transaction so UI code cannot bypass the check. [MDN: IndexedDB API](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API)
 
-## Decisions for the grilling session
+On every tab, BroadcastChannel is supplemented with fence checks on mount, `pageshow`, visibility-to-visible, focus, and a 15-second interval while visible. Page visibility is a useful lifecycle signal, but periodic timers are throttled in background tabs, so it is a recovery opportunity—not a guaranteed delivery service. [MDN: Page Visibility API](https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API)
 
-1. Is offline access to previously loaded food/weight data an explicit product promise, or is this strictly a warm cache for an online experience?
-2. On logout/account change, must all persisted data be removed immediately? Is persistent storage allowed on a shared device?
-3. What is the allowed staleness for today, yesterday, older completed days, and goal/dashboard analytics?
-4. Can a user edit historic days, and can a day log be deleted/reset? These determine validator and invalidation semantics for `null` slots.
-5. What is the actual bottleneck today: endpoint/database time, response size, repeat network latency, or render cost? Capture a baseline before selecting server-side validator metadata or a manifest protocol.
+This gives a defensible ordering guarantee: a restore or persist operation that serializes after the lifecycle transaction commits cannot use an old lease. It does not retroactively erase a snapshot that another tab had restored into memory before revocation, or promise that already-painted pixels vanish in literally zero frames; browser scheduling is outside application control. The app must make the active path prompt and ensure a resumed tab purges before it uses private data again.
+
+## 4. Freshness is driven by explicit user intent, not “unseen” ranges
+
+“Unseen” was rejected because it could imply sooner-than-one-hour revalidation for prior calendar weeks, generating low-value traffic. The adopted policy is per-date and one-hour based:
+
+| Situation                                   | Request behavior                                                                              |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Dashboard or current Logs view              | Use rolling `today - 6` through today; cache-first, then sync if eligible.                    |
+| Future date in current Sunday-Saturday week | Render Upcoming; do not model as Known-empty or sync it.                                      |
+| Scroll historical Calendar weeks            | No request.                                                                                   |
+| Explicitly select historical date `D`       | Cache-first; only if D is unloaded, unverified, or one-hour stale, sync `D - 6` through D.    |
+| Select a nearby historic date after success | Skip while its own validation timestamp remains fresh.                                        |
+| Open Nutrient Analytics drawer              | Cache-first; when coverage is stale/incomplete, deliberately sync `today - 27` through today. |
+
+This matches human calendar navigation without asking for future-day absences, bounds automatic work, and makes the 28-day data transfer a user-initiated analytics operation rather than background prefetch.
+
+## 5. Mutation reconciliation needs an explicit predecessor
+
+Immediate post-write sync would add server work precisely during expected meal-time bursts. A compact mutation delta is safe only with a predecessor version: `previousVersionNumber`, `versionNumber`, Day Log ID, and created Food Entry. The client may patch a complete cached aggregate only when its stored version equals the predecessor. Otherwise it must show the acknowledged local result while marking the date slot unverified for a later normal sync.
+
+This avoids two harmful alternatives: a follow-up read immediately after every write, and silently advancing a stale partial aggregate over a cross-device update. It also makes precise invalidation possible: do not invalidate every historical range for one Day Log mutation.
+
+## Research outcome for implementation
+
+1. Preserve the custom `Persister` seam and mount `PersistQueryClientProvider` only after server session confirmation, inside—not instead of—the root query provider.
+2. Implement `POST /daylogs:sync` as a bounded, documented application protocol with `204`/sparse `200` semantics; remove ETag and six-day overlap work from the plan.
+3. Put the privacy guarantee in a fenced IndexedDB transaction. Use BroadcastChannel and visible-tab checks for responsiveness and recovery.
+4. Treat `lastValidatedAt` as per-date metadata. Every successful sync validates all requested dates even when `200` only contains some payloads.
+5. Use the existing Day Log aggregate-root write path to version response-visible writes atomically. Do not introduce child write repositories or an analytics projection endpoint for this scope.

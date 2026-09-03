@@ -1,85 +1,104 @@
-# Persisted Day Log Cache and Conditional Revalidation
+# Private Day Log Cache and Bounded Synchronization
 
 Status for Matt Pocock skills: ready-for-agent
 
-## Problem Statement
+## Problem statement
 
-Returning to Dashboard or Goals repeatedly makes the browser request and rebuild a rolling seven-day view even when most Day Logs are already known locally and have not changed. A later return on the same day should not require a new origin request just to paint the screen, and when the client does revalidate, the backend should not transfer or rehydrate unchanged Day Logs and Food Entries. If we save the seven-day data locally, then on the next calendar day, even with a local cache, the next calendar day still has no cheap way to validate the six-day overlap. The app also has no durable, user-isolated offline read cache for recently synchronized wellness data.
+Calibrate's Day Log views should paint immediately from recently synchronized private data, then reconcile cheaply when accuracy matters. Repeated visits around meals currently risk fetching and rebuilding food-entry payloads that the client already knows. The earlier ETag plan made an unchanged exact range inexpensive, but required a separate next-day rollover overlap protocol and could not return only the individual dates that had changed.
 
-Calibrate's anticipated usage is daily, with concurrent request spikes around mealtimes as users record food and revisit their stats. Those peaks should not transfer or rehydrate the full seven-day food-entry payload on every visit, so repeat checks stay within free-tier egress. The solution must therefore cut origin request volume for rendering and in-session revisits, and make remaining revalidation cheap when the range is unchanged, while improving perceived load time—without exposing one user’s wellness data to another user of the same browser, weakening the existing cookie-backed session model, or making offline writes part of this story. First open after the freshness window may still hit the origin, but use the cheaper revalidation path.
+Persistence has a separate privacy challenge. Browser tabs share IndexedDB. A user can log out in one tab while another tab is suspended or still writing its cache; a BroadcastChannel message is useful but is neither durable nor a sufficient serialization boundary. The design must ensure a prior account's wellness data cannot later be restored or persisted again after successful logout, account transition, or confirmed session loss.
 
-## Solution
+## Outcome
 
-Persist authenticated, user-scoped Day Log query data in IndexedDB and make one Day Log query entry authoritative for each calendar date, including a cached known-empty day. Restore only the confirmed current user's data, and render Dashboard and Goals from those date-keyed entries immediately, so screen paint and switching between those views do not require a new origin request. Treat the range as fresh for one hour; activation and focus revalidate only if stale. On a successful food save, update the affected day’s cache from the mutation result and do not refetch the range. One hour freshness matches user behavior: a session usually is logging meals and checking stats quickly right when eating a meal, repeatedly using a single device, and then the user will go back to whatever else they were doing. Users generally will not switch between devices in a single session, so we can relax on needing absolute freshness and revalidating constantly during a single session.
+Persist an authenticated, account-scoped Day Log cache that restores only after server session confirmation, composes screens from date slots, and uses `POST /daylogs:sync` to validate a bounded date range. An unchanged request has a zero-byte body (`204`); a changed request transfers only changed or unloaded dates (`200`). The same protocol supports Dashboard's rolling seven days, deliberate historical-day browsing, and the Nutrient Analytics drawer's deliberate 28-day refresh without inventing separate rollover or analytics APIs.
 
-The backend will give each Day Log an internal revision that advances atomically with every response-visible change. A range request uses a revision-only projection to derive an ETag for its exact response. A repeat request for the same range sends that ETag and receives `304 Not Modified` with no JSON body when unchanged, so the client reuses its cached days without transferring the seven-day representation or loading Food Entries. A changed range still returns the full 200 body. A full rolling seven-day response also carries an opaque validator for its next-day six-day overlap. At date rollover, the browser conditionally requests that overlap and requests the new day in parallel, so an unchanged overlap avoids loading its Day Logs and Food Entries.
+The cache is an optional read-performance feature. When IndexedDB is unavailable or corrupt, the user receives an empty online cache; offline editing, queueing, and conflict resolution remain out of scope.
 
-## User Stories
+## User stories
 
-1. As a signed-in Calibrate user, I want Dashboard to show my most recently synchronized seven-day view immediately, so that I can check my nutrition without waiting for a network round trip.
-2. As a signed-in Calibrate user, I want Goals to use the same recent Day Log data as Dashboard, so that switching between those views does not reload the same history unnecessarily.
-3. As a user temporarily offline, I want to read recently synchronized Day Logs, including days with no log, so that I can still inspect my recent nutrition history.
-4. As a user who opens Dashboard several times in one day, I want unchanged data to validate without downloading the full range again, so that repeat visits are fast and use less network data.
-5. As a user who opens the app on the next calendar day, I want the already-known six historical days to remain visible immediately, so that only the new day's state needs to catch up.
-6. As a user whose historical Day Log changed from another device, I want background validation to correct stale cached data, so that the app does not silently show outdated nutrition information.
-7. As a user who adds a Food Entry, I want the affected Day Log and any visible nutrition summaries to refresh, so that my dashboard and goals reflect the successful write.
-8. As a user who adds a Food Entry to a past date, I want that historical Day Log to refresh just as reliably as today's, so that editable history remains accurate.
-9. As a user with no Day Log for a date, I want that known-empty day to be cached distinctly from an unloaded day, so that the app does not repeatedly request a confirmed absence.
-10. As a user with an Empty Day Log, I want it to remain distinct from a known-empty day, so that a Day Log with no Food Entries and a possible weight observation is not treated as deleted.
-11. As a user on a shared browser, I want another account never to see my persisted Day Logs, so that locally stored wellness data remains private.
-12. As a user who explicitly logs out, I want my persisted Day Log cache removed only after logout succeeds, so that private data is cleared without treating a failed logout as successful.
-13. As a user returning with a restored session, I want only my account's persisted data restored after the server confirms my identity, so that stale data from a previous account is never shown during session bootstrap.
-14. As a user in private browsing or on a device that denies IndexedDB access, I want Dashboard and Goals to continue working online, so that local-storage failure does not block the product.
-15. As a user who does not explicitly log out, I want old persisted Day Logs to expire after a bounded period, so that the offline benefit does not retain wellness data indefinitely.
-16. As a user on a slow connection, I want the app to render cached Day Logs first and correct them in the background, so that freshness does not require a blank loading state.
-17. As a user whose current Day Log is unchanged, I want a conditional response to reuse the existing data without a JSON body, so that normal revalidation is lightweight.
-18. As a user whose overlap changed overnight, I want the app to load the changed historical range rather than assume it is unchanged, so that the rollover optimization remains correct across devices.
-19. As a user with an expired or rotated access cookie, I want Day Log caching to remain independent of cookie values, so that normal session renewal does not fragment the useful application cache.
-20. As a maintainer, I want measured evidence for cache restore time, revalidation results, response size, and database work, so that we only add a more complex synchronization protocol if this design proves insufficient.
+1. As a signed-in user, I see the Dashboard's last synchronized rolling seven days immediately, then a background refresh only when its data is due for validation.
+2. As a user returning repeatedly around a meal, I do not download or rehydrate unchanged Day Logs and Food Entries merely to confirm that they are unchanged.
+3. As a user with no Day Log for a date, I have a cached `Known-empty` state distinct from an unloaded date and from an existing Empty Day Log.
+4. As a user on a shared browser, I never have another account's persisted wellness data restored during session bootstrap.
+5. As a user logging out in one tab, I want every other tab to purge prior private state promptly and to be unable to restore or re-persist it after revocation, even if it missed the live notification.
+6. As a user whose logout failed, I want the application to retain my private cache and session state rather than treating that logout as successful.
+7. As a user opening Logs, I see a familiar Sunday-to-Saturday Calendar week while current data reuses the rolling seven-day data that Dashboard already synchronized.
+8. As a user viewing an upcoming day in the current Calendar week, I see it as Upcoming rather than as an empty historical log.
+9. As a user scrolling older Calendar weeks, I do not cause background network requests merely by browsing the calendar.
+10. As a user explicitly selecting an old day, I get cached data first and a background reconciliation of that day plus its six predecessors when the selected day needs validation.
+11. As a user opening Nutrient Analytics, I see available cached nutrition first while the intentional 28-day window reconciles, and I do not see a partial comparison presented as complete.
+12. As a user adding Food Entry data, I see an acknowledged local update without the client immediately adding another sync request during peak meal-time traffic.
+13. As a user whose Day Log changed elsewhere, I eventually see the server truth when my stale or unverified date becomes eligible for ordinary synchronization.
+14. As a maintainer, I can measure cache usefulness and sync efficiency without recording Food Entry, Day Log, or authentication content.
 
-## Implementation Decisions
+## Product and protocol decisions
 
-- This is a cross-layer change affecting the web frontend, shared API client, API contracts and presentation layer, application read contracts, persistence infrastructure, and the Day Log aggregate's persistence lifecycle. It must preserve the backend's dependency direction: HTTP headers and status codes remain presentation concerns; application ports use Day Log query terms rather than database rows; Postgres owns transactions; and Food Entry writes continue through the Day Log aggregate-root repository.
-- Add the official TanStack React persistence provider after the user installs it. The web app owns a small native IndexedDB persister rather than adding another storage library.
-- Persist only Day Log data and cache-validation metadata. Do not persist authenticated-session data, access tokens, refresh tokens, or other authentication state.
-- Namespace persisted storage by authenticated user ID. Confirm the server session before restoring that namespace, do not mount Day Log reads until restore is complete, and treat persistence failure or corrupt state as an empty cache. Explicit logout and account change clear both the in-memory data and the matching persisted namespace after the server logout succeeds.
-- Retain persisted data for 30 days. Configure in-memory garbage collection for at least the same retention period, while treating freshness separately from retention.
-- Make one date-keyed Day Log query entry the durable data shape. Populate it from every successful single-day or range response. A `null` result is a cacheable Known-empty day; it is not equivalent to an unloaded date. Range responses are composition and revalidation inputs, not the durable Day Log data shape.
-- Dashboard and Goals compose their Seven-day view from date-keyed entries. They render restored entries immediately, then trigger background revalidation on first activation after hydration and on browser-focus return. They do not poll.
-- Add a server-owned revision to the Day Log persistence record. It is not an HTTP contract or a client-computed value. Every response-visible Day Log write, including Food Entry creation and future weight changes, advances that revision in the same infrastructure-owned transaction as the underlying write.
-- Add an application-level user-scoped Day Log range-version query. The Postgres adapter implements it as a narrow ordered projection of date and revision values using the existing user/date access pattern. It must not load Food Entries or reconstitute Day Logs when an unchanged range can be established.
-- The presentation layer derives an opaque ETag for the exact authenticated range representation from the requested dates and the ordered range-version result. It handles `If-None-Match`, returns `304` without a response body when the range is unchanged, and otherwise loads and maps the full range. The shared API client represents not-modified as a successful typed result rather than an error or an empty JSON response.
-- A successful rolling Seven-day response exposes a separate opaque validator for the next-day six-day overlap in its validated response metadata. It is not a second `ETag` response header. The browser stores and replays this server-issued value; it never derives a validator from revisions.
-- On date rollover, when a valid persisted overlap validator exists, request the six historical dates conditionally and the new date in parallel. Reuse the six local dates after a `304`; replace them if the historical response is modified; then merge the new-date result. When no overlap validator exists, use the normal full rolling-range read.
-- On a successful Day Log mutation, invalidate or refresh the affected date entry and any active validation metadata whose range contains that date. Do not invalidate unrelated historical Day Log data globally. The next visible composed view must reflect the successful mutation.
-- Day Log responses use `Cache-Control: private, no-cache`. Omit `Vary: Cookie`: short-lived rotating access cookies would fragment HTTP-cache variants. The application-managed, user-namespaced cache is the source of durable reuse. If the web API is cross-origin, expose `ETag` to browser JavaScript and allow `If-None-Match` through CORS.
-- Add measurement that captures persisted-cache restore latency, time to a usable Dashboard/Goals view, range endpoint database duration, response bytes, and conditional `304` rate. Do not log Day Log or Food Entry content in those measurements.
+### Date-slot cache model
 
-## Testing Decisions
+- The canonical durable client shape is one account-scoped date slot per calendar date. A slot records Day Log data or `Known-empty`, a present Day Log `versionNumber`, `lastValidatedAt`, and whether a locally patched write is `unverified`.
+- A missing slot is Unloaded. `Known-empty` is a confirmed absence. An Empty Day Log is a present aggregate, potentially with a weight observation, and is not an absence.
+- Query keys include account ID. The existing root `QueryClientProvider` remains because session-gate, Header, and auth UI use React Query. A `PersistQueryClientProvider` using the same client mounts only below server-authenticated content and is remounted for an account or cache-generation change.
+- Dehydration is an explicit allow list: Day Log slots and their validation metadata only. Never persist auth/session queries, access or refresh tokens, mutations, or unrelated queries.
+- Retain a slot for 30 days after last successful validation. Explicitly prune stale-retention records before hydration and persistence; do not rely on a 30-day JavaScript garbage-collection timer. IndexedDB errors are caught and result in a no-op persister plus online behavior.
 
-- Tests assert externally observable behavior and contracts rather than query-builder calls, private persister internals, or exact method invocation sequences.
-- Extend the existing Day Log HTTP route integration suite as the backend protocol seam. It must cover authenticated and unauthenticated requests, full-range `200` responses with ETags and overlap metadata, matching `If-None-Match` responses with `304` and no body, changed-range fallback to `200`, cache directives, and no data leakage between users.
-- Add a PostgreSQL repository integration suite for revision behavior. It must prove that a response-visible Food Entry write advances its parent Day Log revision atomically, that a range-version read includes only the requested user's in-range Day Logs, and that an unchanged validation path does not require Food Entry loading. Use the existing Day Log repository tests as the nearby prior art, while keeping database behavior in the integration suite.
-- Extend shared API-client range-read tests to assert outgoing validator headers, typed not-modified results, range metadata handling, and normalization of every successful range slot into date-keyed entries. Add focused transport tests for readable response ETags, `304` handling without JSON parsing, and ordinary error behavior remaining unchanged.
-- Extend API-contract tests for the rolling-overlap metadata and the distinction between populated, Empty, and Known-empty Day Log response slots. Validate that malformed validator metadata cannot enter the client.
-- Extend existing Dashboard integration coverage to assert immediate composition from cached date entries, background correction after a modified response, same-range `304` reuse, and the parallel rollover result. Extend Goals coverage so it consumes the same date-keyed source rather than creating an independent range cache.
-- Add a focused Session Restoration Gate test that proves server-confirmed account identity precedes restoration, another account's persisted namespace is not hydrated, and unavailable IndexedDB falls back to online behavior. Extend the existing Header test to prove successful logout clears user-scoped in-memory and persisted Day Log data while failed logout preserves it.
-- Add a browser end-to-end test beside the existing live Dashboard flow. It must use actual IndexedDB across reload, verify user-scoped isolation and explicit logout clearing, and exercise the real next-day overlap request sequence. This is the highest-confidence seam for browser persistence; JSDOM tests alone are insufficient.
-- Add deterministic measurement tests or test hooks that demonstrate that no Day Log or Food Entry content is emitted in performance telemetry. Performance assertions should use stable behavior such as validator hit/miss classification rather than timing thresholds that would be flaky in CI.
+### `POST /daylogs:sync`
 
-## Out of Scope
+- The endpoint accepts a contiguous inclusive `startDate` and `endDate`, capped at 31 local calendar dates, plus sparse per-date known-version entries.
+- An omitted entry says Unloaded; `null` says Known-empty; a positive `int32` says the cache has that Day Log revision. The version is a plain server-owned counter, never a capability or write precondition.
+- The backend makes a narrow user-scoped `(date, version_number)` projection in a coherent database snapshot before loading aggregates. It returns:
+  - `204 No Content` when every requested slot matches the manifest. The response has no body.
+  - `200 OK` with only changed or unloaded `{ date, versionNumber, dayLog }` slots otherwise. `dayLog: null` confirms Known-empty.
+- A successful `200` or `204` confirms all requested dates. The client stamps `lastValidatedAt` for every requested date, not only returned slots.
+- Responses use `Cache-Control: private, no-store`; they have no ETags, `If-None-Match`, `304`, `Vary: Cookie`, or rollover-overlap validator.
+- `day_logs.version_number` is a positive `int32`. Migration/backfill initializes existing rows. The aggregate-root repository atomically advances it with every response-visible Day Log write; a newly created log becomes version 1. Day Log deletion is not in this scope.
 
-- Offline creation, editing, deletion, queuing, retrying, conflict resolution, or synchronization of Food Entries, weight observations, or any other mutation.
-- Deleting a Day Log or changing an existing Day Log into a Known-empty day. A future deletion story must define durable tombstone/version semantics before it reuses this cache protocol.
-- An arbitrary client-supplied day-revision manifest, a general delta-sync endpoint, or a client-computed range-validator algorithm.
-- Month- and quarter-scale analytics endpoints, expanded date-range limits, analytics summary projections, or a reporting read model.
-- A server-side distributed cache, CDN Day Log cache, service worker cache, or caching of authentication credentials.
-- Changing cookie lifetime, refresh-token rotation, access-session behavior, or the existing authentication model.
-- Persisting data for more than 30 days, persisting data across explicit logout, or retaining data when IndexedDB cannot be safely restored.
+### Cross-tab cache revocation
 
-## Further Notes
+- The native asynchronous IndexedDB persister has separate `persistedClients` and `cacheLifecycle` object stores. A durable lifecycle record contains an account-scoped monotonically increasing generation.
+- After server session confirmation, a persister captures an `{ accountId, generation }` lease. Restore reads fence and snapshot in one transaction and returns data only if they match; persist checks the fence and writes the snapshot in one overlapping read-write transaction, so a stale tab cannot revive data after logout.
+- After successful server logout, or only after session loss is conclusively confirmed, one IndexedDB transaction increments the generation and deletes the account snapshot. The tab stops persistence, cancels/removes private in-memory queries, and navigates to login. Failed logout or transient refresh failure does none of these.
+- BroadcastChannel broadcasts the new generation for prompt active-tab cleanup. It is an accelerator, not a correctness condition. Each tab also checks the fence on mount, `pageshow`, visibility return, focus, and every 15 seconds while visible.
+- The guarantee is persistence-safe rather than magically instantaneous pixel erasure: a restore or persist serialized after revocation cannot use the stale lease. A tab that had already restored can retain in-memory pixels until prompt active cleanup or its next lifecycle check; suspended tabs purge before reuse.
 
-- The existing rolling range is capped at seven calendar dates. The current local calendar date remains the anchor for the Seven-day view.
-- The normal same-range ETag path optimizes repeat visits within a day. The explicit six-day overlap validator is a narrow, intentional optimization for the first visit after a date rollover; it is not a generic synchronization mechanism.
-- The source decision is ADR-0003, and the supporting primary-source research covers TanStack Query persistence and HTTP conditional request semantics.
-- The user will run the approved official persistence-provider installation before implementation begins. No dependency installation is part of publishing this specification.
+### View-specific synchronization
+
+- **Dashboard:** compose `today - 6` through today from date slots. It starts a background sync only when the view needs validation, and can reuse in-flight work through query deduplication.
+- **Logs:** display a Sunday-to-Saturday Calendar week. The current Calendar week reuses Dashboard's rolling seven-day range; dates after today are Upcoming and disabled. Users cannot navigate to future Calendar weeks. Merely scrolling a historical week is network-silent. When the user explicitly selects historical date `D`, compose the cache first and, only when slot `D` is Unloaded, unverified, or at least one hour since its last successful validation, sync `D - 6` through `D`. Check freshness of the selected date, not the whole week; all seven dates receive validation timestamps on success.
+- **Nutrient Analytics drawer:** opening the drawer is the deliberate 28-day action. Compose cached slots immediately and sync `today - 27` through today only when its coverage is stale, incomplete, or unverified. Display `Updating — N/28 days available` while incomplete. The existing Total remains the most recent seven days; Change compares the most recent 14 days with the preceding 14 and remains pending until all 28 dates are confirmed.
+
+### Food Entry write behavior
+
+- Successful Food Entry creation returns the created entry, parent `dayLogId`, `previousVersionNumber` (`null` only for known absence becoming a new Day Log), and `versionNumber`.
+- The client patches a Day Log slot only if its cached predecessor version exactly equals `previousVersionNumber`. It updates the entry and version without issuing `sync`.
+- If the slot is absent or version-mismatched, keep a locally acknowledged UI result but mark the slot unverified. A later ordinary eligible sync retrieves truth; do not promote a partial stale cache to the new revision or globally invalidate every Day Log range.
+
+## Implementation boundaries
+
+- This crosses web UI/query composition, shared API client, `@calibrate/api-contracts` as the presentation boundary, backend presentation, application read ports/use cases, persistence infrastructure, and the Day Log aggregate-root repository.
+- Preserve dependency direction: presentation maps HTTP and contracts; application uses Day Log terms; infrastructure owns SQL, read snapshots, migration, and transactions; child writes stay through the Day Log aggregate root. No database rows leak through application ports.
+- The current persistence packages are already present. Do not install a new dependency for the custom IndexedDB persister.
+- No separate analytics endpoint or general server delta feed is needed. The bounded Day Log sync delivers the existing aggregate detail that the analytics model requires.
+
+## Testing and evidence
+
+- **Sync protocol:** 31-date bound, malformed manifest rejection, authenticated account isolation, narrow unchanged `204` with no body, sparse `200` changed/unloaded slots, `no-store` headers, coherent projection/snapshot, and aggregate-write version advancement.
+- **Persistence and privacy:** actual IndexedDB browser coverage for server-gate-first restoration, account scoping, unavailable/corrupt storage fallback, successful versus failed logout, missed BroadcastChannel delivery, resume/focus fallback, and persist/restore races against a revocation fence.
+- **Client behavior:** Known-empty versus Empty versus Unloaded; every successful sync's per-date timestamp; dashboard reuse; Sunday calendar/DST/year boundaries; Upcoming future cells; historical scroll silence; historic selection `D-6..D`; neighbor selection fresh skip; cache-first offline/error states; local write patch and mismatch-to-unverified behavior.
+- **Analytics:** no 28-day request before drawer opening; cache-first partial coverage; 28-date stale sync; Total from seven dates; Change from 14-plus-14 only after complete confirmation; no partial data silently represented as known empty.
+- **Measurement:** privacy-safe cache-restore and usable-view timings, projection versus aggregate work, request/response bytes, `204` ratio, and sync reason. Never emit food, Day Log, user-session, or token content. Use deterministic behavioral assertions rather than timing thresholds in CI.
+
+## Out of scope
+
+- Offline Day Log/Food Entry creation, editing, deletion, queues, retries, conflicts, or merge semantics.
+- Day Log deletion/recreation and durable deletion-version semantics.
+- ETags, `If-None-Match`, `304`, browser/CDN/API response caching, the old six-day rollover-overlap protocol, or a general unbounded delta-sync API.
+- Sync ranges above 31 dates, month/quarter reporting endpoints, or server-side analytics projections.
+- Changes to cookies, refresh-token rotation, session lifetime, or authentication authorization rules.
+- A claim that browser tabs can remove already-painted private pixels at a literal zero-frame latency after another tab logs out.
+
+## Rollout and success criteria
+
+1. Land the private cache and lifecycle fence before exposing persisted Day Log data.
+2. Land the backend sync protocol and aggregate version lifecycle, then wire cache composition and client writes.
+3. Introduce Logs historic selection and Nutrient Analytics only after per-date validation behavior is covered.
+4. Review the privacy-safe measurements after production-like usage. Success means repeat visits generally paint cache-first; unchanged syncs commonly return `204`; projection validation is materially cheaper than aggregate loading; and no account-crossing restore/persist behavior is observed.
