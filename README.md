@@ -36,6 +36,7 @@ Initial page:
 - A compact, rolling **Seven-Day Nutrition** section with both daily charts and the average over the last 7 days lets the user quickly gain a sense of how they are doing and if it is good to give efforts for special adjustments today. 
 - On mobile screens it takes up half the screen, so that the next section for Habits also appears without scrolling and help the user build their habits.
 - The **Habits** section is next in sequence, and gently encourages the user with to keep up their good work with calendar heatmaps and weekly usage stats. The acts of logging food and weight are so key to making progress; the awareness they bring to your current habits and how much for example snacking or higher calorie foods in your meals account for are priceless.
+  - The small cards MiniAnalyticsCard is a compound component, they are suited for this case because there are common subcomponents and layout styles to capture, like MiniAnalyticsCard.Title or MiniAnalyticsCard.ChartArea, while allowing choosing subcomponents to compose for different cases, like MiniAnalyticsCard.BottomSummary composing MiniAnalyticsCard.GoDeeperIcon only the mini card is interactive and lets you click it to go somewhere else.
 - The **Nutrition** section after has mini cards you can use to drill in deeper for that nutrient.
 
 ##### Nutrient Analytics
@@ -51,11 +52,12 @@ Initial page:
 
 
 #### Daily Logs Page
-- Planning to revisit this page's design, it is an older page I tried using Google Stitch to design, but my recent Dashboard page has a different aesthetic from Codex ImageGen that I like better, and want to harmonize this page with.
+- Will revisit this page's design further, it is an older page I have harmonized partially with the new Dashboard's design.
 - Each day starts with a compact summary of calories eaten, calories remaining, and macros with line graphs to give the user a quick sense of if their day is on the right track, and what they can still afford. As they are working on building new habits, it helps to know this information so they can quickly adjust in the same day.
 - Logging can be done via the floating Plus button, or an Add Item button under the specific meal to quickly reach logging for it, which a user will frequently do.
 <br></br>
-<img width="1185" height="886" src="https://github.com/user-attachments/assets/da88edd0-00c5-4067-9104-35ae1b2640af" />
+<img width="1225" height="915" src="https://github.com/user-attachments/assets/0d215884-2055-43fe-9b5c-3973a2aecfb6" />
+
 
 
 # Tech Stack
