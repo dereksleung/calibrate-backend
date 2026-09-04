@@ -4,15 +4,21 @@ Status for Matt Pocock skills: ready-for-agent
 
 ## Problem statement
 
-Calibrate's Day Log views should paint immediately from recently synchronized private data, then reconcile cheaply when accuracy matters. Repeated visits around meals currently risk fetching and rebuilding food-entry payloads that the client already knows. Calibrate's anticipated usage is daily, with concurrent request spikes around mealtimes as users record food and revisit their stats. Those peaks should not transfer or rehydrate the full seven-day food-entries payload on every visit, so repeat checks stay within free-tier egress.
+On a new day, the previous week's day logs are highly likely to still be the same, and the further in the past, the likelier this will be, as it becomes a hassle to either remember exactly what and how much was eaten, or to catch up entering everything. Calibrate's Day Log views should paint immediately from existing available data, and synchronize and reconcile cheaply when accuracy matters, and reduce request volume and data transfer. Repeated visits around meals currently risk fetching and rebuilding food-entry payloads that the client already knows. Calibrate's anticipated usage is daily, with concurrent request spikes around mealtimes as users record food and revisit their stats. Those peaks should not transfer or rehydrate the full seven-day or 28-day food-entries payload on every visit, so repeat checks stay within free-tier egress.
 
 Persistence has a separate privacy challenge. Browser tabs share IndexedDB. A user can log out in one tab while another tab is suspended or still writing its cache; a BroadcastChannel message is useful but is neither durable nor a sufficient serialization boundary. The design must ensure a prior account's wellness data cannot later be restored or persisted again after successful logout, account transition, or confirmed session loss.
 
 ## Outcome
 
-Persist an authenticated, account-scoped Day Log cache that restores only after server session confirmation, composes screens from date slots, and uses `POST /daylogs:sync` to validate a bounded date range. An unchanged request has a zero-byte body (`204`); a changed request transfers only changed or unloaded dates (`200`). The same protocol supports Dashboard's rolling seven days, deliberate historical-day browsing, and the Nutrient Analytics drawer's deliberate 28-day refresh without inventing separate rollover or analytics APIs.
+Persist an authenticated, account-scoped Day Log client-side cache that restores only after server session confirmation, renders screens using cached date slots, and uses `POST /daylogs:sync` to validate a bounded date range. An unchanged request has a zero-byte body (`204`); a changed request transfers only changed or unloaded dates (`200`). The same protocol supports Dashboard's rolling seven days, deliberate historical-day browsing, and the Nutrient Analytics drawer's deliberate 28-day refresh without inventing separate rollover or analytics APIs.
 
-The cache is an optional read-performance feature. When IndexedDB is unavailable or corrupt, the user receives an empty online cache; offline editing, queueing, and conflict resolution remain out of scope.
+For a fallback when IndexedDB is unavailable or corrupt, the user receives an empty online cache; offline editing, queueing, and conflict resolution remain out of scope.
+
+A client-side cache is the design that makes sense from expected usage patterns. You cannot easily predict what records will be read the most on the server, making a server-side cache impractical, for the following reasons:
+
+- Every client reads their own food log data, so each day log and food entry will be read roughly the same amount, less often if the user has less time that day to log food.
+- They will browse historical records sometimes, to varying levels of depth.
+- Every client will read different portions of the food catalog depending on their search terms and their changing tastes for what they choose to eat that day.
 
 ## User stories
 
