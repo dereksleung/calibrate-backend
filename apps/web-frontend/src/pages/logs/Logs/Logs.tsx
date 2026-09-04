@@ -1,6 +1,7 @@
 import { apiTransport } from "#/shared/api/api-client.ts";
 import { Typography } from "#/shared/components/base/typography/Typography.tsx";
 import { APP_CONTENT_FRAME_CLASS_NAME } from "#/shared/layout/app-content-frame.ts";
+import { useAuthenticatedSession } from "#/verticals/auth/authenticated-session.ts";
 import { useSelectedDayLog } from "@calibrate/api-client";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo } from "react";
@@ -73,7 +74,8 @@ export function Logs({ selectedDate }: LogsProps) {
   const headingDate = useMemo(() => new Date(`${selectedDate}T00:00:00`), [selectedDate]);
   const navigate = useNavigate();
 
-  const { data, isPending, error } = useSelectedDayLog(apiTransport, selectedDate);
+  const session = useAuthenticatedSession();
+  const { data, isPending, error } = useSelectedDayLog(apiTransport, session!.user.id, selectedDate);
 
   useEffect(() => {
     if (!isPending && error) {

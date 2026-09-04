@@ -89,7 +89,7 @@ beforeEach(() => {
       return Promise.resolve(
         new Response(
           JSON.stringify({
-            id: "created-entry",
+            id: "33c07887-0f37-4bb8-9f87-3c283346f767",
             name: "Zero Sugar Oat",
             brand: "Earth's Own",
             meal: "BREAKFAST",

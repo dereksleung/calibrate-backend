@@ -41,15 +41,17 @@ export function getSaveFoodEntryMutationOptions(transport: ApiTransport, date: s
 
 export async function invalidateDayLogQueries(
   queryClient: Pick<QueryClient, "invalidateQueries">,
+  accountId: string,
   date: string,
 ): Promise<void> {
-  await queryClient.invalidateQueries({ queryKey: dayLogQueryKey(date) });
-  await queryClient.invalidateQueries({ queryKey: dayLogRangeQueryKeyPrefix });
+  await queryClient.invalidateQueries({ queryKey: dayLogQueryKey(accountId, date) });
+  await queryClient.invalidateQueries({ queryKey: dayLogRangeQueryKeyPrefix(accountId) });
 }
 
 /** Portable save hook. It refreshes the selected day and cached dashboard ranges after a successful entry creation. */
 export function useSaveFoodEntry(
   transport: ApiTransport,
+  accountId: string,
   date: string,
   options?: Omit<UseMutationOptions<FoodEntryResponse, Error, CreateFoodEntryRequest>, "mutationFn">,
 ) {
@@ -59,7 +61,7 @@ export function useSaveFoodEntry(
     ...getSaveFoodEntryMutationOptions(transport, date),
     ...mutationOptions,
     onSuccess: async (entry, variables, context, mutation) => {
-      await invalidateDayLogQueries(queryClient, date);
+      await invalidateDayLogQueries(queryClient, accountId, date);
       await onSuccess?.(entry, variables, context, mutation);
     },
   });

@@ -6,6 +6,11 @@ import {
   clearAuthenticatedSession,
   useAuthenticatedSession,
 } from "#/verticals/auth/authenticated-session.ts";
+import {
+  broadcastDayLogCacheRevocation,
+  revokeDayLogCache,
+} from "#/verticals/day-log-cache/indexed-db-day-log-cache.ts";
+import { clearPrivateDayLogMemory } from "#/verticals/day-log-cache/private-day-log-cache-provider.tsx";
 import { deleteCurrentSession } from "@calibrate/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
@@ -22,8 +27,8 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "./base/navigation-menu/NavigationMenu";
-import ThemeToggle from "./ThemeToggle";
 import { Typography } from "./base/typography/Typography";
+import ThemeToggle from "./ThemeToggle";
 
 const navLinkBase =
   "inline-block border-b-2 border-transparent px-1 pb-1 pt-2 text-sm font-medium text-muted-foreground no-underline transition-colors hover:text-foreground";
@@ -84,6 +89,9 @@ export default function Header() {
     setLogoutError(false);
     try {
       await deleteCurrentSession(apiTransport);
+      const revocation = await revokeDayLogCache(session!.user.id);
+      broadcastDayLogCacheRevocation(revocation);
+      await clearPrivateDayLogMemory(queryClient);
       clearAuthenticatedSession(queryClient);
       await navigate({ to: "/signup-login" });
     } catch {

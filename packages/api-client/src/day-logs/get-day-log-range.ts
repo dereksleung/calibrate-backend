@@ -8,10 +8,10 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 
 import type { ApiTransport } from "../transport.js";
 
-export const dayLogRangeQueryKeyPrefix = ["dayLogs", "range"] as const;
+export const dayLogRangeQueryKeyPrefix = (accountId: string) => ["dayLogs", accountId, "range"] as const;
 
-export const dayLogRangeQueryKey = ({ startDate, endDate }: GetDayLogRangeRequestQuery) =>
-  [...dayLogRangeQueryKeyPrefix, startDate, endDate] as const;
+export const dayLogRangeQueryKey = (accountId: string, { startDate, endDate }: GetDayLogRangeRequestQuery) =>
+  [...dayLogRangeQueryKeyPrefix(accountId), startDate, endDate] as const;
 
 export function getDayLogRange(
   transport: ApiTransport,
@@ -26,16 +26,24 @@ export function getDayLogRange(
   });
 }
 
-export function getDayLogRangeQueryOptions(transport: ApiTransport, input: GetDayLogRangeRequestQuery) {
+export function getDayLogRangeQueryOptions(
+  transport: ApiTransport,
+  accountId: string,
+  input: GetDayLogRangeRequestQuery,
+) {
   const validInput = GetDayLogRangeRequestQuerySchema.parse(input);
 
   return queryOptions({
-    queryKey: dayLogRangeQueryKey(validInput),
+    queryKey: dayLogRangeQueryKey(accountId, validInput),
     queryFn: () => getDayLogRange(transport, validInput),
   });
 }
 
 /** Portable hook for GET `/daylogs?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD`. */
-export function useDayLogRange(transport: ApiTransport, input: GetDayLogRangeRequestQuery) {
-  return useQuery(getDayLogRangeQueryOptions(transport, input));
+export function useDayLogRange(
+  transport: ApiTransport,
+  accountId: string,
+  input: GetDayLogRangeRequestQuery,
+) {
+  return useQuery(getDayLogRangeQueryOptions(transport, accountId, input));
 }

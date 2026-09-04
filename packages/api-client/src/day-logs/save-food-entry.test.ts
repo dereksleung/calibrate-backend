@@ -69,12 +69,17 @@ describe("saveFoodEntry", () => {
 });
 
 describe("invalidateDayLogQueries", () => {
-  it("invalidates both the selected day and cached day-log ranges after a food save", async () => {
+  it("invalidates only the confirmed account's selected day and cached day-log ranges", async () => {
     const invalidateQueries = vi.fn().mockResolvedValue(undefined);
+    const accountId = "e74942b3-78d7-48e8-bd20-dc5eba7f82ff";
 
-    await invalidateDayLogQueries({ invalidateQueries } as never, "2026-05-18");
+    await invalidateDayLogQueries({ invalidateQueries } as never, accountId, "2026-05-18");
 
-    expect(invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: dayLogQueryKey("2026-05-18") });
-    expect(invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: dayLogRangeQueryKeyPrefix });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(1, {
+      queryKey: dayLogQueryKey(accountId, "2026-05-18"),
+    });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(2, {
+      queryKey: dayLogRangeQueryKeyPrefix(accountId),
+    });
   });
 });

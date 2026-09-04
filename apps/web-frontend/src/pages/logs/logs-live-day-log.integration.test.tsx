@@ -65,11 +65,27 @@ function getFetchUrl(input: RequestInfo | URL): string {
   return input.url;
 }
 
+function authenticatedSessionResponse() {
+  return new Response(
+    JSON.stringify({
+      user: {
+        id: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
+        email: "person@example.com",
+        tier: "FREE",
+        createdAt: "2030-01-01T00:00:00.000Z",
+        updatedAt: "2030-01-01T00:00:00.000Z",
+      },
+      sessionTransport: "cookie",
+    }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  );
+}
+
 describe("logs live day log", () => {
   it("renders overview totals from the selected-day API response", async () => {
     const dayLog = {
-      id: "day-log-live",
-      date: "2026-06-10T00:00:00.000Z",
+      id: "857846ee-8dfb-4e6d-a24d-2c80b05b9db2",
+      date: "2026-06-10",
       breakfast: [oatmealFixture, coffeeFixture],
       lunch: [],
       dinner: [],
@@ -79,6 +95,7 @@ describe("logs live day log", () => {
 
     vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
       const url = getFetchUrl(input);
+      if (url.includes("/auth/session")) return Promise.resolve(authenticatedSessionResponse());
       if (url.includes("/daylogs/2026-06-10")) {
         return Promise.resolve(
           new Response(JSON.stringify(dayLog), {
@@ -102,6 +119,7 @@ describe("logs live day log", () => {
   it("treats a null JSON body as an empty day while keeping the overview layout", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
       const url = getFetchUrl(input);
+      if (url.includes("/auth/session")) return Promise.resolve(authenticatedSessionResponse());
       if (url.includes("/daylogs/2026-06-11")) {
         return Promise.resolve(
           new Response(JSON.stringify(null), {
@@ -124,8 +142,8 @@ describe("logs live day log", () => {
 
   it("shows an error state with retry and refetches successfully", async () => {
     const dayLog = {
-      id: "day-log-retry",
-      date: "2026-06-12T00:00:00.000Z",
+      id: "cf9cefe5-45af-43e7-99df-5ab87993aa75",
+      date: "2026-06-12",
       breakfast: [coffeeFixture],
       lunch: [],
       dinner: [],
@@ -133,18 +151,23 @@ describe("logs live day log", () => {
       weight: null,
     };
 
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response("server error", {
-        status: 500,
-        statusText: "Internal Server Error",
-      }),
-    );
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify(dayLog), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
+    let hasFailed = false;
+    vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
+      const url = getFetchUrl(input);
+      if (url.includes("/auth/session")) return Promise.resolve(authenticatedSessionResponse());
+      if (!hasFailed) {
+        hasFailed = true;
+        return Promise.resolve(
+          new Response("server error", { status: 500, statusText: "Internal Server Error" }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(dayLog), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    });
 
     const queryClient = new QueryClient({
       defaultOptions: {
@@ -171,12 +194,13 @@ describe("logs live day log", () => {
 
     vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
       const url = getFetchUrl(input);
+      if (url.includes("/auth/session")) return Promise.resolve(authenticatedSessionResponse());
       if (url.includes("/daylogs/2026-01-01")) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
-              id: "a",
-              date: "2026-01-01T00:00:00.000Z",
+              id: "759ded89-e38b-4975-972b-89550ed06732",
+              date: "2026-01-01",
               breakfast: [heavyEntry],
               lunch: [],
               dinner: [],
@@ -192,8 +216,8 @@ describe("logs live day log", () => {
         return Promise.resolve(
           new Response(
             JSON.stringify({
-              id: "b",
-              date: "2026-01-02T00:00:00.000Z",
+              id: "67ce15d2-9580-4e20-852c-a041f6e167a5",
+              date: "2026-01-02",
               breakfast: [lightEntry],
               lunch: [],
               dinner: [],

@@ -2,6 +2,7 @@ import { ConfirmFood } from "#/pages/logs/ConfirmFood/ConfirmFood.tsx";
 import { parseFoodConfirmationState } from "#/pages/logs/food-confirmation-state.ts";
 import { normalizeFoodSearchRouteSearch } from "#/pages/logs/log-page-helpers.ts";
 import { apiTransport } from "#/shared/api/api-client.ts";
+import { useAuthenticatedSession } from "#/verticals/auth/authenticated-session.ts";
 import { useSaveFoodEntry } from "@calibrate/api-client";
 import { createFileRoute, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -26,7 +27,8 @@ function ConfirmFoodRoute() {
   const confirmation = parseFoodConfirmationState(
     useRouterState({ select: (state) => state.location.state.foodConfirmation }),
   );
-  const save = useSaveFoodEntry(apiTransport, date, {
+  const session = useAuthenticatedSession();
+  const save = useSaveFoodEntry(apiTransport, session!.user.id, date, {
     onSuccess: () => {
       void navigate({ to: "/logs", search: { date } });
     },

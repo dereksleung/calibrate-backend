@@ -32,6 +32,23 @@ beforeEach(() => {
 
   vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : "url" in input ? input.url : String(input);
+    if (url.includes("/auth/session")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            user: {
+              id: "e74942b3-78d7-48e8-bd20-dc5eba7f82ff",
+              email: "person@example.com",
+              tier: "FREE",
+              createdAt: "2030-01-01T00:00:00.000Z",
+              updatedAt: "2030-01-01T00:00:00.000Z",
+            },
+            sessionTransport: "cookie",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    }
     if (url.includes("/daylogs/")) {
       return Promise.resolve(
         new Response(JSON.stringify(null), {

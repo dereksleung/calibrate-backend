@@ -9,6 +9,7 @@ const range = {
   startDate: "2026-08-06",
   endDate: "2026-08-12",
 };
+const accountId = "e74942b3-78d7-48e8-bd20-dc5eba7f82ff";
 
 const rangeResponse = {
   ...range,
@@ -53,8 +54,17 @@ describe("getDayLogRange", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
-  it("uses a range-specific key that cannot collide with selected-day queries", () => {
-    expect(dayLogRangeQueryKey(range)).toEqual(["dayLogs", "range", "2026-08-06", "2026-08-12"]);
-    expect(dayLogRangeQueryKey(range)).not.toEqual(dayLogQueryKey("2026-08-06"));
+  it("scopes range and selected-day keys to the confirmed account", () => {
+    expect(dayLogRangeQueryKey(accountId, range)).toEqual([
+      "dayLogs",
+      accountId,
+      "range",
+      "2026-08-06",
+      "2026-08-12",
+    ]);
+    expect(dayLogRangeQueryKey(accountId, range)).not.toEqual(dayLogQueryKey(accountId, "2026-08-06"));
+    expect(dayLogRangeQueryKey(accountId, range)).not.toEqual(
+      dayLogRangeQueryKey("95434f9a-da1f-47dd-8175-a26ff42ee11e", range),
+    );
   });
 });

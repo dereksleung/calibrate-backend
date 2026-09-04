@@ -1,12 +1,32 @@
 // @vitest-environment jsdom
 
+import type { DayLogRangeResponse } from "@calibrate/api-contracts";
+
 import { getRollingSevenDayDateRange } from "#/shared/date/local-date-range.ts";
+import { setAuthenticatedSession } from "#/verticals/auth/authenticated-session.ts";
+import {
+  DAY_LOG_VALIDATION_FRESHNESS_MS,
+  dayLogSlotQueryKey,
+  dayLogSlotsFromRangeResponse,
+} from "#/verticals/day-log-cache/day-log-cache.ts";
 import { dayLogRangeQueryKey, dayLogRangeQueryKeyPrefix } from "@calibrate/api-client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DashboardV2Container } from "./DashboardV2/DashboardV2Container.tsx";
+
+const accountId = "e74942b3-78d7-48e8-bd20-dc5eba7f82ff";
+const authenticatedSession = {
+  user: {
+    id: accountId,
+    email: "person@example.com",
+    tier: "FREE" as const,
+    createdAt: new Date("2030-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2030-01-01T00:00:00.000Z"),
+  },
+  sessionTransport: "cookie" as const,
+};
 
 vi.mock("recharts", () => ({
   Bar: () => null,
@@ -29,6 +49,7 @@ function createDashboardQueryClient() {
 }
 
 function renderDashboard(queryClient = createDashboardQueryClient()) {
+  setAuthenticatedSession(queryClient, authenticatedSession);
   render(
     <QueryClientProvider client={queryClient}>
       <DashboardV2Container />
@@ -62,8 +83,8 @@ function dateRange(startDate: string, endDate: string): string[] {
   return dates;
 }
 
-function dayLogRangeResponse(url: string, calories: number) {
-  const requestUrl = new URL(url);
+function dayLogRangeResponse(url: string, calories: number): DayLogRangeResponse {
+  const requestUrl = new URL(url, "http://localhost");
   const startDate = requestUrl.searchParams.get("startDate");
   const endDate = requestUrl.searchParams.get("endDate");
 
@@ -117,6 +138,22 @@ function dayLogRangeResponse(url: string, calories: number) {
           : null,
     })),
   };
+}
+
+function seedDashboardCache(
+  queryClient: QueryClient,
+  calories: number,
+  lastValidatedAt: number,
+  cacheAccountId = accountId,
+) {
+  const range = getRollingSevenDayDateRange();
+  const response = dayLogRangeResponse(
+    `/api/v1/daylogs?startDate=${range.startDate}&endDate=${range.endDate}`,
+    calories,
+  );
+  for (const slot of dayLogSlotsFromRangeResponse(response, lastValidatedAt)) {
+    queryClient.setQueryData(dayLogSlotQueryKey(cacheAccountId, slot.date), slot);
+  }
 }
 
 beforeAll(() => {
@@ -179,16 +216,50 @@ describe("dashboard live nutrition", () => {
     expect(endDate).toBeTruthy();
     expect(dateRange(startDate!, endDate!)).toHaveLength(7);
 
-    const cached = queryClient.getQueryData(dayLogRangeQueryKey(getRollingSevenDayDateRange()));
-    expect(cached).toEqual(
-      expect.objectContaining({
-        days: expect.any(Array),
-        endDate,
-        startDate,
-      }),
+    await waitFor(() => {
+      expect(queryClient.getQueryData(dayLogSlotQueryKey(accountId, endDate!))).toEqual(
+        expect.objectContaining({ status: "present", lastValidatedAt: expect.any(Number) }),
+      );
+    });
+    expect(queryClient.getQueryData(dayLogRangeQueryKey(accountId, getRollingSevenDayDateRange()))).toEqual(
+      expect.objectContaining({ startDate, endDate }),
     );
-    expect(cached).not.toHaveProperty("nutritionCards");
-    expect(cached).not.toHaveProperty("analytics");
+  });
+
+  it("renders a complete fresh cache without requesting the range", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("must not fetch"));
+    const queryClient = createDashboardQueryClient();
+    seedDashboardCache(queryClient, 315, Date.now());
+
+    renderDashboard(queryClient);
+
+    expect(within(screen.getByRole("region", { name: "Calories" })).getByText("315")).toBeTruthy();
+    await Promise.resolve();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("renders stale cached values while background validation is in flight", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() => new Promise<Response>(() => undefined));
+    const queryClient = createDashboardQueryClient();
+    seedDashboardCache(queryClient, 210, Date.now() - DAY_LOG_VALIDATION_FRESHNESS_MS);
+
+    renderDashboard(queryClient);
+
+    expect(within(screen.getByRole("region", { name: "Calories" })).getByText("210")).toBeTruthy();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not compose another account's cached slots", () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise<Response>(() => undefined));
+    const queryClient = createDashboardQueryClient();
+    seedDashboardCache(queryClient, 999, Date.now(), "95434f9a-da1f-47dd-8175-a26ff42ee11e");
+
+    renderDashboard(queryClient);
+
+    expect(screen.queryByText("999")).toBeNull();
+    expect(screen.getByRole("status", { name: "Loading dashboard" })).toBeTruthy();
   });
 
   it("keeps the page structure usable while loading", async () => {
@@ -250,7 +321,7 @@ describe("dashboard live nutrition", () => {
     expect(await screen.findByRole("button", { name: "Open Calories analytics" })).toBeTruthy();
     expect(within(screen.getByRole("region", { name: "Calories" })).getByText("100")).toBeTruthy();
 
-    await queryClient.invalidateQueries({ queryKey: dayLogRangeQueryKeyPrefix });
+    await queryClient.invalidateQueries({ queryKey: dayLogRangeQueryKeyPrefix(accountId) });
 
     await waitFor(() => {
       expect(within(screen.getByRole("region", { name: "Calories" })).getByText("250")).toBeTruthy();
