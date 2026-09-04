@@ -1,4 +1,5 @@
 import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
+import { DayLogVersionNumber } from "@domain/value-objects/day-log-version-number.js";
 
 import { FoodEntry, MealNameEnum, MealNameEnumType } from "./food-entry.js";
 
@@ -17,6 +18,7 @@ export interface DayLogProps {
   dinner: FoodEntry[];
   snacks: FoodEntry[];
   weight: number | null;
+  versionNumber: number;
 }
 
 export class DayLog {
@@ -27,8 +29,9 @@ export class DayLog {
   private _dinner: FoodEntry[];
   private _snacks: FoodEntry[];
   private _weight: number | null;
+  private readonly _versionNumber: DayLogVersionNumber;
 
-  private constructor({ id, date, breakfast, lunch, dinner, snacks, weight }: DayLogProps) {
+  private constructor({ id, date, breakfast, lunch, dinner, snacks, weight, versionNumber }: DayLogProps) {
     this._id = id;
     this._date = Temporal.PlainDate.from(
       date instanceof Date
@@ -44,6 +47,7 @@ export class DayLog {
     this._dinner = dinner;
     this._snacks = snacks;
     this._weight = weight ?? null;
+    this._versionNumber = DayLogVersionNumber.from(versionNumber);
   }
 
   public static reconstitute(props: DayLogProps): DayLog {
@@ -106,5 +110,8 @@ export class DayLog {
   }
   public get weight(): number | null {
     return this._weight;
+  }
+  public get versionNumber(): number {
+    return this._versionNumber.value;
   }
 }

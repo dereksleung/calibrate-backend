@@ -40,6 +40,7 @@ describe("DayLogResponseMapper", () => {
       dinner: [buildFoodEntry({ meal: MealNameEnum.DINNER })],
       snacks: [],
       weight: 155.0,
+      versionNumber: 1,
     });
 
     const result = DayLogResponseMapper.toResponse(dayLog);
@@ -66,6 +67,7 @@ describe("DayLogResponseMapper", () => {
       dinner: [],
       snacks: [],
       weight: null,
+      versionNumber: 1,
     });
 
     const result = DayLogResponseMapper.toResponse(dayLog);

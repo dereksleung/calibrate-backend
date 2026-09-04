@@ -10,6 +10,7 @@ export const buildDayLog = (overrides: Partial<DayLogProps> = {}): DayLog =>
     dinner: overrides.dinner ?? [],
     snacks: overrides.snacks ?? [],
     weight: overrides.weight ?? null,
+    versionNumber: overrides.versionNumber ?? 1,
   });
 
 export const buildDayLogResponse = (overrides: Partial<DayLogResponse> = {}): DayLogResponse => {

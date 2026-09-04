@@ -3,6 +3,11 @@ import { FoodEntry, MealNameEnumType } from "@domain/entities/food-entry.js";
 import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 
 import { IDayLogRepository } from "../ports/day-log-repository.js";
+import {
+  type DayLogSyncQueryInput,
+  type DayLogSyncQueryResult,
+  type IDayLogSyncQuery,
+} from "../ports/day-log-sync-query.js";
 import { IUserRepository } from "../ports/user-repository.js";
 
 export interface GetDayLogInput {
@@ -47,15 +52,22 @@ export interface AddFoodEntryInput {
 export interface IDayLogService {
   getLogForDay({ userId, date }: GetDayLogInput): Promise<DayLog | null>;
   getLogsForDateRange({ userId, startDate, endDate }: GetDayLogRangeInput): Promise<DayLog[]>;
+  syncLogsForDateRange(input: DayLogSyncQueryInput): Promise<DayLogSyncQueryResult>;
   addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<FoodEntry>;
 }
 
 export class DayLogServiceImpl implements IDayLogService {
   private readonly dayLogRepository: IDayLogRepository;
   private readonly userRepository: IUserRepository;
-  constructor(dayLogRepository: IDayLogRepository, userRepository: IUserRepository) {
+  private readonly dayLogSyncQuery: IDayLogSyncQuery;
+  constructor(
+    dayLogRepository: IDayLogRepository,
+    userRepository: IUserRepository,
+    dayLogSyncQuery: IDayLogSyncQuery,
+  ) {
     this.dayLogRepository = dayLogRepository;
     this.userRepository = userRepository;
+    this.dayLogSyncQuery = dayLogSyncQuery;
   }
 
   async getLogForDay({ userId, date }: GetDayLogInput): Promise<DayLog | null> {
@@ -64,6 +76,10 @@ export class DayLogServiceImpl implements IDayLogService {
 
   async getLogsForDateRange({ userId, startDate, endDate }: GetDayLogRangeInput): Promise<DayLog[]> {
     return this.dayLogRepository.findLogsByDateRangeAndUserId({ userId, startDate, endDate });
+  }
+
+  async syncLogsForDateRange(input: DayLogSyncQueryInput): Promise<DayLogSyncQueryResult> {
+    return this.dayLogSyncQuery.readCoherentSnapshot(input);
   }
 
   async addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<FoodEntry> {

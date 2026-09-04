@@ -7,6 +7,8 @@ import {
   FoodSearchRequestQuerySchema,
   RecentFoodSearchResultSchema,
   DayLogRangeResponseSchema,
+  DayLogSyncRequestSchema,
+  DayLogSyncResponseSchema,
   GetDayLogRangeRequestQuerySchema,
   UpdateDayLogWeightRequestBodySchema,
   UpdateDayLogWeightRequestRouteParamsSchema,
@@ -213,5 +215,125 @@ describe("log page response contracts", () => {
 
     expect(response.results.map((result) => result.source)).toEqual(["recent", "catalog"]);
     expect(response.nextCursor).toBeNull();
+  });
+});
+
+describe("day log sync contracts", () => {
+  const presentDayLog = {
+    id: "00000000-0000-0000-0000-000000000000",
+    date: "2026-08-06",
+    breakfast: [],
+    lunch: [],
+    dinner: [],
+    snacks: [],
+    weight: null,
+  };
+
+  it("accepts a contiguous inclusive range of at most 31 dates and a sparse known manifest", () => {
+    expect(
+      DayLogSyncRequestSchema.parse({
+        startDate: "2026-08-01",
+        endDate: "2026-08-31",
+        known: {
+          "2026-08-01": 2,
+          "2026-08-02": null,
+        },
+      }),
+    ).toEqual({
+      startDate: "2026-08-01",
+      endDate: "2026-08-31",
+      known: {
+        "2026-08-01": 2,
+        "2026-08-02": null,
+      },
+    });
+  });
+
+  it("accepts an empty known object for an entirely unloaded range", () => {
+    expect(
+      DayLogSyncRequestSchema.parse({
+        startDate: "2026-08-06",
+        endDate: "2026-08-06",
+        known: {},
+      }),
+    ).toEqual({
+      startDate: "2026-08-06",
+      endDate: "2026-08-06",
+      known: {},
+    });
+  });
+
+  it("rejects malformed dates, reversed ranges, overlong ranges, and invalid known entries", () => {
+    expect(() =>
+      DayLogSyncRequestSchema.parse({
+        startDate: "2026-8-01",
+        endDate: "2026-08-07",
+        known: {},
+      }),
+    ).toThrow();
+    expect(() =>
+      DayLogSyncRequestSchema.parse({
+        startDate: "2026-08-07",
+        endDate: "2026-08-01",
+        known: {},
+      }),
+    ).toThrow();
+    expect(() =>
+      DayLogSyncRequestSchema.parse({
+        startDate: "2026-08-01",
+        endDate: "2026-09-01",
+        known: {},
+      }),
+    ).toThrow();
+    expect(() =>
+      DayLogSyncRequestSchema.parse({
+        startDate: "2026-08-01",
+        endDate: "2026-08-07",
+        known: { "2026-07-31": 1 },
+      }),
+    ).toThrow();
+    expect(() =>
+      DayLogSyncRequestSchema.parse({
+        startDate: "2026-08-01",
+        endDate: "2026-08-07",
+        known: { "2026-08-01": 0 },
+      }),
+    ).toThrow();
+    expect(() =>
+      DayLogSyncRequestSchema.parse({
+        startDate: "2026-08-01",
+        endDate: "2026-08-07",
+        known: { "2026-08-01": 2_147_483_648 },
+      }),
+    ).toThrow();
+  });
+
+  it("accepts sparse changed or unloaded slots, including Known-empty", () => {
+    expect(
+      DayLogSyncResponseSchema.parse({
+        slots: [
+          { date: "2026-08-06", versionNumber: 2, dayLog: presentDayLog },
+          { date: "2026-08-07", versionNumber: null, dayLog: null },
+        ],
+      }),
+    ).toEqual({
+      slots: [
+        { date: "2026-08-06", versionNumber: 2, dayLog: presentDayLog },
+        { date: "2026-08-07", versionNumber: null, dayLog: null },
+      ],
+    });
+  });
+
+  it("rejects Known-empty slots with a version and present logs without one", () => {
+    expect(() =>
+      DayLogSyncResponseSchema.parse({
+        slots: [{ date: "2026-08-06", versionNumber: 1, dayLog: null }],
+      }),
+    ).toThrow();
+    expect(() =>
+      DayLogSyncResponseSchema.parse({
+        slots: [{ date: "2026-08-06", versionNumber: null, dayLog: presentDayLog }],
+      }),
+    ).toThrow();
   });
 });

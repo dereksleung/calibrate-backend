@@ -6,6 +6,9 @@ import {
   CreateFoodEntryRequestSchema,
   DayLogRangeResponse,
   DayLogResponse,
+  DayLogSyncRequest,
+  DayLogSyncRequestSchema,
+  DayLogSyncResponse,
   GetDayLogRangeRequestQuery,
   GetDayLogRangeRequestQuerySchema,
   GetDayLogRequestRouteParams,
@@ -96,6 +99,51 @@ export class DayLogController {
         }),
       };
 
+      res.status(200).json(response);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  }
+
+  async syncLogsForDateRange(
+    req: Request<Record<string, never>, unknown, DayLogSyncRequest>,
+    res: Response,
+  ): Promise<void> {
+    try {
+      res.set("Cache-Control", "private, no-store");
+      const validatedInput = validate(DayLogSyncRequestSchema, req.body);
+      if (!validatedInput.isValid) {
+        res.status(400).json({
+          error: "Validation failed",
+          details: validatedInput.errors,
+        });
+        return;
+      }
+
+      const authenticatedUserId = req.auth?.userId;
+      if (!authenticatedUserId) {
+        throw new AuthenticationError("Authentication required");
+      }
+
+      const result = await this.dayLogService.syncLogsForDateRange({
+        userId: authenticatedUserId,
+        startDate: validatedInput.data.startDate,
+        endDate: validatedInput.data.endDate,
+        known: validatedInput.data.known,
+      });
+
+      if (result.status === "unchanged") {
+        res.status(204).end();
+        return;
+      }
+
+      const response: DayLogSyncResponse = {
+        slots: result.slots.map((slot) => ({
+          date: slot.date,
+          versionNumber: slot.versionNumber,
+          dayLog: slot.dayLog ? DayLogResponseMapper.toResponse(slot.dayLog) : null,
+        })),
+      };
       res.status(200).json(response);
     } catch (error) {
       handleControllerError(error, res);
