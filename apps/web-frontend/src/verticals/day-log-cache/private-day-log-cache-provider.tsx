@@ -1,19 +1,14 @@
-import {
-  IsRestoringProvider,
-  dehydrate,
-  hydrate,
-  useQueryClient,
-  type QueryClient,
-} from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { clearAuthenticatedSession } from "../auth/authenticated-session.ts";
 import {
   DAY_LOG_CACHE_BUSTER,
+  DAY_LOG_CACHE_RETENTION_MS,
   dayLogSlotQueryKeyPrefix,
   isPersistableDayLogQueryData,
-  prunePersistedDayLogClient,
 } from "./day-log-cache.ts";
 import {
   DAY_LOG_CACHE_BROADCAST_CHANNEL,
@@ -52,20 +47,29 @@ function LeasePersistenceBoundary({
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [isRestoring, setIsRestoring] = useState(true);
+  const [revoked, setRevoked] = useState(false);
+  const [restoreCompletion] = useState(() => {
+    let complete!: () => void;
+    const promise = new Promise<void>((resolve) => {
+      complete = resolve;
+    });
+    return { complete, promise };
+  });
 
   useEffect(() => {
     let active = true;
-    let revoked = false;
-    let stopPersistence: (() => void) | undefined;
+    let revocationStarted = false;
     let stopLifecycleChecks: (() => void) | undefined;
-    let saveScheduled = false;
 
     const purgeRevokedSession = async () => {
-      if (revoked || !active) return;
-      revoked = true;
-      stopPersistence?.();
+      if (revocationStarted || !active) return;
+      revocationStarted = true;
       stopLifecycleChecks?.();
+      setRevoked(true);
+      // PersistQueryClientProvider may already be completing a restore that
+      // serialized before revocation. Let its hydrate callback finish before
+      // clearing memory so that late hydration cannot revive private queries.
+      await restoreCompletion.promise;
       await clearPrivateDayLogMemory(queryClient);
       clearAuthenticatedSession(queryClient);
       if (active) await navigate({ to: "/signup-login" });
@@ -116,66 +120,36 @@ function LeasePersistenceBoundary({
       };
     };
 
-    const persist = async () => {
-      const now = Date.now();
-      const persistedClient = prunePersistedDayLogClient(
-        {
-          buster: DAY_LOG_CACHE_BUSTER,
-          timestamp: now,
-          clientState: dehydrate(queryClient, {
-            shouldDehydrateMutation: () => false,
-            shouldDehydrateQuery: (query) =>
-              isPersistableDayLogQueryData(query.queryKey, query.state.data, accountId, now),
-          }),
-        },
-        accountId,
-        now,
-      );
-      if (persistedClient) await lease.persistClient(persistedClient);
-    };
-
-    void (async () => {
-      // Native timers cannot represent the 30-day retention window reliably;
-      // explicit pruning owns retention for this narrowly scoped query family.
-      queryClient.setQueryDefaults(dayLogSlotQueryKeyPrefix(accountId), { gcTime: Infinity });
-      const persistedClient = await lease.restoreClient();
-      if (!active) return;
-
-      if (persistedClient?.buster === DAY_LOG_CACHE_BUSTER) {
-        hydrate(queryClient, persistedClient.clientState);
-      } else if (persistedClient) {
-        await lease.removeClient();
-      }
-      if (!active) return;
-
-      stopPersistence = queryClient.getQueryCache().subscribe((event) => {
-        if (
-          revoked ||
-          !event.query ||
-          event.query.queryKey.slice(0, 3).join("|") !== dayLogSlotQueryKeyPrefix(accountId).join("|") ||
-          saveScheduled
-        ) {
-          return;
-        }
-        saveScheduled = true;
-        queueMicrotask(() => {
-          saveScheduled = false;
-          if (!revoked && active) void persist();
-        });
-      });
-      startLifecycleChecks();
-      setIsRestoring(false);
-      await checkFence();
-    })();
+    startLifecycleChecks();
+    void checkFence();
 
     return () => {
       active = false;
-      stopPersistence?.();
       stopLifecycleChecks?.();
     };
-  }, [accountId, lease, navigate, queryClient]);
+  }, [accountId, lease, navigate, queryClient, restoreCompletion]);
 
-  return <IsRestoringProvider value={isRestoring}>{children}</IsRestoringProvider>;
+  if (revoked) return null;
+
+  return (
+    <PersistQueryClientProvider
+      client={queryClient}
+      onError={restoreCompletion.complete}
+      onSuccess={restoreCompletion.complete}
+      persistOptions={{
+        buster: DAY_LOG_CACHE_BUSTER,
+        dehydrateOptions: {
+          shouldDehydrateMutation: () => false,
+          shouldDehydrateQuery: (query) =>
+            isPersistableDayLogQueryData(query.queryKey, query.state.data, accountId),
+        },
+        maxAge: DAY_LOG_CACHE_RETENTION_MS,
+        persister: lease,
+      }}
+    >
+      {children}
+    </PersistQueryClientProvider>
+  );
 }
 
 export function PrivateDayLogCacheProvider({
@@ -186,17 +160,22 @@ export function PrivateDayLogCacheProvider({
   children: React.ReactNode;
 }) {
   const [lease, setLease] = useState<DayLogCacheLease>();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     let active = true;
     setLease(undefined);
     void acquireDayLogCacheLease(accountId).then((acquiredLease) => {
-      if (active) setLease(acquiredLease);
+      if (!active) return;
+      // Native timers cannot represent the 30-day retention window reliably;
+      // explicit pruning owns retention for this narrowly scoped query family.
+      queryClient.setQueryDefaults(dayLogSlotQueryKeyPrefix(accountId), { gcTime: Infinity });
+      setLease(acquiredLease);
     });
     return () => {
       active = false;
     };
-  }, [accountId]);
+  }, [accountId, queryClient]);
 
   // Do not mount private descendants before a fenced lease exists. Mounting them
   // here and again inside the lease boundary would discard route-local state and
