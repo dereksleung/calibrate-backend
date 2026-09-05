@@ -402,30 +402,28 @@ describe("DayLogController", () => {
       foodEntry: mockCreateFoodEntryServiceInput,
     });
     expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith(
-      {
-        ...buildFoodEntryResponse({
-          id: createdFoodEntry.id,
-          meal: MealNameEnum.BREAKFAST,
-          name: "Scrambled Eggs",
-          brand: null,
-          calories: 180,
-          totalFatGrams: 12,
-          saturatedFatGrams: 4,
-          cholesterolMg: 370,
-          sodiumMg: 140,
-          totalCarbohydrateGrams: 2,
-          fiberGrams: 0,
-          sugarGrams: 1,
-          proteinGrams: 14,
-          chosenQuantity: 2,
-          chosenUnit: "pieces",
-          quantityServing: 1,
-          servingLabel: "serving",
-        }),
-        versionNumber: 2,
-      },
-    );
+    expect(res.json).toHaveBeenCalledWith({
+      ...buildFoodEntryResponse({
+        id: createdFoodEntry.id,
+        meal: MealNameEnum.BREAKFAST,
+        name: "Scrambled Eggs",
+        brand: null,
+        calories: 180,
+        totalFatGrams: 12,
+        saturatedFatGrams: 4,
+        cholesterolMg: 370,
+        sodiumMg: 140,
+        totalCarbohydrateGrams: 2,
+        fiberGrams: 0,
+        sugarGrams: 1,
+        proteinGrams: 14,
+        chosenQuantity: 2,
+        chosenUnit: "pieces",
+        quantityServing: 1,
+        servingLabel: "serving",
+      }),
+      versionNumber: 2,
+    });
   });
 
   it("should return 400 when date param is invalid", async () => {

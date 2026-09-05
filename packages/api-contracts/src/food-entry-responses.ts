@@ -1,11 +1,11 @@
 import * as z from "zod";
 
-import { DayLogVersionNumberSchema } from "./day-log-requests.js";
 import {
   FoodEntryBaseSchema,
   FoodEntryChosenFieldsSchema,
   MealNameSchema,
 } from "./common/food-entry-base.js";
+import { DayLogVersionNumberSchema } from "./day-log-requests.js";
 
 export const FoodEntryResponseSchema = FoodEntryBaseSchema.extend(FoodEntryChosenFieldsSchema.shape).extend({
   id: z.string().min(1),

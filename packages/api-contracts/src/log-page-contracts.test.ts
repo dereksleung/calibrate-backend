@@ -5,7 +5,6 @@ import {
   CreateFoodEntryResponseSchema,
   FoodSearchRequestQuerySchema,
   FoodSearchResponseSchema,
-  FoodSearchRequestQuerySchema,
   RecentFoodSearchResultSchema,
   DayLogRangeResponseSchema,
   DayLogSyncRequestSchema,

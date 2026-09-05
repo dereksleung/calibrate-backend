@@ -1,5 +1,5 @@
-import { AuthenticationError } from "@application/errors/authentication-error.js";
 import { listInclusiveDates } from "@application/day-log-sync.js";
+import { AuthenticationError } from "@application/errors/authentication-error.js";
 import { IDayLogService } from "@application/services/day-log-service.js";
 import {
   CreateFoodEntryResponse,
