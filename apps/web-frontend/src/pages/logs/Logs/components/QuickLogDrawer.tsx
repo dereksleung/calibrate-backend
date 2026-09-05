@@ -25,7 +25,7 @@ export function QuickLogDrawer({ onSearchFood }: QuickLogDrawerProps) {
           <Plus aria-hidden className="size-9" strokeWidth={1.5} />
         </Button>
       </DrawerTrigger>
-      <DrawerContent className="mx-auto max-w-xl rounded-t-[2rem] border-outline-variant bg-surface-container-lowest">
+      <DrawerContent className="mx-auto w-full rounded-t-[2rem] border-outline-variant bg-surface-container-lowest md:max-w-[28rem]">
         <DrawerHeader className="px-8 pb-2 pt-6 text-left">
           <DrawerTitle>Quick log</DrawerTitle>
           <DrawerDescription>Choose what you want to add to this day.</DrawerDescription>
