@@ -37,7 +37,7 @@ test("saving food updates the live dashboard nutrition cards", async ({ context,
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto("logs");
   const breakfast = page.getByRole("region", { name: "Breakfast" });
-  await breakfast.getByRole("button", { name: "No items logged yet" }).click();
+  await breakfast.getByRole("button", { name: "+ Add Item" }).click();
 
   await expect(page.getByRole("heading", { name: "Recently logged" })).toBeVisible();
   await page.getByRole("button", { name: "Select Zero Sugar Oat" }).click();
@@ -46,7 +46,7 @@ test("saving food updates the live dashboard nutrition cards", async ({ context,
   await page.getByRole("button", { name: "Done" }).click();
 
   await expect(breakfast.getByText("Zero Sugar Oat")).toBeVisible();
-  await expect(breakfast.getByText("40", { exact: true })).toBeVisible();
+  await expect(breakfast.getByRole("listitem").getByText("40", { exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: "Overview" }).click();
 
