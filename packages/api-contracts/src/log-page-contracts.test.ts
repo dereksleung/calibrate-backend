@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CreateFoodEntryRequestSchema,
+  CreateFoodEntryResponseSchema,
   FoodSearchRequestQuerySchema,
   FoodSearchResponseSchema,
   FoodSearchRequestQuerySchema,
@@ -133,6 +134,35 @@ describe("log page response contracts", () => {
 
   it("accepts one consecutive date slot for every requested date", () => {
     expect(DayLogRangeResponseSchema.parse(validRangeResponse)).toEqual(validRangeResponse);
+  });
+
+  it("accepts a created food entry with its updated parent Day Log version", () => {
+    const response = {
+      id: "entry-1",
+      meal: "LUNCH",
+      name: "Greek yogurt",
+      brand: "Calibrate Kitchen",
+      calories: 150,
+      totalFatGrams: 4,
+      saturatedFatGrams: 2,
+      cholesterolMg: 10,
+      sodiumMg: 65,
+      totalCarbohydrateGrams: 8,
+      fiberGrams: 0,
+      sugarGrams: 6,
+      proteinGrams: 18,
+      chosenQuantity: 1,
+      chosenUnit: "serving",
+      quantityServing: 1,
+      servingLabel: "serving",
+      quantityMass: null,
+      massUnit: null,
+      quantityVolume: null,
+      volumeUnit: null,
+      versionNumber: 2,
+    };
+
+    expect(CreateFoodEntryResponseSchema.parse(response)).toEqual(response);
   });
 
   it("rejects date slots that are out of order, duplicated, or do not match the range", () => {

@@ -1,5 +1,6 @@
 import * as z from "zod";
 
+import { DayLogVersionNumberSchema } from "./day-log-requests.js";
 import {
   FoodEntryBaseSchema,
   FoodEntryChosenFieldsSchema,
@@ -12,3 +13,9 @@ export const FoodEntryResponseSchema = FoodEntryBaseSchema.extend(FoodEntryChose
 });
 
 export type FoodEntryResponse = z.infer<typeof FoodEntryResponseSchema>;
+
+export const CreateFoodEntryResponseSchema = FoodEntryResponseSchema.extend({
+  versionNumber: DayLogVersionNumberSchema,
+});
+
+export type CreateFoodEntryResponse = z.infer<typeof CreateFoodEntryResponseSchema>;

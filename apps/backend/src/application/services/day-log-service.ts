@@ -2,7 +2,7 @@ import { DayLog } from "@domain/entities/day-log.js";
 import { FoodEntry, MealNameEnumType } from "@domain/entities/food-entry.js";
 import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 
-import { IDayLogRepository } from "../ports/day-log-repository.js";
+import { IDayLogRepository, type AddFoodEntryResult } from "../ports/day-log-repository.js";
 import {
   type DayLogSyncQueryInput,
   type DayLogSyncQueryResult,
@@ -53,7 +53,7 @@ export interface IDayLogService {
   getLogForDay({ userId, date }: GetDayLogInput): Promise<DayLog | null>;
   getLogsForDateRange({ userId, startDate, endDate }: GetDayLogRangeInput): Promise<DayLog[]>;
   syncLogsForDateRange(input: DayLogSyncQueryInput): Promise<DayLogSyncQueryResult>;
-  addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<FoodEntry>;
+  addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<AddFoodEntryResult>;
 }
 
 export class DayLogServiceImpl implements IDayLogService {
@@ -82,7 +82,7 @@ export class DayLogServiceImpl implements IDayLogService {
     return this.dayLogSyncQuery.readCoherentSnapshot(input);
   }
 
-  async addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<FoodEntry> {
+  async addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<AddFoodEntryResult> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new BusinessLogicError("User not found");
@@ -109,7 +109,6 @@ export class DayLogServiceImpl implements IDayLogService {
 
     // Apply domain aggregate's business rules - each day log has a maximum of 25 food entries per meal
     const entry = dayLog.addFoodEntry(newFoodEntry);
-    const persistedEntry = await this.dayLogRepository.addFoodEntry(dayLog.id, entry);
-    return persistedEntry;
+    return this.dayLogRepository.addFoodEntry(dayLog.id, entry);
   }
 }

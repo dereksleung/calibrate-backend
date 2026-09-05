@@ -5,6 +5,7 @@ import { sql, type Transaction } from "kysely";
 import { randomUUID } from "node:crypto";
 
 import type {
+  AddFoodEntryResult,
   FindDayLogByDateAndUserInput,
   FindDayLogsByDateRangeAndUserInput,
   FindOrCreateDayLogByDateAndUserInput,
@@ -77,7 +78,7 @@ export class PostgresDayLogRepository implements IDayLogRepository, IDayLogSyncQ
     return Number(count?.count ?? 0);
   }
 
-  async addFoodEntry(dayLogId: string, foodEntry: FoodEntry): Promise<FoodEntry> {
+  async addFoodEntry(dayLogId: string, foodEntry: FoodEntry): Promise<AddFoodEntryResult> {
     return this.databaseClient.transaction().execute(async (trx) => {
       const foodEntryRow = await trx
         .insertInto("food_entries")
@@ -96,13 +97,17 @@ export class PostgresDayLogRepository implements IDayLogRepository, IDayLogSyncQ
           updated_at: new Date(),
         })
         .where("id", "=", dayLogId)
+        .returning("version_number")
         .executeTakeFirst();
 
-      if (Number(updated.numUpdatedRows) !== 1) {
+      if (!updated) {
         throw new Error("Failed to advance day log version");
       }
 
-      return this.mapRowToFoodEntry(foodEntryRow);
+      return {
+        foodEntry: this.mapRowToFoodEntry(foodEntryRow),
+        versionNumber: updated.version_number,
+      };
     });
   }
 

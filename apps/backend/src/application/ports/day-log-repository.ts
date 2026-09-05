@@ -17,6 +17,11 @@ export interface FindOrCreateDayLogByDateAndUserInput {
   userId: string;
 }
 
+export interface AddFoodEntryResult {
+  foodEntry: FoodEntry;
+  versionNumber: number;
+}
+
 export interface IDayLogRepository {
   findLogByDateAndUserId({ userId, date }: FindDayLogByDateAndUserInput): Promise<DayLog | null>;
 
@@ -28,7 +33,7 @@ export interface IDayLogRepository {
 
   findOrCreateByDateAndUserId({ date, userId }: FindOrCreateDayLogByDateAndUserInput): Promise<DayLog>;
 
-  addFoodEntry(dayLogId: string, foodEntry: FoodEntry): Promise<FoodEntry>;
+  addFoodEntry(dayLogId: string, foodEntry: FoodEntry): Promise<AddFoodEntryResult>;
 
   countDayLogsByUserId(userId: string): Promise<number>;
 }

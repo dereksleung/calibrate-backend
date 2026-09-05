@@ -4,8 +4,9 @@ import { IUserRepository } from "@application/ports/user-repository.js";
 import { DayLogServiceImpl } from "@application/services/day-log-service.js";
 import { DayLog } from "@domain/entities/day-log.js";
 import { MealNameEnum } from "@domain/entities/food-entry.js";
+import { User } from "@domain/entities/user.js";
 import { buildDayLog } from "@factories/day-log.js";
-import { buildFoodEntry } from "@factories/food-entry.js";
+import { buildFoodEntry, buildFoodEntryResponse } from "@factories/food-entry.js";
 import { vi, MockedObject } from "vitest";
 
 describe("DayLogServiceImpl", () => {
@@ -31,6 +32,8 @@ describe("DayLogServiceImpl", () => {
       findLogByDateAndUserId: vi.fn(),
       findLogsByDateRangeAndUserId: vi.fn(),
       findOrCreateByDateAndUserId: vi.fn(),
+      addFoodEntry: vi.fn(),
+      countDayLogsByUserId: vi.fn(),
     } as any;
     mockDayLogSyncQuery = {
       readCoherentSnapshot: vi.fn(),
@@ -157,6 +160,30 @@ describe("DayLogServiceImpl", () => {
           known: {},
         }),
       ).resolves.toEqual(result);
+    });
+  });
+
+  describe("addFoodEntry", () => {
+    it("returns the persisted food entry with the updated parent version", async () => {
+      const foodEntryInput = { ...buildFoodEntryResponse(), iconName: null };
+      const persistedResult = {
+        foodEntry: buildFoodEntry({ id: "entry-1", dayLogId: mockDayLog.id }),
+        versionNumber: 2,
+      };
+      mockUserRepository.findById.mockResolvedValue(
+        User.create({ email: "user@example.com", passwordHash: "hash" }),
+      );
+      mockDayLogRepository.countDayLogsByUserId.mockResolvedValue(1);
+      mockDayLogRepository.findOrCreateByDateAndUserId.mockResolvedValue(mockDayLog);
+      mockDayLogRepository.addFoodEntry.mockResolvedValue(persistedResult);
+
+      await expect(
+        dayLogService.addFoodEntry({
+          userId: "user-1",
+          date: "2026-02-22",
+          foodEntry: foodEntryInput,
+        }),
+      ).resolves.toEqual(persistedResult);
     });
   });
 });

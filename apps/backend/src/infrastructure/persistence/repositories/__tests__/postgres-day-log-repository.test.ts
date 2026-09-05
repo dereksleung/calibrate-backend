@@ -64,6 +64,7 @@ describe("PostgresDayLogRepository.addFoodEntry", () => {
   it("persists the domain-generated food entry ID and advances the aggregate version atomically", async () => {
     let insertedValues: Record<string, unknown> | undefined;
     let updatedDayLogId: string | undefined;
+    let returnedColumns: unknown;
     const databaseClient = {
       transaction: () => ({
         execute: async (work: (trx: Record<string, unknown>) => Promise<unknown>) =>
@@ -78,7 +79,12 @@ describe("PostgresDayLogRepository.addFoodEntry", () => {
               set: () => ({
                 where: (_column: string, _operator: string, id: string) => {
                   updatedDayLogId = id;
-                  return { executeTakeFirst: async () => ({ numUpdatedRows: 1n }) };
+                  return {
+                    returning: (columns: unknown) => {
+                      returnedColumns = columns;
+                      return { executeTakeFirst: async () => ({ version_number: 2 }) };
+                    },
+                  };
                 },
               }),
             }),
@@ -88,10 +94,13 @@ describe("PostgresDayLogRepository.addFoodEntry", () => {
     const repository = new PostgresDayLogRepository(databaseClient as never);
     const foodEntry = buildFoodEntry({ id: "food-entry-1", dayLogId: "day-log-1" });
 
-    await repository.addFoodEntry("day-log-1", foodEntry);
+    const result = await repository.addFoodEntry("day-log-1", foodEntry);
 
     expect(insertedValues).toMatchObject({ id: "food-entry-1", day_log_id: "day-log-1" });
     expect(updatedDayLogId).toBe("day-log-1");
+    expect(returnedColumns).toBe("version_number");
+    expect(result.foodEntry.id).toBe("food-entry-1");
+    expect(result.versionNumber).toBe(2);
   });
 });
 

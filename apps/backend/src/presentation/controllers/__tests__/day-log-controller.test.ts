@@ -384,7 +384,10 @@ describe("DayLogController", () => {
       sugarGrams: 1,
       proteinGrams: 14,
     });
-    mockDayLogService.addFoodEntry.mockResolvedValue(createdFoodEntry);
+    mockDayLogService.addFoodEntry.mockResolvedValue({
+      foodEntry: createdFoodEntry,
+      versionNumber: 2,
+    });
 
     const res = {
       status: vi.fn().mockReturnThis(),
@@ -400,25 +403,28 @@ describe("DayLogController", () => {
     });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(
-      buildFoodEntryResponse({
-        id: createdFoodEntry.id,
-        meal: MealNameEnum.BREAKFAST,
-        name: "Scrambled Eggs",
-        brand: null,
-        calories: 180,
-        totalFatGrams: 12,
-        saturatedFatGrams: 4,
-        cholesterolMg: 370,
-        sodiumMg: 140,
-        totalCarbohydrateGrams: 2,
-        fiberGrams: 0,
-        sugarGrams: 1,
-        proteinGrams: 14,
-        chosenQuantity: 2,
-        chosenUnit: "pieces",
-        quantityServing: 1,
-        servingLabel: "serving",
-      }),
+      {
+        ...buildFoodEntryResponse({
+          id: createdFoodEntry.id,
+          meal: MealNameEnum.BREAKFAST,
+          name: "Scrambled Eggs",
+          brand: null,
+          calories: 180,
+          totalFatGrams: 12,
+          saturatedFatGrams: 4,
+          cholesterolMg: 370,
+          sodiumMg: 140,
+          totalCarbohydrateGrams: 2,
+          fiberGrams: 0,
+          sugarGrams: 1,
+          proteinGrams: 14,
+          chosenQuantity: 2,
+          chosenUnit: "pieces",
+          quantityServing: 1,
+          servingLabel: "serving",
+        }),
+        versionNumber: 2,
+      },
     );
   });
 

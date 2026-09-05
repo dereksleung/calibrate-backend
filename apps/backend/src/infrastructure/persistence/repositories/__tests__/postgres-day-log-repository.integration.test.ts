@@ -72,10 +72,13 @@ describe("PostgresDayLogRepository day log sync", () => {
 
     expect(dayLog.versionNumber).toBe(1);
 
-    await repository.addFoodEntry(
+    const result = await repository.addFoodEntry(
       dayLog.id,
       buildFoodEntry({ id: randomUUID(), dayLogId: dayLog.id, name: "Oats" }),
     );
+
+    expect(result.foodEntry.name).toBe("Oats");
+    expect(result.versionNumber).toBe(2);
 
     const persisted = await databaseClient
       .selectFrom("day_logs")
