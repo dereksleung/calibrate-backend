@@ -170,6 +170,27 @@ shared Postgres service, creates and migrates the selected database, and prints
 the host `backend:dev` command. The Compose `backend` service is not part of
 this worktree workflow.
 
+### Seeding the Foundation Foods Demo catalog
+
+After a local database is configured and migrated, run the seed target with the
+same database environment as the backend. For a linked worktree, reuse the
+`DB_NAME`, `DB_HOST`, and `DB_PORT` overrides printed by worktree setup:
+
+```bash
+npx nx run backend:seed-demo-catalog
+```
+
+The seed reads the checked-in Foundation Foods archive and manifest in
+[`apps/backend/data/foundation-foods/`](apps/backend/data/foundation-foods/),
+validates the pinned release identity, archive filename, SHA-256 checksum, and
+expected mapping totals, then upserts records in bounded 250-row batches inside
+one transaction. Reruns are idempotent. Record-local mapping failures are
+skipped and included in the gitignored `.demo/catalog-seed-report.json` report.
+The [source module](apps/backend/src/infrastructure/demo-catalog/foundation-foods-source.ts)
+pins the release identity, while the
+[manifest](apps/backend/data/foundation-foods/manifest.json) records the
+checksum and expected summary.
+
 ### Initial dotenv configuration
 
 1. Add a `.env` file to the project root. Set the following environment variables in it as strings, to the correct values. `DB_NAME` is the primary checkout database; shared local Postgres listens on `127.0.0.1:5433`.

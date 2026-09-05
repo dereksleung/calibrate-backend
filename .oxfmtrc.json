@@ -12,6 +12,7 @@
     "package-lock.json",
     "package.json",
     "apps/web-frontend/src/routeTree.gen.ts",
+    "apps/backend/data",
     ".agents",
     ".claude"
   ],

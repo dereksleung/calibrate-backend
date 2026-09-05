@@ -49,6 +49,13 @@
         "command": "kysely --config=apps/backend/kysely.config.ts --experimental-resolve-tsconfig-paths"
       }
     },
+    "seed-demo-catalog": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "tsx --tsconfig apps/backend/tsconfig.json apps/backend/src/infrastructure/demo-catalog/seed-demo-catalog.ts"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "cache": true,

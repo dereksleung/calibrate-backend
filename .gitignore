@@ -10,6 +10,7 @@ dist
 .worktree-dev.json.*.tmp
 .local.env
 .local.env.*.tmp
+.demo/
 
 
 .nx/cache
