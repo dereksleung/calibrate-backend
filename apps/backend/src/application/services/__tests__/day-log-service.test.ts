@@ -1,16 +1,19 @@
 import { IDayLogRepository } from "@application/ports/day-log-repository.js";
+import { IDayLogSyncQuery } from "@application/ports/day-log-sync-query.js";
 import { IUserRepository } from "@application/ports/user-repository.js";
 import { DayLogServiceImpl } from "@application/services/day-log-service.js";
 import { DayLog } from "@domain/entities/day-log.js";
 import { MealNameEnum } from "@domain/entities/food-entry.js";
+import { User } from "@domain/entities/user.js";
 import { buildDayLog } from "@factories/day-log.js";
-import { buildFoodEntry } from "@factories/food-entry.js";
+import { buildFoodEntry, buildFoodEntryResponse } from "@factories/food-entry.js";
 import { vi, MockedObject } from "vitest";
 
 describe("DayLogServiceImpl", () => {
   let dayLogService: DayLogServiceImpl;
   let mockDayLogRepository: MockedObject<IDayLogRepository>;
   let mockUserRepository: MockedObject<IUserRepository>;
+  let mockDayLogSyncQuery: MockedObject<IDayLogSyncQuery>;
   const mockDayLog: DayLog = buildDayLog({
     id: "123",
     date: new Date("2026-02-22"),
@@ -29,8 +32,13 @@ describe("DayLogServiceImpl", () => {
       findLogByDateAndUserId: vi.fn(),
       findLogsByDateRangeAndUserId: vi.fn(),
       findOrCreateByDateAndUserId: vi.fn(),
+      addFoodEntry: vi.fn(),
+      countDayLogsByUserId: vi.fn(),
     } as any;
-    dayLogService = new DayLogServiceImpl(mockDayLogRepository, mockUserRepository);
+    mockDayLogSyncQuery = {
+      readCoherentSnapshot: vi.fn(),
+    } as any;
+    dayLogService = new DayLogServiceImpl(mockDayLogRepository, mockUserRepository, mockDayLogSyncQuery);
   });
 
   describe("getLogForDay", () => {
@@ -120,6 +128,62 @@ describe("DayLogServiceImpl", () => {
           endDate: "2026-02-22",
         }),
       ).rejects.toThrow("Database connection failed");
+    });
+  });
+
+  describe("syncLogsForDateRange", () => {
+    it("delegates the authenticated user and sparse manifest to the coherent snapshot port", async () => {
+      mockDayLogSyncQuery.readCoherentSnapshot.mockResolvedValue({ status: "unchanged" });
+      const input = {
+        userId: "user-1",
+        startDate: "2026-08-06",
+        endDate: "2026-08-12",
+        known: { "2026-08-06": 1, "2026-08-07": null },
+      };
+
+      await expect(dayLogService.syncLogsForDateRange(input)).resolves.toEqual({ status: "unchanged" });
+      expect(mockDayLogSyncQuery.readCoherentSnapshot).toHaveBeenCalledWith(input);
+    });
+
+    it("propagates a sparse changed snapshot", async () => {
+      const result = {
+        status: "changed" as const,
+        slots: [{ date: "2026-08-07", versionNumber: null, dayLog: null }],
+      };
+      mockDayLogSyncQuery.readCoherentSnapshot.mockResolvedValue(result);
+
+      await expect(
+        dayLogService.syncLogsForDateRange({
+          userId: "user-1",
+          startDate: "2026-08-06",
+          endDate: "2026-08-07",
+          known: {},
+        }),
+      ).resolves.toEqual(result);
+    });
+  });
+
+  describe("addFoodEntry", () => {
+    it("returns the persisted food entry with the updated parent version", async () => {
+      const foodEntryInput = { ...buildFoodEntryResponse(), iconName: null };
+      const persistedResult = {
+        foodEntry: buildFoodEntry({ id: "entry-1", dayLogId: mockDayLog.id }),
+        versionNumber: 2,
+      };
+      mockUserRepository.findById.mockResolvedValue(
+        User.create({ email: "user@example.com", passwordHash: "hash" }),
+      );
+      mockDayLogRepository.countDayLogsByUserId.mockResolvedValue(1);
+      mockDayLogRepository.findOrCreateByDateAndUserId.mockResolvedValue(mockDayLog);
+      mockDayLogRepository.addFoodEntry.mockResolvedValue(persistedResult);
+
+      await expect(
+        dayLogService.addFoodEntry({
+          userId: "user-1",
+          date: "2026-02-22",
+          foodEntry: foodEntryInput,
+        }),
+      ).resolves.toEqual(persistedResult);
     });
   });
 });

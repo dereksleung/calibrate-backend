@@ -30,6 +30,16 @@ describe("DayLog", () => {
 
       expect(dayLog.weight).toBeNull();
     });
+
+    it("stores a positive int32 version number", () => {
+      const dayLog = buildDayLog({ versionNumber: 3 });
+
+      expect(dayLog.versionNumber).toBe(3);
+    });
+
+    it("rejects a non-positive version number", () => {
+      expect(() => buildDayLog({ versionNumber: 0 })).toThrow(BusinessLogicError);
+    });
   });
 
   describe("addFoodEntry", () => {

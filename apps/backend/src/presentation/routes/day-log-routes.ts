@@ -1,5 +1,6 @@
 import type {
   CreateFoodEntryRequestRouteParams,
+  DayLogSyncRequest,
   GetDayLogRangeRequestQuery,
   GetDayLogRequestRouteParams,
 } from "@calibrate/api-contracts";
@@ -13,6 +14,12 @@ export function createDayLogRoutes(
 ): Router {
   const router = Router();
 
+  router.post("/daylogs:sync", authenticationMiddleware, (req, res) =>
+    dayLogController.syncLogsForDateRange(
+      req as Request<Record<string, never>, unknown, DayLogSyncRequest>,
+      res,
+    ),
+  );
   router.get("/daylogs", authenticationMiddleware, (req, res) =>
     dayLogController.getLogsForDateRange(
       req as Request<Record<string, never>, unknown, unknown, GetDayLogRangeRequestQuery>,

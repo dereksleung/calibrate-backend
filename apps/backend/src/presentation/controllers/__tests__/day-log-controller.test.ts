@@ -4,6 +4,7 @@ import { DayLogServiceImpl } from "@application/services/day-log-service.js";
 import {
   DayLogRangeResponse,
   DayLogResponse,
+  DayLogSyncRequest,
   GetDayLogRangeRequestQuery,
   GetDayLogRequestRouteParams,
 } from "@calibrate/api-contracts";
@@ -27,6 +28,7 @@ describe("DayLogController", () => {
     dinner: [buildFoodEntry({ meal: MealNameEnum.DINNER })],
     snacks: [buildFoodEntry({ meal: MealNameEnum.SNACKS })],
     weight: 140.1,
+    versionNumber: 1,
   });
   const mockDayLogResponse: DayLogResponse = buildDayLogResponse({
     id: "123",
@@ -87,6 +89,7 @@ describe("DayLogController", () => {
     mockDayLogService = {
       getLogForDay: vi.fn(),
       getLogsForDateRange: vi.fn(),
+      syncLogsForDateRange: vi.fn(),
       addFoodEntry: vi.fn(),
       // any is acceptable here because this is a test file,
       // the type assertion will not spread beyond the test file and beforeEach handler.
@@ -381,7 +384,10 @@ describe("DayLogController", () => {
       sugarGrams: 1,
       proteinGrams: 14,
     });
-    mockDayLogService.addFoodEntry.mockResolvedValue(createdFoodEntry);
+    mockDayLogService.addFoodEntry.mockResolvedValue({
+      foodEntry: createdFoodEntry,
+      versionNumber: 2,
+    });
 
     const res = {
       status: vi.fn().mockReturnThis(),
@@ -396,8 +402,8 @@ describe("DayLogController", () => {
       foodEntry: mockCreateFoodEntryServiceInput,
     });
     expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith(
-      buildFoodEntryResponse({
+    expect(res.json).toHaveBeenCalledWith({
+      ...buildFoodEntryResponse({
         id: createdFoodEntry.id,
         meal: MealNameEnum.BREAKFAST,
         name: "Scrambled Eggs",
@@ -416,7 +422,8 @@ describe("DayLogController", () => {
         quantityServing: 1,
         servingLabel: "serving",
       }),
-    );
+      versionNumber: 2,
+    });
   });
 
   it("should return 400 when date param is invalid", async () => {
@@ -602,5 +609,93 @@ describe("DayLogController", () => {
     expect(mockDayLogService.getLogForDay).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ error: "Authentication required" });
+  });
+
+  it("returns a no-store 204 when the requested range already matches", async () => {
+    const req = {
+      auth: { userId: "user-1" },
+      body: {
+        startDate: "2026-08-06",
+        endDate: "2026-08-07",
+        known: { "2026-08-06": 1, "2026-08-07": null },
+      },
+    } as unknown as Request<Record<string, never>, unknown, DayLogSyncRequest>;
+    const res = {
+      set: vi.fn().mockReturnThis(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      end: vi.fn(),
+    } as any;
+    mockDayLogService.syncLogsForDateRange.mockResolvedValue({ status: "unchanged" });
+
+    await dayLogController.syncLogsForDateRange(req, res);
+
+    expect(res.set).toHaveBeenCalledWith("Cache-Control", "private, no-store");
+    expect(mockDayLogService.syncLogsForDateRange).toHaveBeenCalledWith({
+      userId: "user-1",
+      startDate: "2026-08-06",
+      endDate: "2026-08-07",
+      known: { "2026-08-06": 1, "2026-08-07": null },
+    });
+    expect(res.status).toHaveBeenCalledWith(204);
+    expect(res.end).toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalled();
+  });
+
+  it("returns sparse no-store 200 slots for changed or unloaded dates", async () => {
+    const req = {
+      auth: { userId: "user-1" },
+      body: {
+        startDate: "2026-08-06",
+        endDate: "2026-08-07",
+        known: {},
+      },
+    } as unknown as Request<Record<string, never>, unknown, DayLogSyncRequest>;
+    const res = {
+      set: vi.fn().mockReturnThis(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      end: vi.fn(),
+    } as any;
+    mockDayLogService.syncLogsForDateRange.mockResolvedValue({
+      status: "changed",
+      slots: [
+        { date: "2026-08-06", versionNumber: 1, dayLog: mockDayLog },
+        { date: "2026-08-07", versionNumber: null, dayLog: null },
+      ],
+    });
+
+    await dayLogController.syncLogsForDateRange(req, res);
+
+    expect(res.set).toHaveBeenCalledWith("Cache-Control", "private, no-store");
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      slots: [
+        { date: "2026-08-06", versionNumber: 1, dayLog: mockDayLogResponse },
+        { date: "2026-08-07", versionNumber: null, dayLog: null },
+      ],
+    });
+  });
+
+  it("rejects an overlong or malformed sync range before calling the service", async () => {
+    const req = {
+      auth: { userId: "user-1" },
+      body: {
+        startDate: "2026-08-01",
+        endDate: "2026-09-01",
+        known: {},
+      },
+    } as unknown as Request<Record<string, never>, unknown, DayLogSyncRequest>;
+    const res = {
+      set: vi.fn().mockReturnThis(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      end: vi.fn(),
+    } as any;
+
+    await dayLogController.syncLogsForDateRange(req, res);
+
+    expect(mockDayLogService.syncLogsForDateRange).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
   });
 });

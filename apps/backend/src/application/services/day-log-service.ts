@@ -2,7 +2,12 @@ import { DayLog } from "@domain/entities/day-log.js";
 import { FoodEntry, MealNameEnumType } from "@domain/entities/food-entry.js";
 import { BusinessLogicError } from "@domain/errors/business-logic-error.js";
 
-import { IDayLogRepository } from "../ports/day-log-repository.js";
+import { IDayLogRepository, type AddFoodEntryResult } from "../ports/day-log-repository.js";
+import {
+  type DayLogSyncQueryInput,
+  type DayLogSyncQueryResult,
+  type IDayLogSyncQuery,
+} from "../ports/day-log-sync-query.js";
 import { IUserRepository } from "../ports/user-repository.js";
 
 export interface GetDayLogInput {
@@ -47,15 +52,22 @@ export interface AddFoodEntryInput {
 export interface IDayLogService {
   getLogForDay({ userId, date }: GetDayLogInput): Promise<DayLog | null>;
   getLogsForDateRange({ userId, startDate, endDate }: GetDayLogRangeInput): Promise<DayLog[]>;
-  addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<FoodEntry>;
+  syncLogsForDateRange(input: DayLogSyncQueryInput): Promise<DayLogSyncQueryResult>;
+  addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<AddFoodEntryResult>;
 }
 
 export class DayLogServiceImpl implements IDayLogService {
   private readonly dayLogRepository: IDayLogRepository;
   private readonly userRepository: IUserRepository;
-  constructor(dayLogRepository: IDayLogRepository, userRepository: IUserRepository) {
+  private readonly dayLogSyncQuery: IDayLogSyncQuery;
+  constructor(
+    dayLogRepository: IDayLogRepository,
+    userRepository: IUserRepository,
+    dayLogSyncQuery: IDayLogSyncQuery,
+  ) {
     this.dayLogRepository = dayLogRepository;
     this.userRepository = userRepository;
+    this.dayLogSyncQuery = dayLogSyncQuery;
   }
 
   async getLogForDay({ userId, date }: GetDayLogInput): Promise<DayLog | null> {
@@ -66,7 +78,11 @@ export class DayLogServiceImpl implements IDayLogService {
     return this.dayLogRepository.findLogsByDateRangeAndUserId({ userId, startDate, endDate });
   }
 
-  async addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<FoodEntry> {
+  async syncLogsForDateRange(input: DayLogSyncQueryInput): Promise<DayLogSyncQueryResult> {
+    return this.dayLogSyncQuery.readCoherentSnapshot(input);
+  }
+
+  async addFoodEntry({ userId, date, foodEntry }: AddFoodEntryInput): Promise<AddFoodEntryResult> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new BusinessLogicError("User not found");
@@ -93,7 +109,6 @@ export class DayLogServiceImpl implements IDayLogService {
 
     // Apply domain aggregate's business rules - each day log has a maximum of 25 food entries per meal
     const entry = dayLog.addFoodEntry(newFoodEntry);
-    const persistedEntry = await this.dayLogRepository.addFoodEntry(dayLog.id, entry);
-    return persistedEntry;
+    return this.dayLogRepository.addFoodEntry(dayLog.id, entry);
   }
 }

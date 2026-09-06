@@ -1,11 +1,16 @@
+import { listInclusiveDates } from "@application/day-log-sync.js";
 import { AuthenticationError } from "@application/errors/authentication-error.js";
 import { IDayLogService } from "@application/services/day-log-service.js";
 import {
+  CreateFoodEntryResponse,
   CreateFoodEntryRequestRouteParams,
   CreateFoodEntryRequestRouteParamsSchema,
   CreateFoodEntryRequestSchema,
   DayLogRangeResponse,
   DayLogResponse,
+  DayLogSyncRequest,
+  DayLogSyncRequestSchema,
+  DayLogSyncResponse,
   GetDayLogRangeRequestQuery,
   GetDayLogRangeRequestQuerySchema,
   GetDayLogRequestRouteParams,
@@ -90,12 +95,57 @@ export class DayLogController {
       const response: DayLogRangeResponse = {
         startDate,
         endDate,
-        days: getConsecutiveDates(startDate, endDate).map((date) => {
+        days: listInclusiveDates(startDate, endDate).map((date) => {
           const dayLog = dayLogsByDate.get(date);
           return { date, dayLog: dayLog ? DayLogResponseMapper.toResponse(dayLog) : null };
         }),
       };
 
+      res.status(200).json(response);
+    } catch (error) {
+      handleControllerError(error, res);
+    }
+  }
+
+  async syncLogsForDateRange(
+    req: Request<Record<string, never>, unknown, DayLogSyncRequest>,
+    res: Response,
+  ): Promise<void> {
+    try {
+      res.set("Cache-Control", "private, no-store");
+      const validatedInput = validate(DayLogSyncRequestSchema, req.body);
+      if (!validatedInput.isValid) {
+        res.status(400).json({
+          error: "Validation failed",
+          details: validatedInput.errors,
+        });
+        return;
+      }
+
+      const authenticatedUserId = req.auth?.userId;
+      if (!authenticatedUserId) {
+        throw new AuthenticationError("Authentication required");
+      }
+
+      const result = await this.dayLogService.syncLogsForDateRange({
+        userId: authenticatedUserId,
+        startDate: validatedInput.data.startDate,
+        endDate: validatedInput.data.endDate,
+        known: validatedInput.data.known,
+      });
+
+      if (result.status === "unchanged") {
+        res.status(204).end();
+        return;
+      }
+
+      const response: DayLogSyncResponse = {
+        slots: result.slots.map((slot) => ({
+          date: slot.date,
+          versionNumber: slot.versionNumber,
+          dayLog: slot.dayLog ? DayLogResponseMapper.toResponse(slot.dayLog) : null,
+        })),
+      };
       res.status(200).json(response);
     } catch (error) {
       handleControllerError(error, res);
@@ -127,7 +177,7 @@ export class DayLogController {
         throw new AuthenticationError("Authentication required");
       }
 
-      const entry = await this.dayLogService.addFoodEntry({
+      const result = await this.dayLogService.addFoodEntry({
         userId: authenticatedUserId,
         foodEntry: {
           meal: foodEntryInput.meal,
@@ -154,22 +204,13 @@ export class DayLogController {
         },
         date: validatedDate?.data.date,
       });
-      res.status(201).json(FoodEntryResponseMapper.toResponse(entry));
+      const response: CreateFoodEntryResponse = {
+        ...FoodEntryResponseMapper.toResponse(result.foodEntry),
+        versionNumber: result.versionNumber,
+      };
+      res.status(201).json(response);
     } catch (error) {
       handleControllerError(error, res);
     }
   }
-}
-
-function getConsecutiveDates(startDate: string, endDate: string): string[] {
-  const dates: string[] = [];
-  const end = Temporal.PlainDate.from(endDate);
-  let date = Temporal.PlainDate.from(startDate);
-
-  while (Temporal.PlainDate.compare(date, end) <= 0) {
-    dates.push(date.toString());
-    date = date.add({ days: 1 });
-  }
-
-  return dates;
 }

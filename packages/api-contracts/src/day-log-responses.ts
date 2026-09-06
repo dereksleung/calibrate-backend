@@ -1,5 +1,6 @@
 import * as z from "zod";
 
+import { DayLogVersionNumberSchema } from "./day-log-requests.js";
 import { FoodEntryResponseSchema } from "./food-entry-responses.js";
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -73,3 +74,43 @@ export const DayLogRangeResponseSchema = z
   });
 
 export type DayLogRangeResponse = z.infer<typeof DayLogRangeResponseSchema>;
+
+export const DayLogSyncSlotSchema = z
+  .object({
+    date: z.iso.date(),
+    versionNumber: DayLogVersionNumberSchema.nullable(),
+    dayLog: DayLogResponseSchema,
+  })
+  .superRefine((slot, context) => {
+    if (slot.dayLog === null && slot.versionNumber !== null) {
+      context.addIssue({
+        code: "custom",
+        path: ["versionNumber"],
+        message: "Known-empty slots must have a null versionNumber",
+      });
+    }
+
+    if (slot.dayLog !== null && slot.versionNumber === null) {
+      context.addIssue({
+        code: "custom",
+        path: ["versionNumber"],
+        message: "Present day logs must include a versionNumber",
+      });
+    }
+
+    if (slot.dayLog && slot.dayLog.date !== slot.date) {
+      context.addIssue({
+        code: "custom",
+        path: ["dayLog", "date"],
+        message: "dayLog date must match its date slot",
+      });
+    }
+  });
+
+export type DayLogSyncSlot = z.infer<typeof DayLogSyncSlotSchema>;
+
+export const DayLogSyncResponseSchema = z.object({
+  slots: z.array(DayLogSyncSlotSchema),
+});
+
+export type DayLogSyncResponse = z.infer<typeof DayLogSyncResponseSchema>;

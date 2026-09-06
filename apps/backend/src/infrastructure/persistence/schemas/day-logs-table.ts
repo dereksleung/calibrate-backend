@@ -5,6 +5,7 @@ export interface DayLogsTable {
   date: ColumnType<string, string, never>;
   user_id: ColumnType<string, string, never>;
   weight: ColumnType<number | null, number | null, number | null>;
+  version_number: ColumnType<number, number | undefined, number>;
   created_at: ColumnType<Date, never, never>;
   updated_at: ColumnType<Date, never, Date>;
 }

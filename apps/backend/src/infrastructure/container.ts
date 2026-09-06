@@ -7,6 +7,7 @@ import {
 import { IAccessTokenService } from "@application/ports/access-token-service.js";
 import { IClock, SystemClock } from "@application/ports/clock.js";
 import { IDayLogRepository } from "@application/ports/day-log-repository.js";
+import { IDayLogSyncQuery } from "@application/ports/day-log-sync-query.js";
 import { IEmailOtpCodeService } from "@application/ports/email-otp-code-service.js";
 import { IEmailSender } from "@application/ports/email-sender.js";
 import { IPasswordHasher } from "@application/ports/password-hasher.js";
@@ -131,6 +132,7 @@ export class Container {
   private readonly passkeyAuthenticationService: IPasskeyAuthenticationService;
   private readonly sessionRestorationService: ISessionRestorationService;
   private readonly dayLogRepository: IDayLogRepository;
+  private readonly dayLogSyncQuery: IDayLogSyncQuery;
   private readonly dayLogService: IDayLogService;
   private readonly dayLogController: DayLogController;
   private readonly foodSearchController: FoodSearchController;
@@ -152,6 +154,7 @@ export class Container {
     emailSender,
     clock,
     dayLogRepository,
+    dayLogSyncQuery,
     dayLogService,
     dayLogController,
     foodSearchController,
@@ -172,6 +175,7 @@ export class Container {
     emailSender?: IEmailSender;
     clock?: IClock;
     dayLogRepository?: IDayLogRepository;
+    dayLogSyncQuery?: IDayLogSyncQuery;
     dayLogService?: IDayLogService;
     dayLogController?: DayLogController;
     foodSearchController?: FoodSearchController;
@@ -183,8 +187,12 @@ export class Container {
     this.clock = clock ?? new SystemClock();
     this.accessSessionRepository = new PostgresAccessSessionRepository(databaseClient);
     this.userRepository = userRepository ?? new PostgresUserRepository(databaseClient);
-    this.dayLogRepository = dayLogRepository ?? new PostgresDayLogRepository(databaseClient);
-    this.dayLogService = dayLogService ?? new DayLogServiceImpl(this.dayLogRepository, this.userRepository);
+    const defaultDayLogPersistence = new PostgresDayLogRepository(databaseClient);
+    this.dayLogRepository = dayLogRepository ?? defaultDayLogPersistence;
+    this.dayLogSyncQuery = dayLogSyncQuery ?? defaultDayLogPersistence;
+    this.dayLogService =
+      dayLogService ??
+      new DayLogServiceImpl(this.dayLogRepository, this.userRepository, this.dayLogSyncQuery);
     this.dayLogController = dayLogController ?? new DayLogController(this.dayLogService);
     const catalogWriter = new PostgresFoodCatalogWriter(databaseClient);
     const importer: IFoodCatalogImporter = foodDataCentralApiKey

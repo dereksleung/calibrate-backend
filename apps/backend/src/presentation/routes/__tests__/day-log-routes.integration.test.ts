@@ -65,6 +65,7 @@ describe("day-log range HTTP route", () => {
         dinner: [],
         snacks: [],
         weight: null,
+        versionNumber: 1,
       }),
     ]);
 
