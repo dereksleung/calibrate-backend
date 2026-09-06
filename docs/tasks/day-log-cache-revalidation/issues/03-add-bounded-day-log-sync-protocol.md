@@ -1,4 +1,4 @@
-# 02: Add bounded Day Log synchronization
+# 03: Add bounded Day Log synchronization
 
 **What to build:** An authenticated client reconciles a contiguous range of at most 31 Day Log dates through `POST /daylogs:sync`. Common unchanged ranges receive `204 No Content`; otherwise the client receives only changed or unloaded date slots. The endpoint avoids loading Food Entries when a narrow revision projection establishes that the entire request already matches.
 

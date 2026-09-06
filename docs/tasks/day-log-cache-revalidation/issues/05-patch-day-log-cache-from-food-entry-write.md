@@ -1,8 +1,8 @@
-# 04: Patch a Day Log cache safely from Food Entry writes
+# 05: Patch a Day Log cache safely from Food Entry writes
 
 **What to build:** A successful Food Entry write immediately updates the exact cached Day Log only when the client can prove it is applying the server delta to its direct predecessor. It avoids an immediate `sync` request and avoids globally invalidating all historical ranges during meal-time bursts.
 
-**Blocked by:** 02: Add bounded Day Log synchronization; 03: Compose Dashboard and Logs from validated date slots.
+**Blocked by:** 03: Add bounded Day Log synchronization; 04: Compose Dashboard and Logs from validated date slots.
 
 **Status:** ready-for-agent
 

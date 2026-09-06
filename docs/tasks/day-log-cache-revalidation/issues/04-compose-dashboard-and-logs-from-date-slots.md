@@ -1,8 +1,8 @@
-# 03: Compose Dashboard and Logs from validated date slots
+# 04: Compose Dashboard and Logs from validated date slots
 
 **What to build:** Dashboard and Logs compose cache-first Day Log views from account-scoped date slots and use bounded sync only when the user's active data needs validation. Logs displays calendar weeks naturally while avoiding requests from passive historical browsing.
 
-**Blocked by:** 01: Restore a private Day Log cache with a lifecycle fence; 02: Add bounded Day Log synchronization.
+**Blocked by:** 01: Restore a private Day Log cache with a lifecycle fence; 03: Add bounded Day Log synchronization.
 
 **Status:** ready-for-agent
 

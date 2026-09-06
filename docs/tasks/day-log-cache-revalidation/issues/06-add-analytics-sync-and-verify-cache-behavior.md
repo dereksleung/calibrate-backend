@@ -1,8 +1,8 @@
-# 05: Add deliberate analytics sync and verify cache behavior
+# 06: Add deliberate analytics sync and verify cache behavior
 
 **What to build:** Nutrient Analytics intentionally reconciles the most recent 28 dates only when its drawer opens, renders cached coverage while that work is pending, and reports trustworthy seven-day totals plus a complete 14-versus-14 comparison. Evidence demonstrates that the private cache and sync protocol deliver their intended performance/privacy behavior.
 
-**Blocked by:** 01: Restore a private Day Log cache with a lifecycle fence; 02: Add bounded Day Log synchronization; 03: Compose Dashboard and Logs from validated date slots; 04: Patch a Day Log cache safely from Food Entry writes.
+**Blocked by:** 01: Restore a private Day Log cache with a lifecycle fence; 02: Harden Day Log cache logout recovery; 03: Add bounded Day Log synchronization; 04: Compose Dashboard and Logs from validated date slots; 05: Patch a Day Log cache safely from Food Entry writes.
 
 **Status:** ready-for-agent
 
